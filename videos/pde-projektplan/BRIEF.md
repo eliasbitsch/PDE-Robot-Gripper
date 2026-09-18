@@ -29,13 +29,16 @@ is clear what is worth what.
 ## Assets
 
 - `assets/part/part_b.png` - part B, isometric, tessellated from Bauteil_B.STEP via build123d
+- `assets/part/part_b_title.png` - same view, used on the title scene
 - `assets/part/part_b_grip.png` - top view, both grip faces marked, jaw arrows, 70 mm dimension
-- `assets/part/linkage.png` - four-bar schematic drawn from the real geometry (90 mm links, ±4.46°, 0.27 mm scrub)
+- `assets/part/linkage.png` - four-bar schematic drawn from the real geometry (90 mm links, +-4.46 deg, 0.27 mm scrub)
+- `assets/part/robotiq.jpg` - Robotiq 2F-85 / 2F-140 product photo, design reference. Copyright Robotiq Inc., credited on screen; source note in shared/references/SOURCES.md
 - `assets/shots/onshape.png` - Onshape landing page, advertises FeatureScript MCP itself
 - `assets/shots/mujoco.png` - mujoco.org
-- `assets/shots/github.png` - the project repo
-- `assets/logos/*` - official marks: Onshape, MuJoCo, LaTeX, GitHub, Claude, Anthropic, ABB
-- `assets/work/*` - own images from the preliminary work (FEM convergence, motion study, drawing, sketch)
+- `assets/logos/onshape.png`, `mujoco.png`, `latex.svg`, `github.svg` - official marks
+- `assets/work/fem_konvergenz.png`, `ablauf_4_transport.png` - own images from the preliminary work
+
+Only assets actually referenced by index.html are kept in the repo.
 
 ## Customizations
 
