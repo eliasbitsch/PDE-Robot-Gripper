@@ -61,6 +61,19 @@
       .caveat { margin-top: 44px; border-left: 4px solid var(--red); padding-left: 26px; font-size: 28px; line-height: 1.45; }
       .caveat b { color: var(--red); font-weight: 700; }
 
+      .factrow { display: flex; gap: 40px; margin-top: 28px; }
+      .factrow .fact { flex: 1; }
+      .factrow .fact .v { font-size: 40px; }
+      .refrow { display: flex; gap: 56px; margin-top: 24px; align-items: flex-start; }
+      .refcell { flex: 1; display: flex; flex-direction: column; align-items: center; }
+      .refbox { width: 100%; height: 430px; display: flex; align-items: center; justify-content: center; }
+      .refbox.light { background: #eef1f6; border-radius: 20px; padding: 14px; }
+      .refbox img { max-height: 100%; max-width: 100%; object-fit: contain; }
+      .refcap { margin-top: 16px; text-align: center; }
+      .refcap .t { font-size: 30px; font-weight: 700; letter-spacing: -0.015em; }
+      .refcap .s { font-size: 23px; color: var(--muted); margin-top: 6px; }
+      .refcred { text-align: center; font-size: 19px; color: #46505e; margin-top: 10px; }
+
       /* ---- S5 tools ---- */
       .tools { display: flex; gap: 26px; margin-top: 50px; }
       .tool { flex: 1; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); padding: 34px 32px; }
@@ -209,18 +222,25 @@
 
       <!-- S4 WHY -->
       <div class="scene clip" id="s4" data-start="21" data-duration="9" data-track-index="0">
-        <div class="pad">
-          <div class="kicker" id="s4-k">Why this gripper - Robotiq style</div>
-          <div class="partwrap">
-            <img class="partimg" id="s4-img" src="assets/part/linkage.png" alt="Four-bar linkage" />
-            <div class="facts" id="s4-f">
-              <div class="fact hi"><div class="v" style="font-size: 46px">four-bar linkage</div><div class="k">one per finger, pads stay parallel</div></div>
-              <div class="fact"><div class="v" style="font-size: 46px">servo + screw</div><div class="k">adjustable force · self-locking, so no brake</div></div>
-              <div class="fact"><div class="v mono">14.3 N</div><div class="k">what we need · a 2F-85 does 20-235 N</div></div>
+        <div class="pad" style="padding: 74px 120px">
+          <div class="kicker" id="s4-k">Our concept, inspired by Robotiq</div>
+          <div class="refrow" id="s4-ref">
+            <div class="refcell">
+              <div class="refbox light"><img src="assets/part/robotiq.jpg" alt="Robotiq 2F-85 and 2F-140" /></div>
+              <div class="refcap"><div class="t">Robotiq 2F-85 / 2F-140</div><div class="s">electric, 2 fingers, four-bar per finger</div><div class="refcred">photo: Robotiq Inc.</div></div>
+            </div>
+            <div class="refcell">
+              <div class="refbox"><img src="assets/part/linkage.png" alt="Our four-bar gripper" /></div>
+              <div class="refcap"><div class="t" style="color: var(--green)">ours, inspired by it</div><div class="s">same topology, sized for our part</div></div>
             </div>
           </div>
+          <div class="factrow" id="s4-f">
+            <div class="fact hi"><div class="v">four-bar linkage</div><div class="k">one per finger, pads stay parallel</div></div>
+            <div class="fact"><div class="v">servo + screw</div><div class="k">adjustable force, self-locking, no brake</div></div>
+            <div class="fact"><div class="v mono">14.3 N</div><div class="k">what we need, a 2F-85 does 20-235 N</div></div>
+          </div>
           <div class="caveat" id="s4-cv">
-            The price: jaw force is <b>not constant</b> over the stroke - the worst transmission angle has to be proven, not assumed.
+            The price: jaw force is <b>not constant</b> over the stroke, so the worst transmission angle has to be proven.
           </div>
         </div>
       </div>
@@ -426,9 +446,9 @@
 
       /* S4 */
       tl.fromTo("#s4-k", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: E }, 21.1)
-        .fromTo("#s4-img", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.9, ease: E }, 21.25)
-        .fromTo("#s4-f .fact", { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.55, stagger: 0.3, ease: E }, 21.8)
-        .fromTo("#s4-cv", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.65, ease: E }, 24.2)
+        .fromTo("#s4-ref .refcell", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.28, ease: E }, 21.25)
+        .fromTo("#s4-f .fact", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.22, ease: E }, 22.6)
+        .fromTo("#s4-cv", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.6, ease: E }, 24.4)
         .to("#s4 .pad", { opacity: 0, duration: 0.4 }, 29.55);
 
       /* S5 tools  30 - 42 */
