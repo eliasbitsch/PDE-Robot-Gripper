@@ -1,4 +1,4 @@
-# Elias — system & numerical proof
+# Elias - system & numerical proof
 
 Working area of Bitsch Elias. See [PLAN.md](../PLAN.md), § 5.
 

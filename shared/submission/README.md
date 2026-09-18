@@ -1,4 +1,4 @@
-# Submission structure — do not rename
+# Submission structure - do not rename
 
 The assignment states that this structure is to be used **exclusively** as
 given. The four folder names below are copied verbatim from Fig. 2 and stay
