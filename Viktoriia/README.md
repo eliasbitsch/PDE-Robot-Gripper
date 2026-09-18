@@ -1,20 +1,20 @@
-# Viktoriia — Auslegung & Nachweis
+# Viktoriia — design & analytical proof
 
-Arbeitsbereich Ovdiienko Viktoriia. Siehe [PLAN.md](../PLAN.md), Abschnitt 4.
+Working area of Ovdiienko Viktoriia. See [PLAN.md](../PLAN.md), § 5.
 
-| Ordner | Paket | Ergebnis |
+| Folder | Package | Result |
 |---|---|---|
-| `01_Konzept` | V1 | Variantenvergleich Greifkonzept (VDI 2225), Begruendung, bemasste Konzeptskizze |
-| `02_Auslegung` | V2 | Greifkraft (Gewicht + Beschleunigung + Sicherheit), Reibwert mit Quelle, Flaechenpressung auf PA 6, Ritzelmoment, Motorauswahl, Bremse |
-| `03_CAD_Zange` | V3 | Greiferzange + Weichbacken, parametrisch in Onshape |
-| `04_Nachweis` | V4 | Biegespannung und Durchbiegung analytisch, FEM mit Netzkonvergenz, Vergleich beider Wege |
-| `05_FDM` | V5 | Zange gedruckt, Greifversuch, Durchbiegung gemessen, gegen FEM gehalten |
+| `01_Concept` | V1 | Variant comparison (VDI 2225) incl. the Robotiq 2F-85 as commercial reference and vacuum as a reasoned rejection, dimensioned concept sketch |
+| `02_Sizing` | V2 | Gripping force, friction coefficient with a source, surface pressure on PA 6, four-bar via virtual work incl. worst transmission angle, screw and motor selection |
+| `03_CAD_Jaws` | V3 | Jaws + soft pads, parametric in Onshape |
+| `04_Analytical` | V4 | Bending stress and deflection by hand — the reference the FEM has to meet |
+| `05_Print_Check` | V5 | Print the jaw, measure deflection under a defined load, hold it against Elias' FEM |
 
-**Der rote Faden:** du konstruierst genau das Bauteil, das du danach berechnest,
-pruefst und druckst. V3 -> V4 -> V5 ist eine Kette.
+**The thread:** you design the jaws, work them out by hand, and then check the
+FEM against a printed part. V3 -> V4 -> V5 is one chain.
 
-**Schnittstelle zu Elias:** die Anschraubebene Schlitten <-> Zange.
-Ab KW 41 eingefroren, Aenderungen nur gemeinsam.
+**Interface to Elias:** the mounting plane carrier <-> jaw.
+Frozen from week 41, changes only together.
 
-**Wenn dir etwas nicht passt:** Abschnitt 9 in PLAN.md. Die Pakete V3<->E2 und
-V4<->E4 sind bewusst tauschbar geschnitten.
+**If something does not suit you:** § 10 in PLAN.md. V3<->E2 and V4<->E5 are cut
+to be exchangeable on purpose.

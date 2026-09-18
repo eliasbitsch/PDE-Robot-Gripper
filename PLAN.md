@@ -1,336 +1,362 @@
-# Projektplan — Robotergreifer, Bauteil B
+# Project Plan — Robot Gripper, Part B
 
-**LV:** Produktdesign und Produktentwicklung, MRE WS 2026/27
-**Gruppe:** 10 · **Bauteil:** B (PA 6, Ra 1,6)
+**Course:** Produktdesign und Produktentwicklung, MRE WS 2026/27
+**Group:** 10 · **Part:** B (PA 6, Ra 1.6)
 **Team:** Bitsch Elias · Ovdiienko Viktoriia
-**LV-Gruppen:** getrennt (BB-1 / BB-2) — Zwischenbericht und Endabgabe fahren wir **gemeinsam nach BB-1**
-**Stand:** 14.09.2026 — Vorschlag, noch nicht abgestimmt
+**Course groups:** split (BB-1 / BB-2) — interim report and final submission run **together on BB-1**
+**Status:** 18 Sep 2026 — proposal, not yet agreed
+
+> **Working language is English** — this plan, the repo, folder names and commit
+> messages. Two exceptions, both deliberate: the submission folder names under
+> `shared/submission/` stay **German**, because the assignment prescribes them
+> verbatim; and the language of the submitted report itself still has to be
+> confirmed with Saliger (see open point 5).
 
 ---
 
-## 1. Worum es geht
+## 1. What this is
 
-Ein Roboter nimmt Bauteil B vom Pufferband (Höhe 1000 mm), fährt 1800 mm
-horizontal und legt es auf einem Werkstückträger ab (Höhe 1300 mm).
-Taktzeit 5 s je Bauteil. Wir konstruieren den Greifer dafür — das Bauteil
-selbst ist gegeben und wird nicht verändert.
+A robot picks part B off the buffer belt (1000 mm), travels 1800 mm
+horizontally and places it on a workpiece carrier (1300 mm). Cycle time 5 s per
+part. We design the gripper for it — the part itself is given and is not
+modified.
 
-Abzugeben sind acht Punkte laut Angabe (Roboterauswahl, Greifkonzept,
-Greifkraftberechnung, 3D-Konstruktion, analytische Festigkeit, FEM,
-Baugruppenzeichnung, Ablaufsimulation mit Kollisionskontrolle), abgelegt in
-der Ordnerstruktur aus Abb. 2 der Angabe.
+Nine deliverables, listed in § 3, submitted in the folder structure from Fig. 2
+of the assignment.
 
 ---
 
-## 2. Technische Festlegungen
+## 2. Technical decisions
 
-Sechs Entscheidungen. Wenn Viktoriia eine davon anders sieht, ist **jetzt** der
-richtige Zeitpunkt — nach dem Design Freeze in KW 40 kostet jede Änderung die
-halbe Kette.
+Six decisions. If Viktoriia sees any of them differently, **now** is the moment
+— after the design freeze in week 40 every change costs half the chain.
 
-> **Geändert am 15.09.2026:** Die Mechanik war zuerst Zahnstange–Ritzel. Der
-> Variantenvergleich in `cad/mechanismus.py` hatte mit Zahnstange, Keilhaken und
-> Trapezspindel nur direkt übersetzende Schubmechanismen im Feld — die Familie
-> der Gelenkgetriebe fehlte. Mit dem Viergelenk dazu kippt das Ergebnis, vor
-> allem beim Kriterium „Halten bei Energieausfall": die selbsthemmende Spindel
-> erspart die Haltebremse, die die Zahnstange zwingend gebraucht hätte.
+> **Changed 15 Sep 2026:** the mechanism was rack-and-pinion first. The variant
+> comparison in `cad/mechanismus.py` only had directly-translating pusher
+> mechanisms in the field — rack, wedge hook, trapezoidal screw. The whole
+> family of linkages was missing. With the four-bar added the result flips,
+> above all on the criterion "holding on power failure": a self-locking screw
+> removes the holding brake that the rack made mandatory.
 
-| Thema | Festlegung | Warum |
+| Topic | Decision | Why |
 |---|---|---|
-| **Greifkonzept** | 2-Finger-Parallelgreifer, Backen | Bauteil B hat zwei ebene, parallele Seitenflächen im Abstand 70 mm. Formschluss ist nicht nötig, Reibschluss reicht. |
-| **Antrieb** | **Servomotor** mit selbsthemmender Spindel bzw. Schnecke | Regelbare Greifkraft (PA 6 ist weich, Ra 1,6 darf nicht leiden), leise, keine Druckluft. **Selbsthemmend → keine Haltebremse nötig.** Das war bei der Zahnstange noch zwingend. |
-| **Mechanik** | **Viergelenk (Parallelogramm) je Finger**, ein Motor treibt beide | Bauform nach Vorbild Robotiq 2F-85. Backen bleiben parallel, Spitze läuft auf einer Kreisbahn. Ohne die unteraktuierte Adaptivität des Originals — die ist im umgreifenden Modus statisch unbestimmt und bringt für zwei ebene Flächen nichts. |
-| **CAD + FEM** | **Onshape** (parametrisch, browserbasiert) | Beide sehen dasselbe Modell live, keine Versionskonflikte, keine lokale Installation. FEM direkt am selben Modell, ohne Exportbruch. |
-| **Berechnung / Doku** | **LaTeX** | Formeln, Einheiten und Querverweise bleiben konsistent; die Doku ist 10 Punkte wert und wächst ab M1 mit. |
-| **Simulation** | **MuJoCo** | Siehe Abschnitt 3. |
+| **Gripping concept** | 2-finger parallel gripper with jaws | Part B has two flat, parallel side faces 70 mm apart. No form fit needed, friction is enough. |
+| **Mechanism** | **Four-bar parallelogram per finger**, one motor drives both | Topology follows the Robotiq 2F-85. Pads stay parallel, the tip travels on an arc. Without the original's underactuation — in encompassing mode that is statically indeterminate and buys nothing on two flat faces. |
+| **Drive** | **Servo motor** with self-locking screw or worm | Adjustable force (PA 6 is soft, Ra 1.6 has to survive), quiet, no compressed air. **Self-locking → no holding brake.** That was mandatory with the rack. |
+| **CAD + FEM** | **Onshape** (parametric, browser-based) | Both of us in the same model live, no version conflicts, no local install. FEM on the same model, no export break. |
+| **Calculation / docs** | **LaTeX** | Formulas, units and cross-references stay consistent; the report is worth 10 points and grows from M1 on. |
+| **Simulation** | **MuJoCo** | See § 4. |
 
-### Kennwerte aus der Vorauslegung (zu bestätigen, nicht gesetzt)
+### Figures from the preliminary work (to be confirmed, not fixed)
 
-- Bauteil B: 95 × 100 × 80 mm, 528,5 cm³, PA 6 (ρ = 1140 kg/m³) → **0,602 kg**
-- Greifflächen: ±X, Backenabstand **70 mm**, 6200 mm² je Seite
-- Bahnbeschleunigung aus Taktzeitbudget: **2,05 m/s²**
-- Erforderliche Greifkraft: **14,3 N je Backe** (µ = 0,5 NBR/PA 6, S = 2,0)
-- Startgeometrie Viergelenk (in V2 zu bestätigen): Lenkerlänge **90 mm**,
-  Schwenkwinkel **±4,46°** um die Senkrechte zur Greifrichtung, Hub **14 mm je
-  Seite** → **0,27 mm** Belagversatz über den Hub. Längere Lenker senken den
-  Versatz weiter (120 mm → 0,20 mm), kürzere erhöhen ihn (40 mm → 0,62 mm).
-- Referenz Robotiq 2F-85: elektrisch 24 V, **20–235 N**, 85 mm Hub, 5 kg
-  Traglast, ~1,3 kg, Flansch ISO 9409-1-50-4-M6. Kraft ist in keiner Variante
-  der Engpass — wir brauchen 14,3 N.
-- Roboter: **ABB IRB 1600-6/1.45**
-- Wichtigster Befund: Mit dem Roboter mittig auf dem Boden ist der Ablauf
-  **nicht ausführbar** — nicht wegen der Reichweite, sondern wegen Achse 5
-  (±115°). Lösung: **Sockel 500 mm + Basisversatz 100 mm**. Das gehört als
-  Erkenntnis in den Bericht, nicht versteckt.
+- Part B: 95 × 100 × 80 mm, 528.5 cm³, PA 6 (ρ = 1140 kg/m³) → **0.602 kg**
+- Grip faces: ±X, jaw distance **70 mm**, 6200 mm² on the smaller side
+- Path acceleration from the cycle-time budget: **2.05 m/s²**
+- Required gripping force: **14.3 N per jaw** (µ = 0.5 NBR/PA 6, S = 2.0)
+- Starting geometry of the four-bar (to be confirmed in V2): link length
+  **90 mm**, swing **±4.46°** about the perpendicular to the grip direction,
+  stroke **14 mm per side** → **0.27 mm** pad scrub over the stroke. Longer
+  links reduce it further (120 mm → 0.20 mm), shorter ones raise it
+  (40 mm → 0.62 mm).
+- Reference Robotiq 2F-85: electric 24 V, **20–235 N**, 85 mm stroke, 5 kg
+  payload, ~1.3 kg, flange ISO 9409-1-50-4-M6. Force is not the bottleneck in
+  any variant — we need 14.3 N.
+- Robot: **ABB IRB 1600-6/1.45**
+- Most important finding: with the robot centred on the floor the sequence is
+  **not executable** — not because of reach, but because of axis 5 (±115°).
+  Fix: **500 mm pedestal + 100 mm base offset**. That belongs in the report as
+  a finding, not hidden.
 
----
+### Vacuum was considered and rejected
 
-## 3. Simulation: MuJoCo statt Gazebo
+Physically it would work: a 50 mm cup at −0.6 bar gives ~118 N normal, ~59 N in
+shear against the needed 14.3 N. It fails on the assignment, not on the
+physics. The assignment prescribes jaws verbatim —
 
-**Entscheidung: MuJoCo.**
+> "Die **Greiferzangen** sind an das jeweilige Bauteil anzupassen und mit einem
+> Schnellwechselsystem auszuführen."
 
-Gazebo wäre die richtige Wahl, wenn wir gegen einen echten ABB-Controller mit
-ROS 2 und MoveIt fahren würden — Sensorsimulation, Plugins, ganze Anlagenwelt.
-Das brauchen wir nicht. Die Angabe verlangt "visuelle Darstellung inkl.
-Kollisionskontrolle des Arbeitsablaufes", also Kinematik, Kollision und ein
-Video.
-
-Dafür ist MuJoCo besser:
-
-- **Läuft ohne ROS**, direkt aus Python — kein Stack, der eine Woche Setup frisst
-- **Kontaktkräfte** sind auswertbar. Wir können zeigen, dass das Bauteil unter
-  der berechneten Greifkraft *tatsächlich* nicht rutscht, statt es nur zu
-  behaupten. Das ist ein echtes Argument im Bericht.
-- **Headless-Rendering** in guter Qualität → Bilder für die Doku und das Video
-  entstehen im selben Lauf
-- **Läuft bereits.** `sim/aufstellung.py` und `sim/ablauf.py` funktionieren,
-  inklusive Levenberg-Marquardt-IK mit Konfigurationstreue. Das Rad ist schon
-  rund.
-
-Gazebo hätte gegenüber MuJoCo hier nur Nachteile: schwerer, ROS-abhängig, auf
-Windows nur über WSL, und kein Mehrwert für das, was abgegeben wird.
+— and 30 of 100 points hang on a *Greiferzange* and a *Greifmechanismus* that a
+suction cup does not have. On top of that, parts can be gripped **from the side
+only**, which loads a cup in shear and peeling, its weakest mode; an ejector
+needs the compressed air we avoided; and vacuum does not hold on power failure.
+This goes into V1 as a reasoned rejection — a comparison that rules out an
+obvious option cleanly is worth more than one that never raised it.
 
 ---
 
-## 3a. Wofür es Punkte gibt
+## 3. What the points are for
 
-100 Punkte insgesamt. Die Verteilung steht in der Einführungsfolie und sie ist
-der wichtigste Planungsinput überhaupt:
+100 points total. The distribution is in the introduction slides and it is the
+single most important planning input:
 
-| Arbeitspaket | Punkte | Wer |
+| Work package | Points | Who |
 |---|---:|---|
-| **3D-Konstruktion des Greifers** | **20** | Elias + Viktoriia |
-| Allgemein (Ausführung der technischen Dokumentation) | 10 | beide |
-| Auswahl eines geeigneten Roboters inkl. Begründung | 10 | Elias |
-| Konzeptskizze des Greifers | 10 | Viktoriia |
-| Berechnung und mechanische Auslegung des Greifmechanismus | 10 | Viktoriia |
-| Analytische Berechnung der Greiferzange | 10 | Viktoriia |
-| Numerische Berechnung der Greiferzange (FEM) | 10 | Elias |
-| Baugruppenzeichnung inklusive Stückliste | 10 | Elias |
-| Kollisionskontrolle und visuelle Darstellung des Arbeitsablaufes | 10 | Elias |
+| **3D design of the gripper** | **20** | Elias + Viktoriia |
+| General (quality of the technical documentation) | 10 | both |
+| Robot selection incl. reasoning | 10 | Elias |
+| Concept sketch of the gripper | 10 | Viktoriia |
+| Calculation and mechanical design of the gripping mechanism | 10 | Viktoriia |
+| Analytical calculation of the jaws | 10 | Viktoriia |
+| Numerical calculation of the jaws (FEM) | 10 | Elias |
+| Assembly drawing including BOM | 10 | Elias |
+| Collision check and visualisation of the sequence | 10 | Elias |
 
-**Notenskala:** ≥88 % Sehr Gut · ≥75 % Gut · ≥63 % Befriedigend · ≥50 % Genügend · <50 % Nicht genügend
+**Grading scale:** ≥88 % very good · ≥75 % good · ≥63 % satisfactory · ≥50 % sufficient · <50 % fail
 
-Zwei Schlüsse daraus:
+Two conclusions:
 
-- **Die 3D-Konstruktion ist doppelt gewichtet.** Sie bekommt die meiste Zeit
-  und wird von beiden getragen — nicht nebenbei erledigt.
-- **Die Dokumentation allein bringt 10 Punkte**, unabhängig vom Inhalt. Das
-  ist die billigste Note im ganzen Projekt und wird deshalb nicht ans Ende
-  geschoben (siehe unten).
+- **The CAD counts double.** It gets the most time and both of us carry it.
+- **The documentation alone is worth 10 points**, independent of content. That
+  is the cheapest grade in the project, which is why it does not get pushed to
+  the end.
 
-### Die fünf Warnungen der LV-Leitung
+### The five warnings from the course leader
 
-Aus der Einführungsfolie, wörtlich — der Plan ist genau darauf gebaut:
+From the introduction slides, verbatim — the plan is built around them:
 
-| Warnung | Wie der Plan sie abfängt |
+| Warning | How the plan absorbs it |
 |---|---|
-| 1. Konstruktion nicht ohne Berechnung beginnen | Greifkraft (V2) liegt in M1, **vor** dem CAD-Start in M2. Design Freeze trennt beides sauber. |
-| 2. FEM nicht zu spät starten | Die FEM (E5) liegt in M3 und ist **vor** dem Zwischenbericht fertig, nicht danach. |
-| 3. Zeichnungen: Aufwand nicht unterschätzen | Zeichnung + Stückliste (E3) startet im Dezember, nicht im Januar. Zwei volle Wochen. |
-| 4. Dokumentation nicht erst in der letzten Woche | Läuft ab M1 mit. Jedes Paket wird geschrieben, **wenn** es fertig ist. Januar ist nur noch Zusammenführen. |
-| 5. Zwischenbericht ernst nehmen | Eigener Meilenstein mit Inhaltsliste, 4 Tage Puffer davor. |
+| 1. Do not start designing without calculating | Gripping force (V2) sits in M1, **before** CAD starts in M2. The design freeze separates them cleanly. |
+| 2. Do not start the FEM too late | The FEM (E5) sits in M3 and is done **before** the interim report, not after. |
+| 3. Do not underestimate the drawings | Drawing + BOM (E3) starts in December, not January. Two full weeks. |
+| 4. Do not start the documentation in the last week | Runs from M1 on. Every package is written **when** it is finished. January is merging only. |
+| 5. Take the interim report seriously | Its own milestone with a content list and 4 days of buffer. |
 
 ---
 
-## 4. Aufgabenteilung
+## 4. Simulation: MuJoCo over Gazebo
 
-Zwei Hälften, die jede für sich eine geschlossene Geschichte erzählen.
-Niemand bekommt Restarbeiten.
+Gazebo would be right if we were driving a real ABB controller through ROS 2
+and MoveIt — sensor simulation, plugins, a whole cell. We do not need that. The
+assignment asks for "visual representation incl. collision check of the working
+sequence": kinematics, collision, and a video.
 
-### Elias — System & Integration
+MuJoCo is the better fit:
 
-| # | Paket | Ergebnis | Ordner |
+- **Runs without ROS**, straight from Python — no stack that eats a week of setup
+- **Contact forces** are readable. We can show that the part actually does not
+  slip under the calculated gripping force instead of asserting it. That is a
+  real argument in the report.
+- **Headless rendering** in good quality → images for the report and the video
+  come out of the same run
+- **It already runs.** `sim/aufstellung.py` and `sim/ablauf.py` work, including
+  Levenberg-Marquardt IK with configuration continuity.
+
+Against MuJoCo, Gazebo here has only downsides: heavier, ROS-dependent, on
+Windows only through WSL, and no added value for what gets submitted.
+
+---
+
+## 5. Who does what
+
+Two halves, each a closed story. Nobody gets leftovers.
+
+### Elias — system & numerical proof
+
+| # | Package | Result | Folder |
 |---|---|---|---|
-| E1 | **Roboterauswahl & Aufstellung** | Auswahlrechnung (Reichweite, Taktzeit, Traglast), Aufstellungsstudie Sockel/Basisversatz, Nachweis der Erreichbarkeit aller Stützpunkte | `Elias/01_Roboter` |
-| E2 | **Greifer-Grundkörper** | Gehäuse, Antriebseinheit (Servo + selbsthemmende Spindel), Viergelenk mit Lagerstellen, Schnellwechsler, Roboterflansch ISO 9409-1-50-4-M6 | `Elias/02_CAD_Grundkoerper` |
-| E3 | **Baugruppenzeichnung & Stückliste** | A3-Zeichnung, Positionsnummern, Stückliste mit Kauf-/Fertigungsteilen | `Elias/03_Zeichnung` |
-| E4 | **Ablaufsimulation & Kollisionskontrolle** | MuJoCo-Modell, Bahn Entnahme → Ablage, Kollisionsprotokoll, Ablaufvideo | `Elias/04_Simulation` |
-| E5 | **FEM der Greiferzange** | Netz, Randbedingungen, Netzkonvergenz, Spannung und Verformung; Abgleich gegen Viktoriias analytische Rechnung | `Elias/05_FEM` |
-| E6 | **Infrastruktur** | Repo, Onshape-Dokument, MCP-Anbindung, Parametertabelle, Doku-Vorlage | `gemeinsam/` |
+| E1 | **Robot selection & placement** | Selection calculation (reach, cycle time, payload), placement study for pedestal/base offset, reachability proof for all waypoints | `Elias/01_Robot` |
+| E2 | **Gripper body** | Housing, drive unit (servo + self-locking screw), four-bar with bearings, quick-change coupler, robot flange ISO 9409-1-50-4-M6 | `Elias/02_CAD_Body` |
+| E3 | **Assembly drawing & BOM** | A3 drawing, item numbers, BOM split into bought and made parts | `Elias/03_Drawing` |
+| E4 | **Motion & collision study** | MuJoCo model, path pick → place, collision log, sequence video | `Elias/04_Simulation` |
+| E5 | **FEM of the jaws** | Mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result | `Elias/05_FEM` |
+| E6 | **Infrastructure** | Repo, Onshape document, MCP integration, parameter table, report template | `shared/` |
 
-### Viktoriia — Auslegung & Nachweis
+### Viktoriia — design & analytical proof
 
-| # | Paket | Ergebnis | Ordner |
+| # | Package | Result | Folder |
 |---|---|---|---|
-| V1 | **Greifkonzept & Konzeptskizze** | Variantenvergleich nach VDI 2225 — **mit dem Robotiq 2F-85 als marktüblicher Referenz im Feld**, dazu Viergelenk, Zahnstange, Keilhaken, Spindel. Begründung der Wahl, bemaßte Konzeptskizze | `Viktoriia/01_Konzept` |
-| V2 | **Greifkraft & Antriebsauslegung** | Kraftbilanz (Gewicht + Beschleunigung + Sicherheit), Reibwert mit Quelle, Flächenpressung auf PA 6, **Viergelenk über virtuelle Arbeit mit Nachweis des Übertragungswinkels im ungünstigsten Punkt**, Spindelauslegung inkl. Selbsthemmung, Motorauswahl mit Reserve | `Viktoriia/02_Auslegung` |
-| V3 | **Greiferzange & Weichbacken (CAD)** | Parametrische Zange in Onshape, Backentasche, Kontur passend zu Bauteil B | `Viktoriia/03_CAD_Zange` |
-| V4 | **Analytischer Festigkeitsnachweis** | Biegespannung und Durchbiegung der Zange von Hand gerechnet, Annahmen und Quellen sauber belegt — die Referenz, gegen die die FEM antritt | `Viktoriia/04_Nachweis` |
-| V5 | **FDM-Validierung** | Zange drucken, Durchbiegung unter definierter Last messen, gegen Elias' FEM halten | `Viktoriia/05_FDM` |
+| V1 | **Gripping concept & sketch** | Variant comparison to VDI 2225 — **with the Robotiq 2F-85 as a commercial reference in the field**, plus four-bar, rack, wedge hook, screw, and vacuum as a reasoned rejection. Dimensioned concept sketch | `Viktoriia/01_Concept` |
+| V2 | **Gripping force & drive sizing** | Force balance (weight + acceleration + safety), friction coefficient with a source, surface pressure on PA 6, **four-bar via virtual work including proof of the worst transmission angle**, screw sizing incl. self-locking, motor selection with margin | `Viktoriia/02_Sizing` |
+| V3 | **Jaws & soft pads (CAD)** | Parametric jaws in Onshape, pad pocket, contour matched to part B | `Viktoriia/03_CAD_Jaws` |
+| V4 | **Analytical strength proof** | Bending stress and deflection of the jaw by hand, assumptions and sources documented — the reference the FEM has to meet | `Viktoriia/04_Analytical` |
+| V5 | **3D-printed check** | Print the jaw, measure deflection under a defined load, hold it against Elias' FEM | `Viktoriia/05_Print_Check` |
 
-**Warum dieser Schnitt:** Viktoriia konstruiert die Zange und rechnet sie
-analytisch durch. Elias rechnet dieselbe Zange numerisch nach. Damit prüfen
-zwei Personen unabhängig dasselbe Bauteil auf zwei Wegen — genau das verlangt
-die Angabe, und eine Abweichung fällt sofort auf, statt sich in einer Hand zu
-verstecken.
+**Why this cut:** Viktoriia designs the jaws and works them out by hand. Elias
+recomputes the same jaws numerically. Two people check the same part on two
+independent paths — exactly what the assignment asks for, and a discrepancy
+shows up immediately instead of hiding in one pair of hands.
 
-Der gedruckte Nachweis (V5) liegt aus demselben Grund bei Viktoriia: wer die
-FEM gerechnet hat, soll sie nicht selbst bestätigen. Die Schnittstelle zwischen beiden ist eine
-einzige Fläche: die **Anschraubebene Schlitten ↔ Zange**. Die wird in KW 41
-festgelegt und danach nicht mehr angefasst.
+The printed check (V5) sits with Viktoriia for the same reason: whoever ran the
+FEM should not confirm it themselves.
 
-### Gemeinsam
+The interface between the two halves is a single surface: the **mounting plane
+carrier ↔ jaw**. It is fixed in week 41 and not touched afterwards.
 
-- **Dokumentation** — jede/r schreibt die eigenen Kapitel, gegenseitiges Review
-- **Cross-Review** vor jedem Meilenstein: Elias prüft Viktoriias Rechnungen
-  nach, Viktoriia prüft Elias' Modell auf Fertigbarkeit
-- **Abgabe-ZIP** in der Struktur aus Abb. 2
+### Together
 
----
-
-## 5. Die FDM-Idee
-
-Das verlangt niemand — aber es ist billig und hebt die Arbeit deutlich.
-
-Wir drucken die Greiferzange aus PLA/PETG im Maßstab 1:1, klemmen sie ein,
-hängen eine definierte Last ans freie Ende und **messen die Durchbiegung**.
-Dann rechnen wir dieselbe Geometrie mit dem E-Modul des Druckwerkstoffs neu
-und vergleichen drei Zahlen: analytisch, FEM, gemessen.
-
-Was das bringt:
-
-- Der Vergleich analytisch/numerisch wird vom Pflichtpunkt zum belastbaren
-  Ergebnis — mit einem realen dritten Datenpunkt
-- Man sieht sofort, ob die Einspannung im FEM-Modell zu steif angenommen war.
-  Das ist der klassische Fehler und wir können ihn belegen statt vermuten.
-- Die gedruckte Zange lässt sich im Video zeigen. Eine echte Backe in der Hand
-  schlägt jedes Rendering.
-
-**Wichtig für die Ehrlichkeit im Bericht:** Gedruckt wird PLA, gebaut wird
-EN AW-7075. Der Test validiert das *Modell* (Randbedingungen, Lasteinleitung,
-Netz), nicht das Bauteil. Genau so schreiben wir es hin.
+- **Documentation** — each writes their own chapters, mutual review
+- **Cross-review** before every milestone: Elias re-checks Viktoriia's
+  calculations, Viktoriia checks Elias' model for manufacturability
+- **Submission ZIP** in the structure from Fig. 2
 
 ---
 
-## 6. Timeline
+## 6. The 3D-printing idea
 
-### Die zwei harten Termine
+Nobody asks for this — but it is cheap and it lifts the work noticeably.
 
-Wir sind in getrennten LV-Gruppen, liefern aber gemeinsam ab. Wir fahren beide
-nach **BB-1** — das sind die **früheren** Termine:
+We print the jaw in PLA/PETG at 1:1, clamp it, hang a defined load on the free
+end and **measure the deflection**. Then we recompute the same geometry with the
+print material's Young's modulus and compare three numbers: analytical, FEM,
+measured.
 
-| | Termin | Was |
+What it buys:
+
+- The analytical/numerical comparison turns from a box to tick into a real
+  result — with a third, physical data point
+- It shows immediately whether the clamping in the FEM model was assumed too
+  stiff. That is the classic FEM error and we can demonstrate it instead of
+  guessing.
+- The printed jaw can be shown. A real jaw in your hand beats any rendering.
+
+**For honesty in the report:** we print PLA, we build EN AW-7075. The test
+validates the *model* (boundary conditions, load introduction, mesh), not the
+part. That is exactly how we write it.
+
+---
+
+## 7. Timeline
+
+### The two hard dates
+
+We are in different course groups but deliver together. We both run on
+**BB-1** — the **earlier** dates:
+
+| | Date | Note |
 |---|---|---|
-| 🔴 **Zwischenbericht** | **Do 26.11.2026, 17:50, Präsenz** | BB-1 statt BB-2 (03.12.) — eine Woche früher |
-| 🔴 **Endkontrolle** | **Fr 15.01.2027, 16:10, Präsenz** | BB-1 statt BB-2 (22.01.) — eine Woche früher |
+| 🔴 **Interim report** | **Thu 26 Nov 2026, 17:50, on site** | BB-1 instead of BB-2 (3 Dec) — one week earlier |
+| 🔴 **Final review** | **Fri 15 Jan 2027, 16:10, on site** | BB-1 instead of BB-2 (22 Jan) — one week earlier |
 
-**Das kostet uns je eine Woche Puffer.** Bewusste Entscheidung, aber sie muss
-mit der LV-Leitung (Saliger) abgesprochen sein — wer in BB-2 ist, präsentiert
-beim Zwischenbericht in einer fremden Gruppe. Das ist Punkt 0 auf der
-Klärliste.
+**That costs us a week of buffer each time.** A deliberate choice, but it has to
+be cleared with the course leader (Saliger) — whoever is in BB-2 presents in a
+group that is not theirs. That is point 0 on the open list.
 
-### LV-Termine als Taktgeber (BB-1)
+### Course dates set the rhythm (BB-1)
 
-Die Vorlesungen geben den Rhythmus vor — wir legen die Pakete dahinter, nicht
-davor:
+We put our packages behind the lectures, not in front of them:
 
-| Datum | Thema | Was das für uns heißt |
+| Date | Topic | What it means for us |
 |---|---|---|
-| Do 17.09. | Einführung OnShape | CAD-Start **danach**, nicht davor |
-| Sa 19.09. | Modellierung und Zeichnung | Modellier-Handwerkszeug sitzt |
-| Di 22.09. | StüLi, Blech, MDB | Stücklisten-Logik für E3 |
-| Sa 24.10. | Baugruppen, Datenaustausch | fällt genau in die CAD-Phase — Timing passt |
-| Mi 04.11. | Digitale Absicherung, Simulation | direkt vor der Simulationsphase |
-| **Do 26.11.** | **Zwischenbericht** | 🔴 |
-| Mi 02.12. | CAE–CAD–CAP–CAM Prozesskette | — |
-| **Fr 15.01.** | **Endkontrolle, Fragestunde** | 🔴 |
+| Thu 17 Sep | Introduction to Onshape | CAD starts **after** this, not before |
+| Sat 19 Sep | Modelling and drawing | Modelling skills in place |
+| Tue 22 Sep | BOM, sheet metal, MDB | BOM logic for E3 |
+| Sat 24 Oct | Assemblies, data exchange | Lands right inside the CAD phase |
+| Wed 4 Nov | Digital validation, simulation | Directly before the simulation phase |
+| **Thu 26 Nov** | **Interim report** | 🔴 |
+| Wed 2 Dec | CAE–CAD–CAP–CAM process chain | — |
+| **Fri 15 Jan** | **Final review, Q&A** | 🔴 |
 
-### Meilensteine
+### Milestones
 
-| Meilenstein | Deadline | Ergebnis | Wer |
+| Milestone | Deadline | Result | Who |
 |---|---|---|---|
-| **M0 — Kickoff** | So 20.09. | Plan abgestimmt, Rollen fix, Onshape + Repo stehen, Klärliste raus | beide |
-| **M1 — Konzept steht** | So 04.10. | Roboter gewählt (E1), Greifkonzept + Skizze (V1), Greifkraft gerechnet (V2) → **Design Freeze** | beide |
-| **M2 — CAD schließt** | So 01.11. | Zange (V3) und Grundkörper (E2) getrennt konstruiert, Baugruppe schließt kollisionsfrei, Schnittstelle eingefroren | beide |
-| **M3 — Nachweise** | So 22.11. | Analytisch fertig (V4), FEM gerechnet inkl. Netzkonvergenz (E5), beide Wege verglichen | beide |
-| 🔴 **Zwischenbericht** | **Do 26.11.** | Präsentation: Konzept, Auslegung, CAD, erste Nachweise | beide |
-| **M4 — Zeichnung + Simulation + FDM** | So 20.12. | Baugruppenzeichnung + Stückliste (E3), MuJoCo-Ablauf + Kollisionsprotokoll + Video (E4), Zange gedruckt und vermessen (V5) | parallel |
-| *Weihnachtspause* | 21.12.–03.01. | — | — |
-| **M5 — Zusammenführen** | So 11.01. | Doku zusammengeführt, Cross-Review, ZIP gepackt | beide |
-| 🔴 **Endkontrolle** | **Fr 15.01.** | ZIP hochgeladen, Präsenztermin | beide |
+| **M0 — Kick-off** | Sun 20 Sep | Plan agreed, roles fixed, Onshape + repo up, open questions sent | both |
+| **M1 — Concept fixed** | Sun 4 Oct | Robot chosen (E1), gripping concept + sketch (V1), force calculated (V2) → **design freeze** | both |
+| **M2 — CAD closes** | Sun 1 Nov | Jaws (V3) and body (E2) designed separately, assembly closes without collisions, interface frozen | both |
+| **M3 — Proofs** | Sun 22 Nov | Analytical done (V4), FEM computed incl. mesh convergence (E5), both paths compared | both |
+| 🔴 **Interim report** | **Thu 26 Nov** | Presentation: concept, sizing, CAD, first proofs | both |
+| **M4 — Drawing + simulation + print** | Sun 20 Dec | Assembly drawing + BOM (E3), MuJoCo sequence + collision log + video (E4), jaw printed and measured (V5) | parallel |
+| *Christmas break* | 21 Dec – 3 Jan | — | — |
+| **M5 — Merge** | Sun 11 Jan | Documentation merged, cross-review, ZIP packed | both |
+| 🔴 **Final review** | **Fri 15 Jan** | ZIP uploaded, on-site date | both |
 
-**Puffer:** vor dem Zwischenbericht 4 Tage, vor der Endkontrolle 4 Tage. Das
-ist knapp. Deshalb liegt die FEM-Kette **vor** dem Zwischenbericht und nicht
-danach — wenn dort etwas schiefgeht, haben wir im Dezember noch Luft.
+**Buffer:** 4 days before the interim report, 4 days before the final review.
+That is tight. Which is why the FEM chain sits **before** the interim report and
+not after — if something goes wrong there we still have December.
 
-**Die Zeichnung liegt bewusst im Dezember, nicht im Januar.** Warnung 3 der
-LV-Leitung. Zwei Wochen für Zeichnung und Stückliste sind nicht großzügig,
-sondern realistisch.
+**The drawing sits in December on purpose, not January.** Warning 3. Two weeks
+for drawing and BOM is realistic, not generous.
 
-**Dokumentation läuft ab M1 mit.** Jedes Paket wird geschrieben, wenn es
-fertig ist, nicht am Ende. M5 ist Zusammenführen und Korrekturlesen — kein
-Schreiben. Das ist Warnung 4, und sie ist 10 Punkte wert.
+**Documentation runs from M1.** Every package is written when it is done, not at
+the end. M5 is merging and proofreading — no writing. That is warning 4, and it
+is worth 10 points.
 
-**Fixer Termin:** jede Woche ein kurzer Sync, 20 Minuten, Stand + Blocker.
-
----
-
-## 7. Offene Punkte
-
-Diese müssen früh geklärt werden, weil sie nach hinten teuer werden:
-
-0. **Getrennte LV-Gruppen.** Wir sind in BB-1 und BB-2, wollen aber gemeinsam
-   nach BB-1 fahren (Zwischenbericht 26.11., Endkontrolle 15.01.).
-   Entspannend: laut Einführungsfolie muss **bei Zwischenbericht und
-   Endkontrolle mindestens eine Person pro Gruppe anwesend sein** — nicht
-   beide. Trotzdem mit Alexandra Saliger abklären, ob die Anwesenheit in der
-   jeweils anderen Kohorte angerechnet wird. Zusätzlich gilt **75 %
-   Anwesenheitspflicht**, die zählt jede/r in der eigenen Gruppe.
-   **Vor allem anderen klären.**
-1. **Gruppennummer.** `task.md` sagt Gruppe 10, Tab. 1 der Angabe kennt nur
-   Gruppen 1–8 (Bauteil B = Gruppe 2). Bei der LV-Leitung nachfragen, bevor
-   irgendein Dokument mit einer Nummer im Kopf gedruckt wird.
-2. **Ablageorientierung am Werkstückträger.** Laut Angabe wird das bei der
-   Angabenausgabe definiert. Aktuell mit 90° Drehung gerechnet. Wenn die
-   Orientierung anders ist, ändert sich die Bahn und möglicherweise die
-   Greifrichtung.
-3. **FDM-Drucker.** Verfügbarkeit und Werkstoff klären (Labor oder privat).
-3a. **Übertragungswinkel.** Beim Viergelenk ist die Backenkraft **nicht**
-   konstant über den Hub. Der ungünstigste Punkt muss nachgewiesen werden —
-   das ist der Preis für die Bauform und gehört in V2, nicht ans Ende.
-3b. **Belagversatz auf der Greiffläche.** 0,27 mm Schrubben bei 90 mm Lenkern.
-   Für Ra 1,6 auf PA 6 nachweisen, dass der Weichbelag das elastisch aufnimmt.
-3c. **Onshape-FEM.** Prüfen, ob der Education-Plan die Simulation freischaltet.
-   Falls nicht, springt die bestehende CalculiX-Kette ein — Ergebnis
-   gleichwertig, nur mehr Handarbeit.
-4. **Onshape-Lizenz.** Free-Plan macht Dokumente öffentlich. Für eine
-   Studienarbeit ist das meist egal, sollte aber bewusst entschieden sein —
-   Education-Plan ist kostenlos und privat.
+**Standing appointment:** a short sync every week, 20 minutes, status +
+blockers.
 
 ---
 
-## 8. Arbeitsweise im Repo
+## 8. Open points
+
+These need clearing early, because they get expensive later:
+
+0. **Split course groups.** We are in BB-1 and BB-2 but want to run on BB-1
+   together (interim report 26 Nov, final review 15 Jan). Reassuring: per the
+   introduction slides **at least one person per group** has to attend the
+   interim report and the final review — not both. Still, clear with Alexandra
+   Saliger whether attendance in the other cohort counts. On top of that there
+   is **75 % attendance duty**, counted in your own group. **Clear this before
+   anything else.**
+1. **Group number.** `task.md` says group 10, Tab. 1 of the assignment only
+   knows groups 1–8 (part B = group 2). Ask the course leader before any
+   document is printed with a number in its header.
+2. **Placement orientation on the workpiece carrier.** Per the assignment this
+   is defined at the assignment handout. Currently assumed as a 90° rotation. A
+   different orientation changes the path and possibly the grip direction.
+   **This is the only open point that can still break the design freeze.**
+3. **FDM printer.** Clear availability and material (lab or private).
+4. **Transmission angle.** With a four-bar the jaw force is **not** constant
+   over the stroke. The worst point has to be proven — that is the price of the
+   topology and it belongs in V2, not at the end.
+5. **Pad scrub on the grip face.** 0.27 mm over the stroke at 90 mm links.
+   Prove for Ra 1.6 on PA 6 that the soft pad absorbs it elastically.
+6. **Onshape FEM.** Check whether the education plan unlocks Simulation. If not,
+   the existing CalculiX chain steps in — equivalent result, more manual work.
+7. **Onshape licence.** The free plan makes documents public. For student work
+   that is usually fine, but it should be a conscious choice — the education
+   plan is free and private.
+8. **Language of the submitted report.** The course, the assignment and the
+   slides are German. Our working language is English. Confirm with Saliger
+   which language the submitted documentation should be in — this does not
+   affect the repo either way.
+
+---
+
+## 9. How we work in the repo
 
 ```
 PDE/
-├─ Elias/          ← Elias arbeitet nur hier
-├─ Viktoriia/      ← Viktoriia arbeitet nur hier
-├─ gemeinsam/      ← Parameter, Vorlagen, Abgabe-ZIP
-│  ├─ abgabe/      ← finale Struktur nach Abb. 2
-│  └─ referenzen/
-├─ cad/ fem/ sim/  ← bestehende Skriptkette (Vorarbeit, bleibt als Referenz)
+├─ Elias/            ← Elias commits only here
+├─ Viktoriia/        ← Viktoriia commits only here
+├─ shared/           ← parameters, templates, submission ZIP
+│  ├─ submission/    ← final structure per Fig. 2 — German names, prescribed
+│  └─ references/
+├─ videos/           ← the plan pitch video (HyperFrames project)
+├─ cad/ fem/ sim/    ← existing script chain (preliminary work, kept as reference)
 └─ PLAN.md
 ```
 
-**Regel:** jede/r committet nur im eigenen Ordner. Dann gibt es keine
-Merge-Konflikte. Zusammengeführt wird ausschließlich in `gemeinsam/abgabe/`,
-und zwar am Ende, bewusst und gemeinsam.
+**Rule:** each of us commits only inside our own folder. Then there are no merge
+conflicts. Merging happens exclusively in `shared/submission/`, at the end,
+deliberately and together.
 
-Commit-Nachrichten auf Deutsch, eine Zeile, was sich geändert hat und warum.
+Commit messages in English, one line, what changed and why.
+
+**`shared/submission/` keeps its German folder names on purpose.** The
+assignment says the structure is to be used *exclusively* as given, so those
+four names are copied verbatim and must not be translated:
+
+```
+1. Dokumentation und Berechnung
+2. Konstruktionsdaten (3D-CAD-Daten)
+3. Baugruppenzeichnung (Greifer)
+4. Kollisionskontrolle und Bewegungsanalyse
+```
 
 ---
 
-## 9. Was Viktoriia dazu sagen soll
+## 10. What Viktoriia should say about this
 
-Der Plan ist ein **Vorschlag**, kein Beschluss. Konkret bitte Rückmeldung zu:
+This is a **proposal**, not a decision. Feedback wanted specifically on:
 
-- Passt die Aufteilung? Wenn du lieber CAD statt FEM machst (oder umgekehrt),
-  tauschen wir — die Pakete sind so geschnitten, dass V3↔E2 und V4↔E4 tauschbar
-  sind.
-- Onshape okay, oder arbeitest du lieber in etwas anderem? (SolidWorks,
-  Fusion, Inventor — dann müssen wir nur die Schnittstelle über STEP klären.)
-- Ist dir die Timeline zu eng oder zu locker?
-- Die FEM ist bewusst zu Elias gewandert, damit deine Seite nicht überläuft.
-  Du rechnest analytisch, er numerisch — zwei unabhängige Wege auf dasselbe
-  Bauteil. Wenn du die FEM lieber selbst machst, tauschen wir zurück.
+- Does the split work? If you would rather do CAD than the analytical part (or
+  the other way round), we swap — the packages are cut so V3↔E2 and V4↔E5 are
+  exchangeable.
+- Onshape fine, or would you rather work in something else? (SolidWorks,
+  Fusion, Inventor — then we only need to settle the interface via STEP.)
+- Is the timeline too tight or too loose?
+- The FEM moved to Elias on purpose so your side does not overflow. You compute
+  analytically, he computes numerically. If you would rather run the FEM
+  yourself, we swap back.

@@ -2,55 +2,52 @@
 workflow: general-video
 flow: automation
 storyboard: no
-message: "Der Plan steht — sag mir, was du anders willst"
+message: "The plan is set — tell me what you'd change"
 destination: file
 aspect: 1920x1080
-language: de
-audience: "Viktoriia, Projektpartnerin, Maschinenbau-Studentin"
-length: 75s
+language: en
+audience: "Viktoriia, project partner, mechanical engineering student"
+length: 87s
 angle: plan-pitch
 ---
 
 ## Intent
 
-Pitch-Video für Viktoriia. Sie soll in gut einer Minute verstehen: welche zwei
-Termine hart sind, wofür es Punkte gibt, wer was macht, und wie das
-automatisierte Setup funktioniert (Claude über MCP an Onshape, dazu FEM,
-MuJoCo, GitHub, FDM-Druck).
+Pitch video for Viktoriia. In under a minute and a half she should see: what we
+grip and where, why a 2-finger four-bar gripper with a servo, which tool does
+what, which two dates are hard, what each package is worth, who takes what, and
+the route from September to January.
 
-Ton: kollegial und konkret, kein Marketing. Es ist ein Vorschlag, kein
-Beschluss — der Schluss fordert sie ausdrücklich auf, zu widersprechen.
-Technisch, dunkel, präzise. Kein Voiceover, kein Musikbett: sie schaut das
-wahrscheinlich stumm am Handy in der Bahn.
+Tone: collegial and concrete, no marketing. It is a proposal, not a decision —
+the ending explicitly invites her to push back. Technical, dark, precise. No
+voiceover, no music bed: she will most likely watch it muted on a phone.
 
-Wichtig laut Auftraggeber: **Timeline und Aufgabenteilung sind die Kernszenen.**
-Das Setup ist der Überraschungseffekt, nicht der Hauptinhalt.
+Per the author: **timeline and task split are the core scenes.** The toolchain
+is the surprise, not the main content. Points per package must be visible so it
+is clear what is worth what.
 
 ## Assets
 
-- `assets/shots/onshape.png` — Onshape-Startseite, bewirbt selbst "FeatureScript MCP" und "Text → Code → CAD". Kernbeleg der Setup-Szene.
-- `assets/shots/mcp.png` — modelcontextprotocol.io Doku mit Architekturdiagramm
-- `assets/shots/mujoco.png` — mujoco.org Startseite
-- `assets/shots/github.png` — das Projekt-Repo auf GitHub
-- `assets/logos/*.svg|png` — offizielle Marken: Onshape, Claude, Anthropic, GitHub, ABB, Python
-- `assets/work/greifer_iso.png`, `greifer_mit_bauteilB.png` — eigene CAD-Renderings aus der Vorarbeit
-- `assets/work/fem_konvergenz.png` — eigener FEM-Konvergenzplot
-- `assets/work/ablauf_*.png` — eigene MuJoCo-Ablaufbilder
-- `assets/work/zeichnung.png` — eigene Baugruppenzeichnung
-- `assets/work/konzeptskizze.png` — eigene Konzeptskizze
-- `assets/work/aufstellung.png` — Aufstellungsstudie
+- `assets/part/part_b.png` — part B, isometric, tessellated from Bauteil_B.STEP via build123d
+- `assets/part/part_b_grip.png` — top view, both grip faces marked, jaw arrows, 70 mm dimension
+- `assets/part/linkage.png` — four-bar schematic drawn from the real geometry (90 mm links, ±4.46°, 0.27 mm scrub)
+- `assets/shots/onshape.png` — Onshape landing page, advertises FeatureScript MCP itself
+- `assets/shots/mujoco.png` — mujoco.org
+- `assets/shots/github.png` — the project repo
+- `assets/logos/*` — official marks: Onshape, MuJoCo, LaTeX, GitHub, Claude, Anthropic, ABB
+- `assets/work/*` — own images from the preliminary work (FEM convergence, motion study, drawing, sketch)
 
 ## Customizations
 
-- Echte Logos und echte Website-Screenshots statt nachgebauter Kacheln — ausdrücklich gewünscht.
-- Eigene Arbeitsbilder aus der Vorarbeit mit einbauen, damit sichtbar ist, dass die Kette schon läuft.
-- Die zwei roten Deadlines (26.11. / 15.01.) müssen optisch als das Härteste im Video stehen.
-- Schluss mit Repo-Link und expliziter Aufforderung zum Widerspruch.
+- Real logos and real website screenshots instead of rebuilt tiles — explicitly requested.
+- Own working images included so it is visible that the chain already runs.
+- The two red deadlines (26 Nov / 15 Jan) must read as the hardest thing on screen.
+- Points shown per package, matching the Moodle breakdown exactly.
+- Ending with the repo link and an explicit invitation to disagree.
 
 ## Notes
 
-- Deutsch, Du-Form, Viktoriia wird direkt angesprochen.
-- Keine erfundenen Zahlen. Punkte, Termine und Kennwerte stammen aus
-  `moodle/` und `PLAN.md`; nichts dazuerfinden.
-- Viktoriia ist in LV-Gruppe BB-2, Elias in BB-1 — das Video behauptet nicht,
-  die Terminfrage sei geklärt, sondern nennt sie als offenen Punkt.
+- English throughout, including the repo name.
+- No invented numbers. Points, dates and figures come from `moodle/` and `PLAN.md`.
+- Viktoriia is in course group BB-2, Elias in BB-1 — the video does not claim
+  the date question is settled, it names it as open.
