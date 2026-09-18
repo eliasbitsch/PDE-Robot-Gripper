@@ -41,11 +41,29 @@ After the design freeze in week 40 every change costs half the chain.
 | Topic | Decision | Why |
 |---|---|---|
 | **Gripping concept** | 2-finger parallel gripper with jaws | Part B has two flat, parallel side faces 70 mm apart. No form fit needed, friction is enough. |
-| **Mechanism** | **Four-bar parallelogram per finger**, one motor drives both | Topology follows the Robotiq 2F-85. Pads stay parallel, the tip travels on an arc. Without the original's underactuation - in encompassing mode that is statically indeterminate and buys nothing on two flat faces. |
+| **Mechanism** | **Four-bar parallelogram per finger**, one motor drives both | Inspired by the Robotiq 2F-85 (see below). Pads stay parallel, the tip travels on an arc. Without the original's underactuation - in encompassing mode that is statically indeterminate and buys nothing on two flat faces. |
 | **Drive** | **Servo motor** with self-locking screw or worm | Adjustable force (PA 6 is soft, Ra 1.6 has to survive), quiet, no compressed air. **Self-locking → no holding brake.** That was mandatory with the rack. |
 | **CAD + FEM** | **Onshape** (parametric, browser-based) | Both of us in the same model live, no version conflicts, no local install. FEM on the same model, no export break. |
 | **Calculation / docs** | **LaTeX** | Formulas, units and cross-references stay consistent; the report is worth 10 points and grows from M1 on. |
 | **Simulation** | **MuJoCo** | See § 4. |
+
+### Inspired by the Robotiq 2F-85
+
+<img src="shared/references/robotiq-2f-85-2f-140.jpg" width="420" alt="Robotiq 2F-85 and 2F-140">
+
+*Robotiq 2F-85 and 2F-140. Photo: Robotiq Inc. Source and data in
+[`shared/references/SOURCES.md`](shared/references/SOURCES.md).*
+
+What we take from it: electric drive, two fingers, one four-bar parallelogram
+per finger so the pads stay parallel while the fingertip travels on an arc.
+
+What we leave out: the underactuated second phalanx. Its adaptive wrap is
+statically indeterminate in encompassing mode, which makes the force
+distribution between the phalanges hard to prove - and on two flat parallel
+faces it adds nothing.
+
+It also settles the force question. A 2F-85 delivers 20-235 N; we need 14.3 N.
+Nothing about this concept is force-limited.
 
 ### Figures from the preliminary work (to be confirmed, not fixed)
 

@@ -33,12 +33,20 @@ belt, which rules out both a vacuum cup and anything that reaches underneath.
 ## The concept
 
 A **2-finger parallel gripper**, one **four-bar parallelogram per finger**,
-driven by a single **servo motor** through a self-locking screw. The topology
-follows the Robotiq 2F-85 - without its underactuated adaptive wrap, which is
-statically indeterminate in encompassing mode and buys nothing on two flat
-faces.
+driven by a single **servo motor** through a self-locking screw.
 
-<img src="videos/pde-projektplan/assets/part/linkage.png" width="420" alt="Four-bar linkage, open and closed">
+The design is **inspired by the Robotiq 2F-85**: electric, two fingers, one
+four-bar per finger, pads that stay parallel. What we do not take over is its
+underactuated adaptive wrap - in encompassing mode that is statically
+indeterminate, and on two flat faces it buys nothing.
+
+<img src="shared/references/robotiq-2f-85-2f-140.jpg" width="440" alt="Robotiq 2F-85 and 2F-140 adaptive grippers">
+
+*Robotiq 2F-85 and 2F-140. Photo: Robotiq Inc., used as a design reference.*
+
+<img src="videos/pde-projektplan/assets/part/linkage.png" width="380" alt="Our four-bar linkage, open and closed">
+
+*Our version: links 90 mm, swing +-4.46 degrees, 14 mm stroke per side.*
 
 Why this and not a rack:
 
