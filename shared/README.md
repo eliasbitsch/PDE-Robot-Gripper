@@ -4,6 +4,7 @@
 |---|---|
 | `submission` | final submission structure per Fig. 2 of the assignment, filled at the end |
 | `references` | datasheets, standards, literature, sources for friction coefficients and material data |
+| `notes` | lecture notes, one file per unit (`YYYY-MM-DD_lecture.md`) |
 
 The shared parameter table and the report template live here too.
 

@@ -18,8 +18,12 @@
 
 A robot picks part B off the buffer belt (1000 mm), travels 1800 mm
 horizontally and places it on a workpiece carrier (1300 mm). Cycle time 5 s per
-part. We design the gripper for it - the part itself is given and is not
-modified.
+part. The part itself is given and is not modified.
+
+**We deliver the whole robot cell, not just a gripper** (confirmed in the
+lecture on 17 Oct): the gripper flanged onto the robot, the robot in the cell
+with safety fence, buffer belt, workpiece carrier and part B, plus a motion
+and grip analysis of the sequence.
 
 Nine deliverables, listed in § 3, submitted in the folder structure from Fig. 2
 of the assignment.
@@ -177,8 +181,9 @@ Two halves, each a closed story. Nobody gets leftovers.
 | E1 | **Robot selection & placement** | Selection calculation (reach, cycle time, payload), placement study for pedestal/base offset, reachability proof for all waypoints | `Elias/01_Robot` |
 | E2 | **Gripper body** | Housing, drive unit (servo + self-locking screw), four-bar with bearings, quick-change coupler, robot flange ISO 9409-1-50-4-M6 | `Elias/02_CAD_Body` |
 | E3 | **Assembly drawing & BOM** | A3 drawing, item numbers, BOM split into bought and made parts | `Elias/03_Drawing` |
-| E4 | **Motion & collision study** | MuJoCo model, path pick → place, collision log, sequence video | `Elias/04_Simulation` |
-| E5 | **FEM of the jaws** | Mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result | `Elias/05_FEM` |
+| E4 | **Motion, grip & collision study** | MuJoCo model of the full cell, path pick → place, grip analysis (contact forces, part does not slip), collision log incl. fence, sequence video | `Elias/04_Simulation` |
+| E5 | **FEM of the jaws** | Mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result, **deviation ≤ 5 %** (lecture 17 Oct) | `Elias/05_FEM` |
+| E7 | **Cell assembly (CAD)** | Gripper flanged onto the IRB 1600 on its 500 mm pedestal, safety fence, buffer belt, workpiece carrier, part B - one Onshape assembly, the same layout as the simulation | `Elias/06_Cell` |
 | E6 | **Infrastructure** | Repo, Onshape document, MCP integration, parameter table, report template | `shared/` |
 
 ### Viktoriia - design & analytical proof
@@ -188,7 +193,7 @@ Two halves, each a closed story. Nobody gets leftovers.
 | V1 | **Gripping concept & sketch** | Variant comparison to VDI 2225 - **with the Robotiq 2F-85 as a commercial reference in the field**, plus four-bar, rack, wedge hook, screw, and vacuum as a reasoned rejection. Dimensioned concept sketch | `Viktoriia/01_Concept` |
 | V2 | **Gripping force & drive sizing** | Force balance (weight + acceleration + safety), friction coefficient with a source, surface pressure on PA 6, **four-bar via virtual work including proof of the worst transmission angle**, screw sizing incl. self-locking, motor selection with margin | `Viktoriia/02_Sizing` |
 | V3 | **Jaws & soft pads (CAD)** | Parametric jaws in Onshape, pad pocket, contour matched to part B | `Viktoriia/03_CAD_Jaws` |
-| V4 | **Analytical strength proof** | Bending stress and deflection of the jaw by hand, assumptions and sources documented - the reference the FEM has to meet | `Viktoriia/04_Analytical` |
+| V4 | **Analytical strength proof** | Bending stress and deflection of the jaw by hand, assumptions and sources documented - the reference the FEM has to meet within 5 % | `Viktoriia/04_Analytical` |
 | V5 | **3D-printed check** | Print the jaw, measure deflection under a defined load, hold it against Elias' FEM | `Viktoriia/05_Print_Check` |
 
 **Why this cut:** Viktoriia designs the jaws and works them out by hand. Elias
@@ -273,9 +278,9 @@ We put our packages behind the lectures, not in front of them:
 | **M0 - Kick-off** | Sun 20 Sep | Plan agreed, roles fixed, Onshape + repo up, open questions sent | both |
 | **M1 - Concept fixed** | Sun 4 Oct | Robot chosen (E1), gripping concept + sketch (V1), force calculated (V2) → **design freeze** | both |
 | **M2 - CAD closes** | Sun 1 Nov | Jaws (V3) and body (E2) designed separately, assembly closes without collisions, interface frozen | both |
-| **M3 - Proofs** | Sun 22 Nov | Analytical done (V4), FEM computed incl. mesh convergence (E5), both paths compared | both |
+| **M3 - Proofs** | Sun 22 Nov | Analytical done (V4), FEM computed incl. mesh convergence (E5), both paths compared, deviation ≤ 5 % | both |
 | 🔴 **Interim report** | **Thu 3 Dec** | Presentation: concept, sizing, CAD, first proofs | both |
-| **M4 - Drawing + simulation + print** | Sun 20 Dec | Assembly drawing + BOM (E3), MuJoCo sequence + collision log + video (E4), jaw printed and measured (V5) | parallel |
+| **M4 - Drawing + simulation + print** | Sun 20 Dec | Cell assembly (E7), assembly drawing + BOM (E3), MuJoCo sequence + grip analysis + collision log + video (E4), jaw printed and measured (V5) | parallel |
 | *Christmas break* | 21 Dec - 3 Jan | - | - |
 | **M5 - Merge** | Sun 11 Jan | Documentation merged, cross-review, ZIP packed | both |
 | 🔴 **Final review** | **Fri 22 Jan** | ZIP uploaded, on-site date | both |

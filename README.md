@@ -1,11 +1,13 @@
 # Robot Gripper - Part B
 
-A two-finger gripper for an automated production cell, designed as a semester
+A two-finger gripper and the robot cell around it, designed as a semester
 project for *Produktdesign und Produktentwicklung*, MRE WS 2026/27.
 
 A robot picks a PA 6 part off a buffer belt at 1000 mm, carries it 1800 mm and
 places it on a workpiece carrier at 1300 mm. Cycle time is 5 seconds per part.
-The part is given; the gripper is not.
+The part is given; the gripper is not. Submitted is the whole cell: gripper on
+the robot, robot in the cell with safety fence, buffer belt and workpiece
+carrier, plus motion and grip analysis.
 
 **Team:** Bitsch Elias · Ovdiienko Viktoriia - Group 10
 **Plan:** [PLAN.md](PLAN.md) · **Status:** concept phase, design freeze 4 Oct 2026
