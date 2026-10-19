@@ -3,7 +3,7 @@
 **Course:** Produktdesign und Produktentwicklung, MRE WS 2026/27
 **Group:** 10 · **Part:** B (PA 6, Ra 1.6)
 **Team:** Bitsch Elias · Ovdiienko Viktoriia
-**Course groups:** split (BB-1 / BB-2) - interim report and final submission run **together on BB-1**
+**Course groups:** split (BB-1 / BB-2) - interim report and final submission run **together on BB-2** (decided 19 Oct 2026)
 **Status:** 18 Sep 2026 - proposal, not yet agreed
 
 > **Working language is English** - this plan, the repo, folder names and commit
@@ -239,19 +239,19 @@ part. That is exactly how we write it.
 
 ### The two hard dates
 
-We are in different course groups but deliver together. We both run on
-**BB-1** - the **earlier** dates:
+We are in different course groups (CIS: Viktoriia BB-1 / MRE-3B1, Elias BB-2 /
+MRE-3B2) but deliver together. Decided 19 Oct 2026: we both present in **BB-2**,
+the **later** dates - one extra week before each:
 
 | | Date | Note |
 |---|---|---|
-| 🔴 **Interim report** | **Thu 26 Nov 2026, 17:50, on site** | BB-1 instead of BB-2 (3 Dec) - one week earlier |
-| 🔴 **Final review** | **Fri 15 Jan 2027, 16:10, on site** | BB-1 instead of BB-2 (22 Jan) - one week earlier |
+| 🔴 **Interim report** | **Thu 3 Dec 2026, 17:50, on site** | BB-2 instead of BB-1 (26 Nov) |
+| 🔴 **Final review** | **Fri 22 Jan 2027, 17:50, on site** | BB-2 instead of BB-1 (15 Jan) |
 
-**That costs us a week of buffer each time.** A deliberate choice, but it has to
-be cleared with the course leader (Saliger) - whoever is in BB-2 presents in a
-group that is not theirs. That is point 0 on the open list.
+Only one person per group has to be present. Mail to Saliger sent 19 Oct,
+confirmed by her on 19 Oct.
 
-### Course dates set the rhythm (BB-1)
+### Course dates set the rhythm (BB-1 lectures, BB-2 presentation dates)
 
 We put our packages behind the lectures, not in front of them:
 
@@ -262,9 +262,9 @@ We put our packages behind the lectures, not in front of them:
 | Tue 22 Sep | BOM, sheet metal, MDB | BOM logic for E3 |
 | Sat 24 Oct | Assemblies, data exchange | Lands right inside the CAD phase |
 | Wed 4 Nov | Digital validation, simulation | Directly before the simulation phase |
-| **Thu 26 Nov** | **Interim report** | 🔴 |
 | Wed 2 Dec | CAE-CAD-CAP-CAM process chain | - |
-| **Fri 15 Jan** | **Final review, Q&A** | 🔴 |
+| **Thu 3 Dec** | **Interim report** (BB-2) | 🔴 |
+| **Fri 22 Jan** | **Final review, Q&A** (BB-2) | 🔴 |
 
 ### Milestones
 
@@ -274,14 +274,14 @@ We put our packages behind the lectures, not in front of them:
 | **M1 - Concept fixed** | Sun 4 Oct | Robot chosen (E1), gripping concept + sketch (V1), force calculated (V2) → **design freeze** | both |
 | **M2 - CAD closes** | Sun 1 Nov | Jaws (V3) and body (E2) designed separately, assembly closes without collisions, interface frozen | both |
 | **M3 - Proofs** | Sun 22 Nov | Analytical done (V4), FEM computed incl. mesh convergence (E5), both paths compared | both |
-| 🔴 **Interim report** | **Thu 26 Nov** | Presentation: concept, sizing, CAD, first proofs | both |
+| 🔴 **Interim report** | **Thu 3 Dec** | Presentation: concept, sizing, CAD, first proofs | both |
 | **M4 - Drawing + simulation + print** | Sun 20 Dec | Assembly drawing + BOM (E3), MuJoCo sequence + collision log + video (E4), jaw printed and measured (V5) | parallel |
 | *Christmas break* | 21 Dec - 3 Jan | - | - |
 | **M5 - Merge** | Sun 11 Jan | Documentation merged, cross-review, ZIP packed | both |
-| 🔴 **Final review** | **Fri 15 Jan** | ZIP uploaded, on-site date | both |
+| 🔴 **Final review** | **Fri 22 Jan** | ZIP uploaded, on-site date | both |
 
-**Buffer:** 4 days before the interim report, 4 days before the final review.
-That is tight. Which is why the FEM chain sits **before** the interim report and
+**Buffer:** 11 days before the interim report, 11 days before the final review
+(milestones kept, the BB-2 week went into buffer). The FEM chain still sits **before** the interim report and
 not after - if something goes wrong there we still have December.
 
 **The drawing sits in December on purpose, not January.** Warning 3. Two weeks
@@ -300,13 +300,11 @@ blockers.
 
 These need clearing early, because they get expensive later:
 
-0. **Split course groups.** We are in BB-1 and BB-2 but want to run on BB-1
-   together (interim report 26 Nov, final review 15 Jan). Reassuring: per the
-   introduction slides **at least one person per group** has to attend the
-   interim report and the final review - not both. Still, clear with Alexandra
-   Saliger whether attendance in the other cohort counts. On top of that there
-   is **75 % attendance duty**, counted in your own group. **Clear this before
-   anything else.**
+0. ~~**Split course groups.**~~ **Cleared 19 Oct 2026.** Viktoriia is in BB-1,
+   Elias in BB-2 (CIS). Both run on BB-2 (interim report 3 Dec, final review
+   22 Jan); Alexandra Saliger confirmed by mail on 19 Oct. Per the introduction
+   slides **at least one person per group** has to attend. Still open: the
+   **75 % attendance duty** is counted in your own group.
 1. **Group number.** `task.md` says group 10, Tab. 1 of the assignment only
    knows groups 1-8 (part B = group 2). Ask the course leader before any
    document is printed with a number in its header.
