@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greifer Viergelenk</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1f2933; --muted: #6b7280; --line: #d5d9e0;
+    --kupfer: #b87333; --graphit: #2f3640; --teil: #c9ced6; --teil-rand: #8a8f98;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.4 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .wrap { display: grid; grid-template-columns: 1fr 300px; gap: 16px; }
+  @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
+  .bild { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  svg { display: block; width: 100%; height: auto; }
+  .seite { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
+  .wert { display: flex; justify-content: space-between; align-items: baseline;
+          border-bottom: 1px solid var(--line); padding: 8px 0; }
+  .wert span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 18px; }
+  .status { margin-top: 12px; font-weight: 600; }
+  .steuer { display: flex; gap: 12px; align-items: center; margin-top: 14px; }
+  input[type=range] { flex: 1; accent-color: var(--kupfer); height: 28px; }
+  button { font: inherit; padding: 8px 16px; border: 1px solid var(--graphit); background: var(--graphit);
+           color: #fff; border-radius: 4px; cursor: pointer; min-width: 110px; }
+  button.zweit { background: transparent; color: var(--graphit); min-width: 0; }
+  label.check { display: flex; gap: 8px; align-items: center; margin-top: 12px; color: var(--muted); }
+  .hinweis { color: var(--muted); font-size: 14px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Greifer-Konzept: Parallel-Viergelenk je Finger</h1>
+  <p class="sub">Maße wie im Onshape-Master-Sketch · Vorbild Robotiq 2F-85 · Bauteil B, Schnitt 70 × 80 mm</p>
+
+  <div class="wrap">
+    <div class="bild">
+      <svg id="svg" viewBox="-110 -12 220 185" aria-label="Greifer-Animation"></svg>
+    </div>
+    <div class="seite">
+      <div class="wert"><span>Lenkerwinkel φ</span><span id="vPhi">–</span></div>
+      <div class="wert"><span>Backenabstand</span><span id="vGap">–</span></div>
+      <div class="wert"><span>Backe vertikal ggü. Greifstellung</span><span id="vDy">–</span></div>
+      <div class="status" id="status">–</div>
+      <label class="check"><input type="checkbox" id="mitTeil" checked> Bauteil B anzeigen</label>
+      <p class="hinweis">Die Backen bleiben in jeder Stellung senkrecht (Parallelogramm).
+        Sie wandern beim Schließen aber auf einem Kreisbogen auch nach unten. Das muss die Bahnplanung berücksichtigen.</p>
+    </div>
+  </div>
+
+  <div class="steuer">
+    <button id="play">Abspielen</button>
+    <input type="range" id="slider" min="0" max="1000" value="0" aria-label="Öffnung">
+    <button class="zweit" id="greif">Greifstellung</button>
+  </div>
+</main>
+
+<script>
+// Geometrie in mm, y nach oben, Ursprung = Mitte Greifergrundkörper (wie Sketch)
+const G = {
+  palm: 80,          // Breite Grundkörper
+  halter: 5,         // Halter unter dem Grundkörper
+  lagerX: 15,        // feste Lager zur Mitte
+  lagerAbst: 20,     // Abstand der festen Lager
+  lenker: 55,        // Lenkerlänge
+  backe: 40,         // Backenlänge
+  teilB: 70, teilH: 80, teilOben: -80
+};
+const P1 = { x: G.lagerX, y: -G.halter };
+const P2 = { x: G.lagerX, y: -G.halter - G.lagerAbst };
+const phiGreif = Math.asin((G.teilB / 2 - G.lagerX) / G.lenker);   // Backe liegt am Teil an
+const phiAuf = 55 * Math.PI / 180;
+const yGreif = P2.y - G.lenker * Math.cos(phiGreif);
+
+const svg = document.getElementById('svg');
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent = svg) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  parent.appendChild(e);
+  return e;
+}
+// Darstellung: y spiegeln, damit "oben" oben ist
+const g = el('g', { transform: 'scale(1,-1)' });
+const css = getComputedStyle(document.documentElement);
+const c = n => css.getPropertyValue(n).trim();
+
+// Mittellinie
+el('line', { x1: 0, y1: 8, x2: 0, y2: -170, stroke: c('--muted'), 'stroke-width': 0.4,
+             'stroke-dasharray': '6 2 1 2' }, g);
+// Bauteil B
+const teil = el('rect', { x: -G.teilB / 2, y: G.teilOben - G.teilH, width: G.teilB, height: G.teilH,
+                          fill: c('--teil'), stroke: c('--teil-rand'), 'stroke-width': 0.6 }, g);
+// Grundkörper
+el('rect', { x: -G.palm / 2, y: 0, width: G.palm, height: 9, rx: 1.5, fill: c('--graphit') }, g);
+
+function finger(seite) {
+  const f = {};
+  f.halter = el('line', { stroke: c('--graphit'), 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
+  f.flaeche = el('polygon', { fill: c('--kupfer'), 'fill-opacity': 0.15 }, g);
+  f.l1 = el('line', { stroke: c('--kupfer'), 'stroke-width': 3.2, 'stroke-linecap': 'round' }, g);
+  f.l2 = el('line', { stroke: c('--kupfer'), 'stroke-width': 3.2, 'stroke-linecap': 'round' }, g);
+  f.koppel = el('line', { stroke: c('--graphit'), 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
+  f.backe = el('rect', { width: 6, height: G.backe, fill: c('--graphit'), rx: 1 }, g);
+  f.gel = [0, 1, 2, 3].map(() => el('circle', { r: 1.6, fill: '#fff', stroke: c('--graphit'), 'stroke-width': 0.8 }, g));
+  f.s = seite;
+  return f;
+}
+const fingerR = finger(1), fingerL = finger(-1);
+
+// Maßlinie Backenabstand
+const mass = el('g', {});
+const massLinie = el('line', { stroke: c('--kupfer'), 'stroke-width': 0.6 }, mass);
+const massText = el('text', { 'font-size': 6, fill: c('--kupfer'), 'text-anchor': 'middle',
+                              'font-family': 'Segoe UI, sans-serif' }, mass);
+
+function setze(f, phi) {
+  const s = f.s;
+  const a = { x: s * P1.x, y: P1.y }, b = { x: s * P2.x, y: P2.y };
+  const dx = s * G.lenker * Math.sin(phi), dy = -G.lenker * Math.cos(phi);
+  const A = { x: a.x + dx, y: a.y + dy }, B = { x: b.x + dx, y: b.y + dy };
+  const set = (e, p, q) => { e.setAttribute('x1', p.x); e.setAttribute('y1', p.y);
+                             e.setAttribute('x2', q.x); e.setAttribute('y2', q.y); };
+  set(f.halter, { x: s * P1.x, y: 0 }, b);
+  set(f.l1, a, A); set(f.l2, b, B); set(f.koppel, A, B);
+  f.flaeche.setAttribute('points', [a, A, B, b].map(p => p.x + ',' + p.y).join(' '));
+  // Backe hängt vom unteren Koppelpunkt nach unten, Innenfläche zur Mitte
+  f.backe.setAttribute('x', s > 0 ? B.x : B.x - 6);
+  f.backe.setAttribute('y', B.y - G.backe);
+  [a, b, A, B].forEach((p, i) => { f.gel[i].setAttribute('cx', p.x); f.gel[i].setAttribute('cy', p.y); });
+  return B;
+}
+
+const slider = document.getElementById('slider');
+const mitTeil = document.getElementById('mitTeil');
+function zeichne() {
+  const t = slider.value / 1000;                     // 0 = Greifstellung, 1 = offen
+  const phi = phiGreif + t * (phiAuf - phiGreif);
+  const B = setze(fingerR, phi);
+  setze(fingerL, phi);
+  const gap = 2 * B.x;
+  const yMass = B.y - G.backe - 7;
+  massLinie.setAttribute('x1', -B.x); massLinie.setAttribute('x2', B.x);
+  massLinie.setAttribute('y1', -yMass); massLinie.setAttribute('y2', -yMass);
+  massText.setAttribute('x', 0); massText.setAttribute('y', -yMass - 2);
+  massText.textContent = gap.toFixed(1).replace('.', ',') + ' mm';
+  teil.style.display = mitTeil.checked ? '' : 'none';
+
+  document.getElementById('vPhi').textContent = (phi * 180 / Math.PI).toFixed(1).replace('.', ',') + ' °';
+  document.getElementById('vGap').textContent = gap.toFixed(1).replace('.', ',') + ' mm';
+  const dyBacke = B.y - yGreif;
+  document.getElementById('vDy').textContent = (dyBacke >= 0 ? '+' : '') + dyBacke.toFixed(1).replace('.', ',') + ' mm';
+  const st = document.getElementById('status');
+  if (t < 0.002) { st.textContent = 'Backen liegen am Bauteil an'; st.style.color = c('--kupfer'); }
+  else { st.textContent = 'offen, ' + (gap - G.teilB).toFixed(1).replace('.', ',') + ' mm Spiel zum Bauteil';
+         st.style.color = c('--ink'); }
+}
+
+// Abspielen: offen -> greifen -> kurz halten -> öffnen, in Schleife
+let laeuft = false, t0 = 0;
+const play = document.getElementById('play');
+const periode = 4000;
+function schritt(ts) {
+  if (!laeuft) return;
+  if (!t0) t0 = ts;
+  const u = ((ts - t0) % periode) / periode;
+  // 0-0.4 schließen, 0.4-0.55 halten, 0.55-0.95 öffnen, 0.95-1 offen halten
+  let v;
+  if (u < 0.4) v = 1 - ease(u / 0.4);
+  else if (u < 0.55) v = 0;
+  else if (u < 0.95) v = ease((u - 0.55) / 0.4);
+  else v = 1;
+  slider.value = Math.round(v * 1000);
+  zeichne();
+  requestAnimationFrame(schritt);
+}
+function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+play.onclick = () => {
+  laeuft = !laeuft; play.textContent = laeuft ? 'Pause' : 'Abspielen';
+  if (laeuft) {
+    // dort weitermachen, wo der Regler gerade steht (Phase "öffnen")
+    const v = slider.value / 1000;
+    t0 = performance.now() - (0.55 + 0.4 * v) * periode;
+    requestAnimationFrame(schritt);
+  }
+};
+slider.oninput = () => { if (laeuft) { laeuft = false; play.textContent = 'Abspielen'; } zeichne(); };
+document.getElementById('greif').onclick = () => { laeuft = false; play.textContent = 'Abspielen'; slider.value = 0; zeichne(); };
+mitTeil.onchange = zeichne;
+slider.value = 1000;
+zeichne();
+</script>
+</body>
+</html>

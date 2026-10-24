@@ -11,7 +11,7 @@ Working area of Bitsch Elias. See [PLAN.md](../PLAN.md), § 5.
 | `05_FEM` | E5 | Mesh, boundary conditions, mesh convergence, stress and deflection; compared against V4 |
 | `06_Cell` | E7 | Cell assembly: gripper on the robot, pedestal, safety fence, buffer belt, workpiece carrier, part B |
 
-Plus E6: infrastructure (repo, Onshape document, MCP integration, parameter table) in `../shared/`.
+Plus E6: infrastructure (repo, Onshape document, API integration, parameter table) in `../shared/`.
 
 **Interface to Viktoriia:** the mounting plane carrier <-> jaw.
 Frozen from week 41, changes only together.

@@ -184,7 +184,7 @@ Two halves, each a closed story. Nobody gets leftovers.
 | E4 | **Motion, grip & collision study** | MuJoCo model of the full cell, path pick → place, grip analysis (contact forces, part does not slip), collision log incl. fence, sequence video | `Elias/04_Simulation` |
 | E5 | **FEM of the jaws** | Mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result, **deviation ≤ 5 %** (lecture 17 Oct) | `Elias/05_FEM` |
 | E7 | **Cell assembly (CAD)** | Gripper flanged onto the IRB 1600 on its 500 mm pedestal, safety fence, buffer belt, workpiece carrier, part B - one Onshape assembly, the same layout as the simulation | `Elias/06_Cell` |
-| E6 | **Infrastructure** | Repo, Onshape document, MCP integration, parameter table, report template | `shared/` |
+| E6 | **Infrastructure** | Repo, Onshape document, API integration, parameter table, report template | `shared/` |
 
 ### Viktoriia - design & analytical proof
 
@@ -344,7 +344,6 @@ PDE/
 ├─ shared/           ← parameters, templates, submission ZIP
 │  ├─ submission/    ← final structure per Fig. 2 - German names, prescribed
 │  └─ references/
-├─ videos/           ← the plan pitch video (HyperFrames project)
 ├─ cad/ fem/ sim/    ← existing script chain (preliminary work, kept as reference)
 └─ PLAN.md
 ```

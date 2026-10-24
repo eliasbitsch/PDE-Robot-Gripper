@@ -24,8 +24,7 @@ STEP_DIR = os.path.join(HIER, "..", "out", "step")
 
 SCRATCH = os.environ.get(
     "PDE_SCRATCH",
-    r"C:\Users\BitschE\AppData\Local\Temp\claude"
-    r"\C--Users-BitschE\0ccad5ab-04a6-44f6-895c-d44b194084b7\scratchpad")
+    os.path.join(HIER, "..", "out", "onshape_session"))
 COOKIES = os.path.join(SCRATCH, "onshape_cookies.txt")
 XSRF = os.path.join(SCRATCH, "onshape_xsrf.txt")
 

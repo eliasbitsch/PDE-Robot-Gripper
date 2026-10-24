@@ -1,0 +1,208 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[ngerman]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=22mm]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage[locale=DE,per-mode=symbol]{siunitx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,patterns}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{caption}
+\usepackage[hidelinks,pdftitle={Greifkraft - erste Abschaetzung},pdfauthor={Gruppe 10}]{hyperref}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+\definecolor{kupfer}{HTML}{B87333}
+\definecolor{graphit}{HTML}{2F3640}
+\definecolor{grau}{HTML}{8A8F98}
+
+% ---------------------------------------------------------------
+% Eingangswerte - hier aendern, alles andere rechnet sich neu
+% ---------------------------------------------------------------
+\newcommand{\mT}{0.602}   % Teilemasse in kg (Angabe)
+\newcommand{\gE}{9.81}    % Erdbeschleunigung in m/s^2
+\newcommand{\aB}{2.0}     % Beschleunigung der Bahn in m/s^2 (Annahme)
+\newcommand{\muR}{0.5}    % Reibwert Backe / PA 6 (Annahme)
+\newcommand{\Sf}{2.0}     % Sicherheitsfaktor (Annahme)
+\newcommand{\nB}{2}       % Anzahl Reibflaechen (2 Backen)
+\newcommand{\Fmin}{20}    % Robotiq 2F-85, kleinste einstellbare Greifkraft in N
+\newcommand{\Fmax}{235}   % Robotiq 2F-85, groesste Greifkraft in N
+
+% abgeleitete Groessen
+\pgfmathsetmacro{\gpa}{\gE+\aB}
+\pgfmathsetmacro{\FW}{\mT*\gE}
+\pgfmathsetmacro{\FT}{\mT*(\gE+\aB)}
+\pgfmathsetmacro{\FS}{\Sf*\FT}
+\pgfmathsetmacro{\nmu}{\nB*\muR}
+\pgfmathsetmacro{\FG}{\FS/\nmu}
+
+% Greifkraft fuer beliebiges mu und a (fuer die Tabelle)
+\newcommand{\Fval}[2]{\pgfmathsetmacro{\tmp}{\Sf*\mT*(\gE+#2)/(\nB*#1)}\num[round-mode=places,round-precision=1]{\tmp}}
+\newcommand{\Fvalb}[2]{\pgfmathsetmacro{\tmp}{\Sf*\mT*(\gE+#2)/(\nB*#1)}\textbf{\num[round-mode=places,round-precision=1]{\tmp}}}
+\newcommand{\R}[2]{\num[round-mode=places,round-precision=#2]{#1}}
+
+\begin{document}
+
+{\Large\bfseries Greifkraft -- erste Abschätzung}\par
+\vspace{-0.3em}
+{\color{grau}Robotergreifer Bauteil B \quad·\quad Gruppe 10, Bitsch / Ovdiienko \quad·\quad Stand 20.10.2026 (Woche 1)}
+
+\vspace{0.4em}
+Wie stark müssen die Backen zudrücken, damit Bauteil B beim Transport nicht aus dem Greifer rutscht?
+Der Greifer hält das Teil nur über Reibung (Reibschluss). Die Werte unten sind eine erste Abschätzung;
+Reibwert und Beschleunigung sind noch Annahmen und werden in der Auslegung bis zum Design Freeze bestätigt.
+
+\section*{1\quad Modell}
+
+\begin{minipage}[c]{0.46\textwidth}
+\centering
+\begin{tikzpicture}[scale=1.35,>={Stealth[length=2.6mm]}]
+  % Bauteil
+  \fill[grau!25] (-1,-1.2) rectangle (1,1.2);
+  \draw[thick] (-1,-1.2) rectangle (1,1.2);
+  \node at (0,0.55) {\small Bauteil B};
+  \node at (0,0.15) {\small $m$};
+  % Backen
+  \fill[graphit!80] (-1.45,-0.8) rectangle (-1,0.8);
+  \fill[graphit!80] (1,-0.8) rectangle (1.45,0.8);
+  \node[graphit,left] at (-1.45,1.0) {\small Backe};
+  \node[graphit,right] at (1.45,1.0) {\small Backe};
+  % Normalkraefte
+  \draw[->,very thick,kupfer] (-2.6,0) -- (-1.5,0) node[midway,above] {$F_G$};
+  \draw[->,very thick,kupfer] (2.6,0) -- (1.5,0) node[midway,above] {$F_G$};
+  % Reibkraefte
+  \draw[->,very thick,graphit] (-0.85,-0.6) -- (-0.85,0.5) node[pos=0.15,right] {\small $\mu F_G$};
+  \draw[->,very thick,graphit] (0.85,-0.6) -- (0.85,0.5) node[pos=0.15,left] {\small $\mu F_G$};
+  % Last
+  \draw[->,very thick] (0,-1.2) -- (0,-2.4) node[right] {$m\,(g+a)$};
+  % Beschleunigung
+  \draw[->,thick,dashed,grau] (2.2,-1.6) -- (2.2,-0.6) node[above] {\small $a$};
+\end{tikzpicture}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.5\textwidth}
+\begin{itemize}\setlength{\itemsep}{0.2em}
+  \item Zwei Backen drücken je mit der Greifkraft $F_G$ auf das Teil.
+  \item Jede Backe überträgt die Reibkraft $\mu\,F_G$ nach oben.
+  \item Nach unten wirken Gewicht und Trägheit. Ungünstigster Fall:
+        der Roboter beschleunigt das Teil mit $a$ nach oben, dann wirkt
+        $m\,(g+a)$.
+  \item Formschluss (Teil liegt auf einer Kante der Backe) wird nicht
+        angerechnet, das liegt auf der sicheren Seite.
+\end{itemize}
+\end{minipage}
+
+\section*{2\quad Annahmen}
+
+\begin{center}
+\begin{tabular}{@{}l c S[table-format=1.3] l l@{}}
+\toprule
+Größe & Zeichen & {Wert} & Einheit & Herkunft \\
+\midrule
+Teilemasse          & $m$     & \mT  & \si{\kilogram}               & Angabe (PA 6) \\
+Erdbeschleunigung   & $g$     & \gE  & \si{\metre\per\second\squared} & \\
+Bahnbeschleunigung  & $a$     & \aB  & \si{\metre\per\second\squared} & Annahme, folgt aus Bahn und Taktzeit \\
+Reibwert Backe/PA 6 & $\mu$   & \muR & --                           & Annahme, Quelle noch offen \\
+Sicherheitsfaktor   & $S$     & \Sf  & --                           & Annahme \\
+Reibflächen         & $n$     & \nB  & --                           & 2 Backen \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{3\quad Rechenweg}
+
+\textbf{Schritt 1 -- Bedingung für Halten.} Die Reibkraft aller Backen muss die Last mit Sicherheit $S$ tragen:
+\begin{equation}
+  n\,\mu\,F_G \;\ge\; S\,m\,(g+a)
+\end{equation}
+
+\textbf{Schritt 2 -- nach der Greifkraft auflösen:}
+\begin{equation}
+  F_G \;\ge\; \frac{S\,m\,(g+a)}{n\,\mu}
+\end{equation}
+
+\textbf{Schritt 3 -- Last aus Gewicht und Trägheit:}
+\begin{equation}
+  m\,(g+a) = \qty{\mT}{\kilogram}\cdot\left(\R{\gE}{2}+\R{\aB}{2}\right)\si{\metre\per\second\squared}
+           = \qty{\mT}{\kilogram}\cdot\qty[round-mode=places,round-precision=2]{\gpa}{\metre\per\second\squared}
+           = \qty[round-mode=places,round-precision=2]{\FT}{\newton}
+\end{equation}
+{\color{grau}\small Zum Vergleich: das Gewicht allein ist $m\,g = \qty[round-mode=places,round-precision=2]{\FW}{\newton}$.}
+
+\textbf{Schritt 4 -- Zahlen einsetzen:}
+\begin{equation}
+  F_G \;\ge\; \frac{\R{\Sf}{1}\cdot\qty[round-mode=places,round-precision=2]{\FT}{\newton}}{\nB\cdot\R{\muR}{2}}
+      = \frac{\qty[round-mode=places,round-precision=2]{\FS}{\newton}}{\R{\nmu}{2}}
+\end{equation}
+
+\begin{center}
+\fcolorbox{kupfer}{kupfer!8}{\parbox{0.6\textwidth}{\centering\large
+  $F_G \;\ge\; \qty[round-mode=places,round-precision=1]{\FG}{\newton}$ \ je Backe}}
+\end{center}
+
+\section*{4\quad Wie empfindlich ist das Ergebnis?}
+
+Der Reibwert ist die unsicherste Annahme. Halbiert er sich, verdoppelt sich die nötige Greifkraft.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.82\textwidth, height=6.4cm,
+  xmin=0.2, xmax=0.7, ymin=0, ymax=50,
+  xlabel={Reibwert $\mu$ (--)},
+  ylabel={Greifkraft je Backe $F_G$ in \si{\newton}},
+  grid=major, grid style={grau!25},
+  legend cell align=left,
+  legend style={font=\small, draw=grau!50, at={(0.5,-0.24)}, anchor=north, legend columns=2,
+                /tikz/every even column/.append style={column sep=1.2em}},
+  x tick label style={/pgf/number format/use comma, /pgf/number format/fixed},
+  every axis plot/.append style={thick, samples=60, domain=0.2:0.7},
+]
+  \addplot[graphit!60, dashed]  {\Sf*\mT*(\gE+0)/(\nB*x)};
+  \addlegendentry{$a = \qty{0}{\metre\per\second\squared}$ (Stillstand)}
+  \addplot[kupfer, very thick] {\Sf*\mT*(\gE+\aB)/(\nB*x)};
+  \addlegendentry{$a = \qty{\aB}{\metre\per\second\squared}$ (Annahme)}
+  \addplot[graphit, dotted, very thick] {\Sf*\mT*(\gE+5)/(\nB*x)};
+  \addlegendentry{$a = \qty{5}{\metre\per\second\squared}$ (schnelle Bahn)}
+  \addplot[grau, densely dashdotted, domain=0.2:0.7] {\Fmin};
+  \addlegendentry{Robotiq 2F-85: kleinste Greifkraft \qty{\Fmin}{\newton}}
+  \addplot[only marks, mark=*, mark size=2.6pt, kupfer, forget plot] coordinates {(\muR,\FG)};
+  \node[kupfer, anchor=north east, font=\small, fill=white, inner sep=1.5pt] at (axis cs:\muR,\FG) {\qty[round-mode=places,round-precision=1]{\FG}{\newton}};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\captionof*{table}{Greifkraft je Backe $F_G$ in \si{\newton}, mit $m = \qty{\mT}{\kilogram}$ und $S = \num{\Sf}$}
+\begin{tabular}{@{}c *{5}{r}@{}}
+\toprule
+& \multicolumn{5}{c}{Bahnbeschleunigung $a$ in \si{\metre\per\second\squared}} \\
+\cmidrule(l){2-6}
+Reibwert $\mu$ & 0 & 1 & 2 & 3 & 5 \\
+\midrule
+\num{0.2} & \Fval{0.2}{0} & \Fval{0.2}{1} & \Fval{0.2}{2} & \Fval{0.2}{3} & \Fval{0.2}{5} \\
+\num{0.3} & \Fval{0.3}{0} & \Fval{0.3}{1} & \Fval{0.3}{2} & \Fval{0.3}{3} & \Fval{0.3}{5} \\
+\num{0.4} & \Fval{0.4}{0} & \Fval{0.4}{1} & \Fval{0.4}{2} & \Fval{0.4}{3} & \Fval{0.4}{5} \\
+\num{0.5} & \Fval{0.5}{0} & \Fval{0.5}{1} & \Fvalb{0.5}{2} & \Fval{0.5}{3} & \Fval{0.5}{5} \\
+\num{0.6} & \Fval{0.6}{0} & \Fval{0.6}{1} & \Fval{0.6}{2} & \Fval{0.6}{3} & \Fval{0.6}{5} \\
+\num{0.7} & \Fval{0.7}{0} & \Fval{0.7}{1} & \Fval{0.7}{2} & \Fval{0.7}{3} & \Fval{0.7}{5} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{5\quad Einordnung und nächste Schritte}
+
+\begin{itemize}\setlength{\itemsep}{0.2em}
+  \item \textbf{Referenz Robotiq 2F-85:} Greifkraft einstellbar von \qty{\Fmin}{\newton} bis \qty{\Fmax}{\newton},
+        Hub \qty{85}{\milli\metre}. Der abgeschätzte Bedarf liegt sogar unter der kleinsten Einstellung.
+        Die Greifkraft ist damit voraussichtlich nicht der Punkt, der die Konstruktion bestimmt;
+        eher sind es Bauraum, Hub und Flächenpressung auf PA 6.
+  \item \textbf{Reibwert belegen:} Paarung Backenbelag / PA 6 aus Literatur oder Datenblatt, mit Quelle.
+  \item \textbf{Beschleunigung belegen:} aus der geplanten Bahn und der Taktzeit von \qty{5}{\second}.
+  \item \textbf{Weiter zum Antrieb:} aus $F_G$ über das Viergelenk die nötige Antriebskraft und daraus Motor und Spindel.
+\end{itemize}
+
+\end{document}

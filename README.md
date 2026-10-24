@@ -28,7 +28,7 @@ Two flat, parallel side faces 70 mm apart, 6200 mm² on the smaller side. The
 assignment allows gripping **from the side only** - no undergripping on the
 belt, which rules out both a vacuum cup and anything that reaches underneath.
 
-<img src="videos/pde-projektplan/assets/part/part_b_grip.png" width="520" alt="Top view of part B with both grip faces marked">
+<img src="shared/images/part_b_grip.png" width="520" alt="Top view of part B with both grip faces marked">
 
 ---
 
@@ -46,7 +46,7 @@ indeterminate, and on two flat faces it buys nothing.
 
 *Robotiq 2F-85 and 2F-140. Photo: Robotiq Inc., used as a design reference.*
 
-<img src="videos/pde-projektplan/assets/part/linkage.png" width="380" alt="Our four-bar linkage, open and closed">
+<img src="shared/images/linkage.png" width="380" alt="Our four-bar linkage, open and closed">
 
 *Our version: links 90 mm, swing +-4.46 degrees, 14 mm stroke per side.*
 
@@ -96,7 +96,6 @@ workpiece carrier. That goes into the report as a finding, not hidden.
 ├─ shared/
 │  ├─ submission/    final structure per Fig. 2 - German names, prescribed
 │  └─ references/
-├─ videos/           plan pitch video (HyperFrames)
 ├─ cad/ fem/ sim/    preliminary script chain, kept as reference
 └─ PLAN.md
 ```

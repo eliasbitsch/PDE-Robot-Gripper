@@ -13,7 +13,7 @@ privaten Anwendungen. Die normale Browser-Session zaehlt NICHT mit.
 Daraus folgen zwei Wege:
 
     "session"  Cookies einer angemeldeten Browser-Session  -> kostenlos
-    "key"      API-Key (derselbe Weg wie der MCP-Server)    -> zaehlt
+    "key"      API-Key                                     -> zaehlt
 
 Fuer iterative Arbeit (FeatureScript schreiben, pruefen, korrigieren) ist
 "session" der richtige Weg. "key" ist der Rueckfall, wenn keine Browser-Session
@@ -23,12 +23,9 @@ ENDPUNKTKATALOG
 
 Beide Wege sprechen Endpunkte ueber ihre operationId an (z.B.
 "getFeatureStudioContents"). Die Zuordnung operationId -> Pfad stammt aus
-endpoints.json; die Datei wird aus dem MCP-Server erzeugt:
-
-    python oscall.py onshape_api_search '{"query":""}' > endpoints.json
-
-Dieser MCP-Aufruf ist gratis - api_search arbeitet rein lokal auf einer
-eingebetteten OpenAPI-Spezifikation und geht nie ans Netz.
+endpoints.json; die Datei wird aus der oeffentlichen OpenAPI-Spezifikation
+von Onshape erzeugt (https://cad.onshape.com/glassworks/explorer). Das kostet
+keinen API-Aufruf.
 
 SITZUNG ERNEUERN
 
@@ -105,8 +102,7 @@ class Onshape:
         if not os.path.exists(KATALOG):
             raise ApiFehler(
                 "Endpunktkatalog fehlt (%s).\n"
-                "Erzeugen mit:  python oscall.py onshape_api_search '{\"query\":\"\"}' "
-                "> endpoints.json" % KATALOG)
+                "Aus der Onshape-OpenAPI-Spezifikation erzeugen." % KATALOG)
         roh = json.load(open(KATALOG, encoding="utf-8"))
         return {e["operation_id"]: e for e in roh}
 

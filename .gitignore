@@ -4,11 +4,7 @@ onshape/endpoints.json
 *.pyc
 __pycache__/
 moodle/
-videos/*/node_modules/
-videos/*/out/
-videos/*/.hyperframes/
-videos/*/capture-*/
-videos/*/.media/
-videos/*/snapshots*/
-videos/*/renders/
 robotiq.jpg
+videos/
+onshape/oscall.py
+out/onshape_session/
