@@ -35,8 +35,8 @@ def explode(o):
     rules = [
         ("Screw_ISO10642-M4x16_Adapter", 10, (0, 0, 230)), ("Adapter_ISO9409", 10, (0, 0, 190)),
         ("Screw_ISO4762-M3x6_Window", 9, (0, 80, 0)), ("Cable_Gland", 9, (0, 65, 0)), ("Window_Plate", 9, (0, 50, 0)),
-        ("Screw_ISO4762-M4x12_Hood", 3, (0, 0, 175)), ("Hood", 3, (0, 0, 140)),
-        ("Screw_ISO4762-M4x12_Gearbox", 2, (-40, 0, 60)), ("Screw_ISO4762-M4x12_Bracket", 2, (0, 0, 95)), ("Bracket", 2, (0, 0, 70)),
+        ("Screw_ISO4762-M4x12_Hood", 3, (0, 0, -60)), ("Hood", 3, (0, 0, 140)),
+        ("Screw_ISO4762-M4x12_Gearbox", 2, (-40, 0, 60)), ("Screw_ISO4762-M3x10_Bracket", 2, (0, 0, 95)), ("Bracket", 2, (0, 0, 70)),
         ("Bevel_Pinion", 2, (0, 0, 85)), ("Setscrew_ISO4029-M4x4_Wheel", 4, (-25, 0, 40)), ("Bevel_Wheel", 4, (0, 0, 40)),
         ("Bearing_608_upper", 4, (0, 0, 25)), ("Bearing_608_lower", 4, (0, 0, -30)), ("Pinion_Shaft", 4, (0, 0, -60)),
         ("Screw_ISO4762-M3x8_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),

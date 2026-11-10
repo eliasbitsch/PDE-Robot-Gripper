@@ -65,7 +65,7 @@ def gearbox_flange_x():
     return XP + P.BEVEL_Z * P.MODUL / 4 + P.GEAR_SHAFT_L    # shaft end reaches the small end of the bevel pinion
 
 
-def bracket_screws():
+def bracket_screws():  # M3
     return [(x, y) for x in (-40.0, -10.0) for y in (-P.BRACKET_FOOT_Y, P.BRACKET_FOOT_Y)]
 
 
@@ -78,19 +78,21 @@ def bracket():
     """Drive bracket: wall carries the gearbox output flange, two feet screwed to the top plate."""
     xf = gearbox_flange_x()
     w0, w1 = xf - P.BRACKET_T, xf
-    s = box(w0, w1, -P.BRACKET_FOOT_Y - 4, P.BRACKET_FOOT_Y + 4, P.PLATE_T, ZA + 22)
+    hw = P.BRACKET_FOOT_W / 2
+    s = box(w0, w1, -P.BRACKET_FOOT_Y - hw, P.BRACKET_FOOT_Y + hw, P.PLATE_T, ZA + 22)
     for sg in (-1, 1):
-        s = s.fuse(box(-45, 0, sg * (P.BRACKET_FOOT_Y - 4), sg * (P.BRACKET_FOOT_Y + 4), P.PLATE_T, P.PLATE_T + 6))
+        s = s.fuse(box(-45, 0, sg * (P.BRACKET_FOOT_Y - hw), sg * (P.BRACKET_FOOT_Y + hw), P.PLATE_T, P.PLATE_T + 6))
     s = s.removeSplitter()
     tools = [cylx(8.0, w0 - 1, w1 + 1, 0, ZA)]                                         # shaft + seal ring
     for y, dz in gearbox_screws():
         tools += [cylx(2.25, w0 - 1, w1 + 1, y, ZA + dz), cylx(3.75, w0 - 1, w0 + 4, y, ZA + dz)]
-    tools += [cylz(2.25, P.PLATE_T - 1, P.PLATE_T + 7, x, y) for x, y in bracket_screws()]   # M4 clearance in the feet
+    tools += [cylz(1.7, P.PLATE_T - 1, P.PLATE_T + 7, x, y) for x, y in bracket_screws()]    # M3 clearance in the feet
     return cut_all(s, tools)
 
 
 def hood_screws():
-    return [(x, y) for x in (-62.0, 62.0) for y in (-P.HOOD_LIP_Y, P.HOOD_LIP_Y)]
+    x, y = P.HOOD_SCREW_XY
+    return [(sx * x, sy * y) for sx in (-1, 1) for sy in (-1, 1)]
 
 
 WIN_X, WIN_Z = (30.0, 60.0), (30.0, 48.0)
@@ -101,19 +103,22 @@ def window_screws():
 
 
 def hood():
-    """Flat hood over the drive, milled from the solid; top carries the robot adapter."""
+    """Flat hood over the drive, milled from the solid; a seat ring on top carries the robot adapter."""
     hx, hy = P.HOUSING_X / 2, P.HOOD_Y
     top = P.HOOD_TOP
     s = rounded_box(-hx, hx, -hy, hy, P.PLATE_T, top, P.HOOD_R)
     s = chamfer_z_edges(s, top, P.EDGE_CHAMFER)
-    lip = rounded_box(-hx + 12, hx - 12, -P.HOOD_LIP_Y - 5, P.HOOD_LIP_Y + 5, P.PLATE_T, P.PLATE_T + 6, 6)
-    s = s.fuse(lip)
+    s = s.fuse(cylz(P.ADAPTER_D / 2, top - 0.1, top + P.HOOD_SEAT))
     s = s.cut(rounded_box(-hx + P.HOOD_WALL, hx - P.HOOD_WALL, -hy + P.HOOD_WALL, hy - P.HOOD_WALL,
                           P.PLATE_T - 1, top - P.HOOD_TOP_T, P.HOOD_R - P.HOOD_WALL))
-    tools = [cylz(P.LID_HOLE_D / 2, top - P.HOOD_TOP_T - 1, top + 1)]
+    for x, y in hood_screws():
+        s = s.fuse(cylz(4.5, P.PLATE_T, P.PLATE_T + 13.5, x, y))   # 2.5 mm above the blind thread
+    s = s.removeSplitter()
+    seat = top + P.HOOD_SEAT
+    tools = [cylz(P.LID_HOLE_D / 2, top - P.HOOD_TOP_T - 1, seat + 1)]
     r = P.ADAPTER_SCREW_PCD / 2
-    tools += [cylz(1.65, top - 6.5, top + 1, r * math.cos(math.radians(a)), r * math.sin(math.radians(a))) for a in (45, 135, 225, 315)]
-    tools += [cylz(2.25, P.PLATE_T - 1, P.PLATE_T + 7, x, y) for x, y in hood_screws()]
+    tools += [cylz(1.65, seat - 6.5, seat + 1, r * math.cos(math.radians(a)), r * math.sin(math.radians(a))) for a in (45, 135, 225, 315)]
+    tools += [cylz(1.65, P.PLATE_T - 1, P.PLATE_T + 11, x, y) for x, y in hood_screws()]          # M4 tapped from below
     tools.append(box(WIN_X[0], WIN_X[1], hy - P.HOOD_WALL - 1, hy + 1, WIN_Z[0], WIN_Z[1]))
     tools += [Part.makeCylinder(1.25, P.HOOD_WALL + 1, V(x, hy - P.HOOD_WALL - 0.5, z), V(0, 1, 0)) for x, z in window_screws()]
     return cut_all(s, tools).removeSplitter()

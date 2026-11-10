@@ -31,8 +31,12 @@ def vendor(name, rot, base):
 
 
 def brake(x, za):
-    """Brake turned about its axis so the lead stubs of the STEP stay inside the hood."""
-    return vendor("nanotec_bwa_035_5.step", App.Rotation(V(1, 0, 0), P.BRAKE_TURN_X), V(x, 0, za))
+    """BRAKE-BWA-0,35-5 simplified from the data sheet (the Nanotec STEP is an open shell with stray faces):
+    spigot d19 x 2.5 against the motor, body d35, overall 29.2 mm, bore 5."""
+    x0 = x - 9.7
+    s = Part.makeCylinder(9.5, 2.5, V(x0, 0, za), V(1, 0, 0))
+    s = s.fuse(Part.makeCylinder(17.5, 26.7, V(x0 + 2.5, 0, za), V(1, 0, 0)))
+    return s.cut(Part.makeCylinder(2.5, 30, V(x0 - 0.1, 0, za), V(1, 0, 0))).removeSplitter()
 
 
 def build_static(gear_pin, gear_racks, bev):
@@ -47,7 +51,7 @@ def build_static(gear_pin, gear_racks, bev):
         "Cover": (C.cover(), "EN AW-6082", 0),
         "Rail": (C.rail(), "steel", 0),
         "Hood": (D.hood(), "EN AW-6082", 0),
-        "Adapter_ISO9409": (C.iso_adapter(P.HOOD_TOP), "EN AW-6082", 0),
+        "Adapter_ISO9409": (C.iso_adapter(P.HOOD_TOP + P.HOOD_SEAT), "EN AW-6082", 0),
         "Bracket": (D.bracket(), "EN AW-6082", 0),
         "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 0, 1), 180), V(gb_t, 0, za)), "vendor", 0),
         "Motor": (vendor("nanotec_st4118s1404b.step", App.Rotation(V(0, 1, 0), -90), V(motor_t, 0, za)), "vendor", 0),   # connector +Y into the window
@@ -64,11 +68,11 @@ def build_static(gear_pin, gear_racks, bev):
     for i, (x, z) in enumerate(D.window_screws(), 1):
         parts[f"Screw_ISO4762-M3x6_Window{i}"] = (F.oriented(F.iso4762(3, 6, 0, 0, 0), V(x, P.HOOD_Y + P.WINDOW_PLATE_T, z), V(0, -1, 0)), "steel", 0)
     for i, (x, y) in enumerate(D.bracket_screws(), 1):
-        parts[f"Screw_ISO4762-M4x12_Bracket{i}"] = (F.iso4762(4, 12, x, y, P.PLATE_T + 6, up=False), "steel", 0)
+        parts[f"Screw_ISO4762-M3x10_Bracket{i}"] = (F.iso4762(3, 10, x, y, P.PLATE_T + 6, up=False), "steel", 0)
     for i, (y, dz) in enumerate(D.gearbox_screws(), 1):
         parts[f"Screw_ISO4762-M4x12_Gearbox{i}"] = (F.oriented(F.iso4762(4, 12, 0, 0, 0), V(xf - P.BRACKET_T + 4, y, za + dz), V(1, 0, 0)), "steel", 0)
     for i, (x, y) in enumerate(D.hood_screws(), 1):
-        parts[f"Screw_ISO4762-M4x12_Hood{i}"] = (F.iso4762(4, 12, x, y, P.PLATE_T + 6, up=False), "steel", 0)
+        parts[f"Screw_ISO4762-M4x12_Hood{i}"] = (F.iso4762(4, 12, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
     for side, tag in ((-1, "L"), (1, "R")):
         parts[f"Carriage_{tag}"] = (C.carriage(side * P.CARR_X0), "steel", side)
         parts[f"Slide_{tag}"] = (C.slide(side), "EN AW-6082", side)
@@ -96,7 +100,7 @@ def build_static(gear_pin, gear_racks, bev):
         parts[f"Screw_ISO4762-M3x8_Rail{i}"] = (F.iso4762(3, 8, x, P.RAIL_Y, P.RAIL_BASE_Z - P.RAIL_H + P.RAIL_CBORE_DEPTH), "steel", 0)
     for i, (x, y) in enumerate(C.cover_screws(), 1):
         parts[f"Screw_ISO4762-M3x10_Cover{i}"] = (F.iso4762(3, 10, x, y, P.POCKET_Z - P.COVER_T), "steel", 0)
-    z_ad = P.HOOD_TOP
+    z_ad = P.HOOD_TOP + P.HOOD_SEAT
     for i, (x, y) in enumerate(C.adapter_screws(), 1):
         parts[f"Screw_ISO10642-M4x16_Adapter{i}"] = (F.iso10642(4, 16, x, y, z_ad + P.ADAPTER_T), "steel", 0)
     return parts, {"flange_z": z_ad + P.ADAPTER_T}

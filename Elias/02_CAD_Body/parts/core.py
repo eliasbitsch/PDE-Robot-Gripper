@@ -88,11 +88,12 @@ def housing_body():
     xp = P.PINION_X
     s = s.fuse(cylz(P.BOSS_D / 2, P.PLATE_T - 0.1, P.BEARING_UPPER_Z + P.BEARING[2], xp, 0))   # bearing boss
     tools = [cylz(P.BEARING[1] / 2, -1, P.BEARING_LOWER_Z + P.BEARING[2], xp, 0),              # lower 608 seat
-             cylz(P.BEARING[0] / 2 + 1, -1, P.PLATE_T + 1, xp, 0),
+             cylz(P.BEARING[0] / 2 + 1, -1, P.BEARING_UPPER_Z + 0.1, xp, 0),
              cylz(P.BEARING[1] / 2, P.BEARING_UPPER_Z, P.BEARING_UPPER_Z + P.BEARING[2] + 1, xp, 0)]
     from parts import drive as D
-    tools += [cylz(1.65, 2.0, P.PLATE_T + 1, x, y) for x, y in D.bracket_screws()]          # M4 blind from the top
-    tools += [cylz(1.65, 2.0, P.PLATE_T + 1, x, y) for x, y in D.hood_screws()]                  # M4 blind from the top
+    tools += [cylz(1.25, 1.5, P.PLATE_T + 1, x, y) for x, y in D.bracket_screws()]          # M3 blind from the top
+    tools += [cylz(2.25, -1, P.PLATE_T + 1, x, y) for x, y in D.hood_screws()]                   # hood M4 from below
+    tools += [cylz(3.75, -1, P.GEAR_SCREW_CBORE, x, y) for x, y in D.hood_screws()]
     tools += [cylz(1.25, P.RAIL_BASE_Z - 1, 5, x, P.RAIL_Y) for x in rail_hole_x()]   # rail M3 tapped
     tools += [cylz(1.25, P.POCKET_Z - 1, P.POCKET_Z + 10, x, y) for x, y in cover_screws()]   # cover M3 tapped
     return cut_all(s, tools)
