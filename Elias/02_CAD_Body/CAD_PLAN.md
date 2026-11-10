@@ -113,3 +113,32 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 ## 7. Open points
 
 1. **Placement orientation on the workpiece carrier** (PLAN § 8.2) - still the only point that can change the grip direction.
+
+## 8. Manufacturing and assembly
+
+**Manufacturing.** One gripper per cell, so all housings are milled from the solid (EN AW-6082 T6): no tooling,
+chips are recycled. For a series the motor housing would become an extruded profile or a casting.
+Rules the build checks or the layout follows:
+
+- every hole of every own part keeps at least **1.5 mm** wall (`wall_check` in `build.py`)
+- inner pocket corners R6 (gear housing) and R10 (motor housing): standard Ø10 / Ø16 cutters
+- each housing is machined from two sides only (pocket from below, holes from the top)
+- outer edges R8 vertical, 1.5 mm chamfer on top edges, 0.5 mm on the cover
+
+**Few fastener variants:** ISO 4762 M3×8, M3×10, M4×16, M4×25, ISO 10642 M5×16, ISO 4029 M4×4,
+ISO 7089 3, ISO 8734 4×12. The Rexroth hole pattern fixes M3 at rail and carriages.
+
+**Assembly order** (every screw reachable with a straight hex key at its step):
+
+1. Gear housing upside down: rail against the reference edge, 5 × M3×8 (Rexroth asks for all holes)
+2. Nanotec drive (motor + gearbox + brake, supplied assembled) onto the top plate, 4 × M4×16 from below, heads flush
+3. Motor housing over the drive, 4 × M4×16 from below into the free-standing bosses, heads flush
+4. Pinion with key onto the gearbox shaft, set screw M4×4 from the side
+5. Carriages onto the rail, slides onto the carriages (4 × M3×8 each), racks onto the slides (2 × M3×10 each)
+6. Jaw holders with pressed-in dowels onto the slides, 2 × M4×25 each
+7. Bottom cover, 4 × M4×16
+8. Jaws onto the dowels until the plunger snaps in; pad plates 2 × M3×8 + washer each
+9. Window plate with cable gland, 4 × M3×8; cables
+10. Adapter onto the robot (ISO screws, robot side), gripper onto the adapter with 4 × M5×16 countersunk from the top
+
+Jaw change in the cell: pull the plunger knob, pull the jaw off the dowels, push the new one on.

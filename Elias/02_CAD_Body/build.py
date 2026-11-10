@@ -19,7 +19,7 @@ from parts import fasteners as F  # noqa: E402
 OUT = os.path.join(HERE, "out")
 VENDOR = os.path.join(HERE, "vendor")
 DENSITY = {"EN AW-6082": 2.70e-6, "EN AW-7075": 2.81e-6, "steel": 7.85e-6, "NBR": 1.20e-6}  # kg/mm3
-VENDOR_MASS = {"Gearbox": 0.30, "Motor": 0.20, "Brake": 0.15}  # kg, Nanotec datasheets
+VENDOR_MASS = {"Gearbox": 0.27, "Motor": 0.20, "Brake": 0.15, "Cable_Gland_Lapp_SKINTOP_M16": 0.01}  # kg, datasheets
 TOL = 0.05  # mm3, below this an overlap counts as touching
 
 
@@ -48,7 +48,13 @@ def build_static(gear_pin, gear_rack):
                          App.Rotation(V(0, 0, 1), 90).multiply(App.Rotation(V(1, 0, 0), 180)), V(0, 0, motor_base)), "vendor", 0),
         "Brake": (vendor("nanotec_bwa_035_5.step", App.Rotation(V(0, 1, 0), -90), V(0, 0, brake_base)), "vendor", 0),
         "Pinion": (C.pinion(gear_pin), "steel", "rot"),
+        "Setscrew_ISO4029-M4x4": (C.setscrew(), "steel", "rot"),
     }
+    wp, zc = C.window_plate(tower_top)
+    parts["Window_Plate"] = (wp, "EN AW-6082", 0)
+    parts["Cable_Gland_Lapp_SKINTOP_M16"] = (C.gland(zc), "vendor", 0)
+    for i, (y, z) in enumerate(C.window_screws(tower_top), 1):
+        parts[f"Screw_ISO4762-M3x8_Window{i}"] = (F.iso4762_x(3, 8, P.TOWER_X[1] + P.WINDOW_PLATE_T, y, z, -1), "steel", 0)
     for side, tag in ((-1, "L"), (1, "R")):
         parts[f"Carriage_{tag}"] = (C.carriage(side * P.CARR_X0), "steel", side)
         parts[f"Slide_{tag}"] = (C.slide(side), "EN AW-6082", side)
@@ -60,21 +66,23 @@ def build_static(gear_pin, gear_rack):
         parts[f"Pad_{tag}"] = (rubber, "NBR", side)
         _, _, xj1, _, _ = C.jaw_x(side)
         for i, (y, z) in enumerate(C.pad_screws(side), 1):
-            parts[f"Screw_ISO4762-M3x8_Pad{tag}{i}"] = (F.iso4762_x(3, 8, xj1 + side * 0.5, y, z, -side), "steel", side)
+            parts[f"Screw_ISO4762-M3x8_Pad{tag}{i}"] = (F.iso4762_x(3, 8, xj1 + side * 0.5, y, z, -side), "steel", side)  # tip at the rubber
             parts[f"Washer_ISO7089-3_Pad{tag}{i}"] = (F.iso7089_x(3, xj1, y, z, side), "steel", side)
         parts[f"Plunger_GN617-5-A_{tag}"] = (C.plunger(side), "steel", side)
         for i, y in enumerate((-P.DOWEL_Y, P.DOWEL_Y), 1):
             parts[f"Dowel_ISO8734-4x12_{tag}{i}"] = (C.dowel(side, y), "steel", side)
         for i, (x, y) in enumerate(C.holder_screws(side), 1):
             parts[f"Screw_ISO4762-M4x25_Holder{tag}{i}"] = (F.iso4762(4, 25, x, y, P.HOLDER_Z_LOW + 4.5), "steel", side)
+        for i, (x, y) in enumerate(C.rack_screws(side), 1):
+            parts[f"Screw_ISO4762-M3x10_Rack{tag}{i}"] = (F.iso4762(3, 10, x, y, P.SLIDE_Z_TOP - P.SLIDE_T + 3.2), "steel", side)
         for i, (x, y) in enumerate(C.carriage_holes(side * P.CARR_X0), 1):
             parts[f"Screw_ISO4762-M3x8_Carriage{tag}{i}"] = (F.iso4762(3, 8, x, y, P.SLIDE_Z_TOP - P.SLIDE_T + 3.2), "steel", side)
     for i, x in enumerate(C.rail_hole_x(), 1):
         parts[f"Screw_ISO4762-M3x8_Rail{i}"] = (F.iso4762(3, 8, x, P.RAIL_Y, -P.RAIL_H + 4.5), "steel", 0)
     for i, (x, y) in enumerate(P.TOWER_BOSS, 1):
-        parts[f"Screw_ISO4762-M4x20_Tower{i}"] = (F.iso4762(4, 20, x, y, P.PLATE_T + P.TOWER_BOSS_H, up=False), "steel", 0)
+        parts[f"Screw_ISO4762-M4x16_Tower{i}"] = (F.iso4762(4, 16, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
     for i, (x, y) in enumerate(C.cover_screws(), 1):
-        parts[f"Screw_ISO4762-M4x10_Cover{i}"] = (F.iso4762(4, 10, x, y, P.POCKET_Z - P.COVER_T), "steel", 0)
+        parts[f"Screw_ISO4762-M4x16_Cover{i}"] = (F.iso4762(4, 16, x, y, P.POCKET_Z - P.COVER_T), "steel", 0)
     for i, a in enumerate((45, 135, 225, 315), 1):
         x, y = 18 * math.cos(math.radians(a)), 18 * math.sin(math.radians(a))
         parts[f"Screw_ISO4762-M4x16_Gearbox{i}"] = (F.iso4762(4, 16, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
@@ -144,6 +152,89 @@ SKIP = {frozenset(p) for p in [("Gearbox", "Motor"), ("Motor", "Brake"), ("Gearb
 SKIP |= {frozenset(("Gearbox", f"Screw_ISO4762-M4x16_Gearbox{i}")) for i in range(1, 5)}  # thread depth in the vendor model unknown
 
 
+def wall_check(parts):
+    """Smallest wall around every hole of every own machined part."""
+    own = [n for n, (_, m, _) in parts.items() if m in ("EN AW-6082", "EN AW-7075") or n.startswith("PadPlate")]
+    thin = []
+    for name in own:
+        s = parts[name][0]
+        faces = s.Faces
+        edges_of = [set(e.hashCode() for e in f.Edges) | set(v.hashCode() for v in f.Vertexes) for f in faces]
+        for i, f in enumerate(faces):
+            su = f.Surface
+            if not isinstance(su, Part.Cylinder) or su.Radius > 6.5:
+                continue
+            u0, u1, v0, v1 = f.ParameterRange
+            p = f.valueAt((u0 + u1) / 2, (v0 + v1) / 2)
+            n = f.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+            to_axis = su.Center + su.Axis * (p - su.Center).dot(su.Axis) - p
+            if to_axis.dot(n) <= 0:          # boss, not a hole
+                continue
+            near = f.BoundBox
+            near.enlarge(P.WALL_MIN)                 # in place
+            best = 1e9
+            for j, g in enumerate(faces):
+                if j == i or edges_of[i] & edges_of[j]:
+                    continue
+                gs = g.Surface
+                if isinstance(gs, Part.Cylinder) and (gs.Center - su.Center).cross(su.Axis).Length < 1e-3                         and abs(abs(gs.Axis.dot(su.Axis)) - 1) < 1e-6:
+                    continue                 # same hole: other half, counterbore or thread core
+                if not g.BoundBox.intersect(near):
+                    continue
+                best = min(best, f.distToShape(g)[0])
+            if best < P.WALL_MIN:
+                c = f.BoundBox.Center
+                thin.append((name, round(su.Radius * 2, 2), round(best, 2), (round(c.x, 1), round(c.y, 1), round(c.z, 1))))
+    return thin
+
+
+BOM_INFO = {
+    "Housing": ("Gear housing", "own part, milled", "EN AW-6082 T6"),
+    "Cover": ("Bottom cover", "own part, cut + milled", "EN AW-6082 T6"),
+    "Tower": ("Motor housing", "own part, milled", "EN AW-6082 T6"),
+    "Adapter_ISO9409": ("Robot adapter ISO 9409-1-50-4-M6", "own part, turned", "EN AW-6082 T6"),
+    "Window_Plate": ("Cable window plate", "own part, cut", "EN AW-6082 T6"),
+    "Slide": ("Slide", "own part, milled", "EN AW-6082 T6"),
+    "Holder": ("Jaw holder", "own part, milled", "EN AW-6082 T6"),
+    "Jaw": ("Jaw", "own part, milled", "EN AW-7075 T6"),
+    "PadPlate": ("Pad plate, rubber-metal (steel 3 + NBR 70 Sh A 3)", "bought to drawing", "S235 / NBR"),
+    "Pad": None,                                   # part of the pad plate
+    "Rail": ("Miniature ball rail size 12, L = 135, T1 = 17.5", "Bosch Rexroth R0445", "steel"),
+    "Carriage": ("Ball carriage SLS size 12", "Bosch Rexroth R0444 213 01", "steel"),
+    "Rack": ("Rack m = 1, 10 x 12, cut to 56.5", "Maedler", "C45"),
+    "Pinion": ("Spur gear m = 1, z = 20, with hub, bored 8 H7 + keyway", "Maedler", "C45"),
+    "Gearbox": ("Planetary gearbox GP42-S1-7-SR", "Nanotec", "-"),
+    "Motor": ("Stepper motor ST4118S1404-B", "Nanotec", "-"),
+    "Brake": ("Spring-applied brake BRAKE-BWA-0,35-5, 24 V", "Nanotec", "-"),
+    "Cable_Gland_Lapp_SKINTOP_M16": ("Cable gland SKINTOP STR-M 16x1.5", "Lapp", "PA"),
+    "Plunger_GN617-5-A": ("Indexing plunger GN 617-5-A", "Ganter", "steel"),
+}
+
+
+def bom(parts, masses):
+    import re
+    rows = {}
+    for name in parts:
+        if name.split("_")[0] in ("Screw", "Dowel", "Washer", "Setscrew"):
+            std = name.split("_")[1]
+            m = re.match(r"(ISO\d+)-(.*)", std)
+            grade = {"4762": "steel 8.8", "10642": "steel 8.8", "4029": "steel 45H", "7089": "steel 200 HV"}.get(m.group(1)[3:], "steel")
+            key = (f"ISO {m.group(1)[3:]} {m.group(2)}", "standard part", grade)
+        else:
+            info = BOM_INFO.get(re.sub(r"_[LR]$", "", name), (name, "?", "?"))
+            if info is None:
+                continue
+            key = info
+        r = rows.setdefault(key, [0, 0.0])
+        r[0] += 1
+        r[1] += masses.get(name, 0.0)
+    order = lambda kv: (kv[0][1] == "standard part", kv[0][1].startswith("own") is False, kv[0][0])
+    lines = ["Pos;Qty;Designation;Standard / supplier;Material;Mass each [g]"]
+    for i, (k, (q, m)) in enumerate(sorted(rows.items(), key=order), 1):
+        lines.append(f"{i};{q};{k[0]};{k[1]};{k[2]};{1000 * m / q:.0f}")
+    return lines
+
+
 def interference(shapes):
     hits = []
     for a, b in itertools.combinations(shapes, 2):
@@ -172,6 +263,10 @@ def main():
         hits = interference(shapes)
         report["positions"][label] = hits
         print(f"{label:6s} d={d:4.1f}  pads {2 * (P.PAD_X0 + d):5.1f} mm  interference: {hits or 'none'}")
+
+    thin = wall_check(parts)
+    report["thin_walls"] = thin
+    print(f"wall check (min {P.WALL_MIN} mm around holes): {thin or 'ok'}")
 
     seq_hits, n = [], 0
     t = 0.0
@@ -238,6 +333,10 @@ def main():
            "moving": {n: m for n, (_, _, m) in parts.items() if m}, "material": {n: m for n, (_, m, _) in parts.items()}}
     with open(os.path.join(OUT, "kinematics.json"), "w") as f:
         json.dump(kin, f, indent=1)
+    lines = bom(parts, masses)
+    with open(os.path.join(OUT, "bom.csv"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"BOM: {len(lines) - 1} positions -> out/bom.csv")
     report["mass_kg"] = mass
     report["mass_parts_kg"] = masses
     with open(os.path.join(OUT, "checks.json"), "w") as f:

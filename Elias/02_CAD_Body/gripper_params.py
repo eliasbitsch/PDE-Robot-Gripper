@@ -50,9 +50,9 @@ RAIL_Y = -36.0                      # rail offset so racks and pinion hub stay c
 RAIL_L, RAIL_T1, RAIL_NB = 135.0, 17.5, 5   # L = (nB-1)*T + 2*T1, Rexroth allows custom T1
 
 PLATE_T = 10.0                      # top plate
-WALL = 5.0
-HOUSING_X = 150.0
-HOUSING_Y = (-57.0, 35.0)
+WALL = 9.0                          # M4 cover screws need meat on both sides
+HOUSING_X = 158.0
+HOUSING_Y = (-63.0, 39.0)           # back wall 9 mm behind the widened slides
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
 COVER_T = 4.0
 
@@ -65,6 +65,9 @@ RACK_REL = -5.0                     # rack start relative to its carriage centre
 SLIDE_TRIM_X = 12.0                 # slides keep |x| > 12 near y = 0 (pinion hub)
 
 PINION_HUB_D, PINION_HUB_L, PINION_BORE = 16.0, 8.0, 8.0
+SETSCREW_Z = -16.0                  # ISO 4029 M4x4 in the hub, 90 deg from the key
+GLAND = ("Lapp SKINTOP STR-M 16x1.5", 16.0, 22.0, 18.0)  # thread, hex/body dia, length outside (approx.)
+WINDOW_PLATE_T = 3.0
 
 PAD_T = 3.0                         # NBR 70 Shore A, vulcanised onto the pad plate (oil resistant)
 PAD_PLATE_T = 3.0                   # steel backing plate, sits in a pocket in the jaw, 2 x M3 from the back
@@ -78,19 +81,21 @@ JAW_Z_TOP = -28.5                   # jaw starts just under the cover
 
 # Jaw quick change: holder on the slide reaches through the cover; jaw sits on its inner face.
 HOLDER_T_TOP, HOLDER_T_LOW = 8.0, 14.0   # X thickness above / below the cover
-HOLDER_W = 28.0
-HOLDER_Z_LOW = -45.0
-HOLDER_SCREW_Y = 10.5
-DOWEL_D, DOWEL_L, DOWEL_Y, DOWEL_Z = 4.0, 12.0, 5.5, -33.0   # ISO 8734 4 m6 x 12
-PLUNGER_Z = -40.0
+HOLDER_W = 38.0                     # 2 mm wall beside the screw counterbores
+HOLDER_Z_LOW = -47.0
+HOLDER_SCREW_Y = 13.0
+DOWEL_D, DOWEL_L, DOWEL_Y, DOWEL_Z = 4.0, 12.0, 5.5, -32.0   # ISO 8734 4 m6 x 12
+PLUNGER_Z = -39.0
 
-TOWER_X, TOWER_Y = (-40.0, 40.0), (-57.0, 35.0)   # flush with the housing front and back
+TOWER_X, TOWER_Y = (-40.0, 40.0), (-63.0, 39.0)   # flush with the housing front and back
 TOWER_R, TOWER_WALL, LID_T, LID_HOLE_D = 14.0, 4.0, 8.0, 62.0
 TOWER_BOSS_H = 16.0
-GEAR_SCREW_CBORE = 4.4                # M4 heads flush in the plate underside, racks pass 2 mm below
-TOWER_BOSS = [(-31.0, -41.0), (31.0, -41.0), (-29.0, 24.0), (29.0, 24.0)]
-ADAPTER_D, ADAPTER_SCREW_PCD = 84.0, 70.0   # round ISO adapter, M5 countersunk outside the robot flange
-HOUSING_R, EDGE_CHAMFER = 8.0, 1.5
+GEAR_SCREW_CBORE = 4.4                # M4 heads flush in the plate underside (gearbox and tower screws)
+WALL_MIN = 1.5                      # checked for every hole of every own part
+TOWER_BOSS = [(-31.0, -25.0), (31.0, -25.0), (-29.0, 27.0), (29.0, 27.0)]   # free-standing, screwed from below
+ADAPTER_D, ADAPTER_SCREW_PCD = 88.0, 72.0   # round ISO adapter, M5 countersunk outside the robot flange
+HOUSING_R, EDGE_CHAMFER, COVER_CHAMFER = 8.0, 1.5, 0.5
+SLIDE_EDGE = 2.5                    # slide wider than the carriage so the M3 counterbores keep a wall
 GEAR_FLANGE_Z = PLATE_T             # gearbox output flange on top of the plate
 ADAPTER_T, ISO_PCD, ISO_SPIGOT_D, ISO_SPIGOT_H = 10.0, 50.0, 31.5, 5.0
 BACKLASH_SHIFT = 0.05               # racks 0.05 mm further out -> about 0.036 mm flank backlash
