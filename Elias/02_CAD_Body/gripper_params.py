@@ -51,7 +51,7 @@ RAIL_L, RAIL_T1, RAIL_NB = 135.0, 17.5, 5   # L = (nB-1)*T + 2*T1, Rexroth allow
 
 PLATE_T = 10.0                      # top plate
 WALL = 9.0                          # M4 cover screws need meat on both sides
-HOUSING_X = 158.0
+HOUSING_X = 162.0
 HOUSING_Y = (-63.0, 39.0)           # back wall 9 mm behind the widened slides
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
 COVER_T = 4.0
@@ -60,8 +60,10 @@ SLIDE_T = 8.0
 SLIDE_Z_TOP = -CARRIAGE_H           # slide sits under the hanging carriage
 RACK_GAP = 1.0                      # racks float 1 mm above the opposite slide
 RACK_Z0 = SLIDE_Z_TOP + RACK_GAP    # rack and pinion bottom
-RACK_TEETH = 18                     # 18 * pi = 56.5 mm
-RACK_REL = -5.0                     # rack start relative to its carriage centre, towards the pinion
+RACK_TEETH = 20                     # 20 * pi = 62.8 mm
+RACK_REL = -12.0                    # rack outer end beyond its carriage centre (room for slots + pin)
+RACK_SCREW_X, RACK_PIN_X, RACK_SLOT = (18.0, 32.5), 25.0, 1.0   # at d = 0; slots +-1 mm along X
+# rack position is set at assembly (jaws symmetric), then pinned: ISO 8734 3 m6 x 14, hole drilled/reamed at assembly
 SLIDE_TRIM_X = 12.0                 # slides keep |x| > 12 near y = 0 (pinion hub)
 
 PINION_HUB_D, PINION_HUB_L, PINION_BORE = 16.0, 8.0, 8.0
@@ -80,10 +82,11 @@ PAD_Z = (-95.0, -60.0)              # part z -3..32: flat on both sides
 JAW_Z_TOP = -28.5                   # jaw starts just under the cover
 
 # Jaw quick change: holder on the slide reaches through the cover; jaw sits on its inner face.
-HOLDER_T_TOP, HOLDER_T_LOW = 8.0, 14.0   # X thickness above / below the cover
+HOLDER_T_TOP, HOLDER_T_LOW = 10.0, 14.0  # X thickness above / below the cover
 HOLDER_W = 38.0                     # 2 mm wall beside the screw counterbores
 HOLDER_Z_LOW = -47.0
 HOLDER_SCREW_Y = 13.0
+HOLDER_SCREW_X = 5.5                # from the jaw contact face: counterbore keeps 1.5 mm to it
 DOWEL_D, DOWEL_L, DOWEL_Y, DOWEL_Z = 4.0, 12.0, 5.5, -32.0   # ISO 8734 4 m6 x 12
 PLUNGER_Z = -39.0
 
@@ -92,7 +95,7 @@ TOWER_R, TOWER_WALL, LID_T, LID_HOLE_D = 14.0, 4.0, 8.0, 62.0
 TOWER_BOSS_H = 16.0
 GEAR_SCREW_CBORE = 4.4                # M4 heads flush in the plate underside (gearbox and tower screws)
 WALL_MIN = 1.5                      # checked for every hole of every own part
-TOWER_BOSS = [(-31.0, -25.0), (31.0, -25.0), (-29.0, 27.0), (29.0, 27.0)]   # free-standing, screwed from below
+TOWER_BOSS = [(-31.0, -25.0), (31.0, -25.0), (-29.0, 24.5), (29.0, 24.5)]   # free-standing, screwed from below
 ADAPTER_D, ADAPTER_SCREW_PCD = 88.0, 72.0   # round ISO adapter, M5 countersunk outside the robot flange
 HOUSING_R, EDGE_CHAMFER, COVER_CHAMFER = 8.0, 1.5, 0.5
 SLIDE_EDGE = 2.5                    # slide wider than the carriage so the M3 counterbores keep a wall

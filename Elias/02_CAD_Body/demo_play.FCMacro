@@ -28,6 +28,36 @@ def get_doc():
     return App.openDocument(path)
 
 
+# Exploded view: (assembly step from CAD_PLAN.md section 8, offset at full explosion). Side = o.Side (-1 / +1).
+def explode(o):
+    n, s = o.Label, o.Side   # FreeCAD turns "-" into "_" in names and labels
+    rules = [
+        ("Screw_ISO10642-M5x16_Adapter", 10, (0, 0, 230)), ("Adapter_ISO9409", 10, (0, 0, 190)),
+        ("Screw_ISO4762-M3x8_Window", 9, (80, 0, 0)), ("Cable_Gland", 9, (65, 0, 0)), ("Window_Plate", 9, (50, 0, 0)),
+        ("Screw_ISO4762-M3x8_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),
+        ("PadPlate_", 8, (-10 * s, 0, -235)), ("Pad_", 8, (-10 * s, 0, -235)), ("Jaw_", 8, (12 * s, 0, -200)),
+        ("Screw_ISO4762-M4x16_Cover", 7, (0, 0, -175)), ("Cover", 7, (0, 0, -140)),
+        ("Plunger_", 6, (40 * s, 0, -120)), ("Dowel_ISO8734-4x12", 6, (-15 * s, 0, -120)),
+        ("Screw_ISO4762-M4x25_Holder", 6, (0, 0, -150)), ("Holder_", 6, (0, 0, -120)),
+        ("Screw_ISO4762-M3x8_Carriage", 5, (0, 0, -115)), ("Screw_ISO4762-M3x10_Rack", 5, (0, 0, -115)),
+        ("Dowel_ISO8734-3x14_Rack", 5, (0, 0, -115)), ("Slide_", 5, (0, 0, -90)), ("Carriage_", 5, (0, 0, -55)),
+        ("Rack_", 5, (0, 0, -55)),
+        ("Setscrew_", 4, (-25, 0, -40)), ("Pinion", 4, (0, 0, -40)),
+        ("Screw_ISO4762-M4x16_Tower", 3, (0, 0, -55)), ("Tower", 3, (0, 0, 150)),
+        ("Screw_ISO4762-M4x16_Gearbox", 2, (0, 0, -50)), ("Gearbox", 2, (0, 0, 60)), ("Motor", 2, (0, 0, 60)),
+        ("Brake", 2, (0, 0, 60)),
+        ("Screw_ISO4762-M3x8_Rail", 1, (0, 0, -60)), ("Rail", 1, (0, 0, -35)),
+    ]
+    n = n.replace("-", "_")
+    for prefix, step, off in rules:
+        if n.startswith(prefix.replace("-", "_")):
+            return step, App.Vector(*off)
+    return 0, App.Vector(0, 0, 0)
+
+
+N_STEPS = 10
+
+
 class Demo(QtGui.QDockWidget):
     def __init__(self, doc):
         super().__init__("Greifer-Demo")
@@ -64,11 +94,49 @@ class Demo(QtGui.QDockWidget):
         self.info = QtGui.QLabel()
         self.info.setStyleSheet("font-family: Consolas, monospace;")
         lay.addWidget(self.info)
+        lay.addWidget(QtGui.QLabel("Explosionsansicht"))
+        self.ex = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.ex.setRange(0, 100)
+        self.ex.valueChanged.connect(lambda v: self.seek(self.t))
+        lay.addWidget(self.ex)
+        self.asm = QtGui.QPushButton("Montage Schritt für Schritt")
+        self.asm.clicked.connect(self.play_assembly)
+        lay.addWidget(self.asm)
+        self.step_info = QtGui.QLabel()
+        self.step_info.setWordWrap(True)
+        lay.addWidget(self.step_info)
         lay.addStretch(1)
         self.setWidget(w)
+        self.explode = {o.Name: explode(o) for o in self.objs}
+        self.asm_tau = None
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.tick)
+        self.asm_timer = QtCore.QTimer()
+        self.asm_timer.timeout.connect(self.tick_assembly)
         self.seek(0.0)
+
+    STEP_TEXT = ["", "Schiene an Anschlagkante, 5 × M3×8", "Antrieb auf die Deckplatte, 4 × M4×16 von unten",
+                 "Motorgehäuse über den Antrieb, 4 × M4×16 von unten", "Ritzel mit Passfeder, Gewindestift M4×4",
+                 "Wagen, Schlitten (4 × M3×8), Zahnstangen (2 × M3×10 im Langloch, ausrichten, Stift Ø3)",
+                 "Backenhalter mit Passstiften, 2 × M4×25", "Deckel, 4 × M4×16",
+                 "Backen auf die Stifte, Arretierbolzen rastet ein; Belagplatten 2 × M3×8",
+                 "Fensterplatte mit Kabelverschraubung, 4 × M3×8", "Adapter am Roboter, Greifer mit 4 × M5×16 von oben"]
+
+    def play_assembly(self):
+        self.timer.stop()
+        self.btn.setText("▶  Play")
+        self.asm_tau = 0.0
+        self.last = QtCore.QElapsedTimer()
+        self.last.start()
+        self.asm_timer.start(20)
+
+    def tick_assembly(self):
+        self.asm_tau += self.last.restart() / 1000.0 * 0.8      # steps per second
+        if self.asm_tau >= N_STEPS + 1:
+            self.asm_timer.stop()
+            self.asm_tau = None
+            self.step_info.setText("")
+        self.seek(self.t)
 
     def toggle(self):
         if self.timer.isActive():
@@ -92,11 +160,26 @@ class Demo(QtGui.QDockWidget):
     def seek(self, t):
         self.t = t
         d, zg, zp = demo_seq.state(t, P.D_GRIP)
+        f_all = self.ex.value() / 100.0
+        exploding = f_all > 0 or self.asm_tau is not None
+        if exploding:
+            d, zg, zp = P.D_GRIP, 0.0, 0.0
         dd = d - P.D_GRIP
         ang = math.degrees(dd / (P.PINION_D / 2))
         grip = d <= P.D_GRIP + 1e-6
+        if self.asm_tau is not None:
+            k = min(int(self.asm_tau), N_STEPS)
+            self.step_info.setText(f"Schritt {k}: {self.STEP_TEXT[k]}" if k else "Gehäuse als Basis")
         for o in self.objs:
+            if o.Role in ("part", "table"):
+                o.ViewObject.Visibility = not exploding
+            step, off = self.explode[o.Name]
+            if self.asm_tau is not None:      # parts arrive in assembly order
+                f = 1.0 if self.asm_tau < step else max(0.0, 1.0 - (self.asm_tau - step))
+            else:
+                f = f_all
             base = o.BasePlacement   # shapes carry their own placement from the build; move relative to it
+            base = App.Placement(off * f, App.Rotation()).multiply(base)
             if o.Role == "slide":
                 delta = App.Placement(App.Vector(o.Side * dd, 0, zg), App.Rotation())
             elif o.Role == "pinion":
@@ -108,7 +191,7 @@ class Demo(QtGui.QDockWidget):
             else:
                 delta = App.Placement()
             o.Placement = delta.multiply(base)
-            if o.Name.startswith("Pad_"):
+            if o.Label.startswith("Pad_"):
                 o.ViewObject.ShapeColor = GRIP_COLOR if grip else PAD_COLOR
         phase = "hält Bauteil B" if grip else ("schließt" if dd > 0 and zg == 0 else "offen")
         self.info.setText(f"t = {t:4.1f} s\nBackenabstand {2 * (P.PAD_X0 + d):5.1f} mm\n"

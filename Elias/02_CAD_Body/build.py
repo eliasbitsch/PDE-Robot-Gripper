@@ -73,6 +73,7 @@ def build_static(gear_pin, gear_rack):
             parts[f"Dowel_ISO8734-4x12_{tag}{i}"] = (C.dowel(side, y), "steel", side)
         for i, (x, y) in enumerate(C.holder_screws(side), 1):
             parts[f"Screw_ISO4762-M4x25_Holder{tag}{i}"] = (F.iso4762(4, 25, x, y, P.HOLDER_Z_LOW + 4.5), "steel", side)
+        parts[f"Dowel_ISO8734-3x14_Rack{tag}"] = (C.rack_dowel(side), "steel", side)
         for i, (x, y) in enumerate(C.rack_screws(side), 1):
             parts[f"Screw_ISO4762-M3x10_Rack{tag}{i}"] = (F.iso4762(3, 10, x, y, P.SLIDE_Z_TOP - P.SLIDE_T + 3.2), "steel", side)
         for i, (x, y) in enumerate(C.carriage_holes(side * P.CARR_X0), 1):
@@ -170,15 +171,47 @@ def wall_check(parts):
             to_axis = su.Center + su.Axis * (p - su.Center).dot(su.Axis) - p
             if to_axis.dot(n) <= 0:          # boss, not a hole
                 continue
+            if (u1 - u0) <= math.pi / 2 + 0.05 and all(not isinstance(g.Surface, Part.Cylinder) or g.Surface.Radius != su.Radius
+                                                       for j, g in enumerate(faces) if j != i and edges_of[i] & edges_of[j]):
+                continue                     # quarter cylinder = pocket corner fillet, not a hole
             near = f.BoundBox
             near.enlarge(P.WALL_MIN)                 # in place
             best = 1e9
+            # a wall that is cut into or touched becomes a neighbour of the hole: catch it here
+            for j, g in enumerate(faces):
+                if j == i or not (edges_of[i] & edges_of[j]):
+                    continue
+                gs = g.Surface
+                if isinstance(gs, Part.Plane) and abs(abs(gs.Axis.dot(su.Axis)) - 1) < 1e-6:
+                    continue                 # entry face or counterbore floor
+                if isinstance(gs, (Part.Cylinder, Part.Cone)) and (gs.Center - su.Center).cross(su.Axis).Length < 1e-3:
+                    continue                 # coaxial: counterbore, thread core, countersink
+                shared = [e for e in f.Edges if any(e.isSame(e2) for e2 in g.Edges)]
+                if not shared:
+                    best = 0.0               # touches only at a point
+                    continue
+                pt = shared[0].valueAt(sum(shared[0].ParameterRange) / 2)
+                nf = f.normalAt(*f.Surface.parameter(pt))
+                ng = g.normalAt(*g.Surface.parameter(pt))
+                if nf.dot(ng) < 0.98:        # smooth continuation (slot side) is fine, anything else is a breakout
+                    best = 0.0
+            own_radii = {round(g.Surface.Radius, 3) for g in faces if isinstance(g.Surface, Part.Cylinder)
+                         and abs(abs(g.Surface.Axis.dot(su.Axis)) - 1) < 1e-6
+                         and (g.Surface.Center - su.Center).cross(su.Axis).Length <= 2 * P.RACK_SLOT + 1e-3}
             for j, g in enumerate(faces):
                 if j == i or edges_of[i] & edges_of[j]:
                     continue
                 gs = g.Surface
-                if isinstance(gs, Part.Cylinder) and (gs.Center - su.Center).cross(su.Axis).Length < 1e-3                         and abs(abs(gs.Axis.dot(su.Axis)) - 1) < 1e-6:
-                    continue                 # same hole: other half, counterbore or thread core
+                if isinstance(gs, Part.Cylinder) and abs(abs(gs.Axis.dot(su.Axis)) - 1) < 1e-6:
+                    off = (gs.Center - su.Center).cross(su.Axis).Length
+                    if off < 1e-3:
+                        continue             # same hole: other half, counterbore or thread core
+                    if off <= 2 * P.RACK_SLOT + 1e-3:
+                        continue             # other end of the same slot
+                if isinstance(gs, Part.Plane) and abs(gs.Axis.dot(su.Axis)) < 1e-6:
+                    d_axis = abs((su.Center - gs.Position).dot(gs.Axis))
+                    if any(abs(d_axis - r) < 1e-3 for r in own_radii):
+                        continue             # straight side of the same slot or slotted counterbore
                 if not g.BoundBox.intersect(near):
                     continue
                 best = min(best, f.distToShape(g)[0])
@@ -291,6 +324,18 @@ def main():
     mass = sum(masses.values())
     print("  " + ", ".join(f"{n} {1000 * v:.0f} g" for n, v in sorted(masses.items(), key=lambda kv: -kv[1])))
     print(f"mass {mass:.3f} kg (own parts from volume, Nanotec from datasheets)")
+    m_sum, mom = 0.0, V(0, 0, 0)
+    for n, (sh, _, _) in parts.items():
+        if masses[n] <= 0:
+            continue
+        sol = sh.Solids
+        c = sum((so.CenterOfMass * so.Volume for so in sol), V(0, 0, 0)) * (1 / sum(so.Volume for so in sol)) if sol else sh.BoundBox.Center
+        mom += c * masses[n]
+        m_sum += masses[n]
+    cog = mom * (1 / m_sum)
+    print(f"centre of mass from the flange face: x {cog.x:.1f}, y {cog.y:.1f}, z {cog.z - info['flange_z']:.1f} mm; "
+          f"TCP (grip centre) z {P.PART_OFFSET[2] + 17.5 - info['flange_z']:.1f} mm")
+    report["cog_from_flange_mm"] = [cog.x, cog.y, cog.z - info["flange_z"]]
     print(f"grip force: needed {P.F_GRIP_OILY:.1f} N per jaw (oily, mu {P.MU_OILY}), available {P.F_JAW_MAX:.1f} N "
           f"(x{P.F_JAW_MAX / P.F_GRIP_OILY:.2f}), brake {P.T_PINION_BRAKE:.2f} N*m at the pinion")
     print(f"flange face z = {info['flange_z']:.1f}, cover underside z = {P.POCKET_Z - P.COVER_T:.1f}, "
