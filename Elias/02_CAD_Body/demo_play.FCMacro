@@ -16,7 +16,7 @@ importlib.reload(demo_seq)
 
 COLORS = {"EN AW-6082": (0.72, 0.75, 0.78), "EN AW-7075": (0.76, 0.25, 0.05), "steel": (0.45, 0.48, 0.50),
           "vendor": (0.16, 0.17, 0.18), "NBR": (0.08, 0.08, 0.08), "PA 6": (0.93, 0.90, 0.80), "table": (0.35, 0.38, 0.40)}
-SEE_THROUGH = {"Housing": 70, "Cover": 70, "Tower": 70}
+SEE_THROUGH = {"Housing": 70, "Cover": 70, "Hood": 70}
 GRIP_COLOR, PAD_COLOR = (0.15, 0.65, 0.25), COLORS["NBR"]
 
 
@@ -33,7 +33,11 @@ def explode(o):
     n, s = o.Label, o.Side   # FreeCAD turns "-" into "_" in names and labels
     rules = [
         ("Screw_ISO10642-M4x16_Adapter", 10, (0, 0, 230)), ("Adapter_ISO9409", 10, (0, 0, 190)),
-        ("Screw_ISO4762-M3x8_Window", 9, (80, 0, 0)), ("Cable_Gland", 9, (65, 0, 0)), ("Window_Plate", 9, (50, 0, 0)),
+        ("Screw_ISO4762-M3x6_Window", 9, (0, 80, 0)), ("Cable_Gland", 9, (0, 65, 0)), ("Window_Plate", 9, (0, 50, 0)),
+        ("Screw_ISO4762-M4x12_Hood", 3, (0, 0, 175)), ("Hood", 3, (0, 0, 140)),
+        ("Screw_ISO4762-M4x12_Gearbox", 2, (-40, 0, 60)), ("Screw_ISO4762-M4x12_Bracket", 2, (0, 0, 95)), ("Bracket", 2, (0, 0, 70)),
+        ("Bevel_Pinion", 2, (0, 0, 85)), ("Setscrew_ISO4029-M4x4_Wheel", 4, (-25, 0, 40)), ("Bevel_Wheel", 4, (0, 0, 40)),
+        ("Bearing_608_upper", 4, (0, 0, 25)), ("Bearing_608_lower", 4, (0, 0, -30)), ("Pinion_Shaft", 4, (0, 0, -60)),
         ("Screw_ISO4762-M3x8_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),
         ("PadPlate_", 8, (-10 * s, 0, -235)), ("Pad_", 8, (-10 * s, 0, -235)), ("Jaw_", 8, (12 * s, 0, -200)),
         ("Screw_ISO4762-M3x10_Cover", 7, (0, 0, -175)), ("Cover", 7, (0, 0, -140)),
@@ -42,10 +46,7 @@ def explode(o):
         ("Screw_ISO4762-M3x8_Carriage", 5, (0, 0, -115)), ("Screw_ISO4762-M3x10_Rack", 5, (0, 0, -115)),
         ("Dowel_ISO8734-3x14_Rack", 5, (0, 0, -115)), ("Slide_", 5, (0, 0, -90)), ("Carriage_", 5, (0, 0, -55)),
         ("Rack_", 5, (0, 0, -55)),
-        ("Setscrew_", 4, (-25, 0, -40)), ("Pinion", 4, (0, 0, -40)),
-        ("Screw_ISO4762-M4x16_Tower", 3, (0, 0, -55)), ("Tower", 3, (0, 0, 150)),
-        ("Screw_ISO4762-M4x16_Gearbox", 2, (0, 0, -50)), ("Gearbox", 2, (0, 0, 60)), ("Motor", 2, (0, 0, 60)),
-        ("Brake", 2, (0, 0, 60)),
+        ("Gearbox", 2, (0, 0, 85)), ("Motor", 2, (0, 0, 85)), ("Brake", 2, (0, 0, 85)),
         ("Screw_ISO4762-M3x8_Rail", 1, (0, 0, -60)), ("Rail", 1, (0, 0, -35)),
     ]
     n = n.replace("-", "_")
@@ -115,8 +116,8 @@ class Demo(QtGui.QDockWidget):
         self.asm_timer.timeout.connect(self.tick_assembly)
         self.seek(0.0)
 
-    STEP_TEXT = ["", "Schiene an Anschlagkante, 5 × M3×8", "Antrieb auf die Deckplatte, 4 × M4×16 von unten",
-                 "Motorgehäuse über den Antrieb, 4 × M4×16 von unten", "Ritzel mit Passfeder, Gewindestift M4×4",
+    STEP_TEXT = ["", "Schiene an Anschlagkante, 5 × M3×8", "Antriebsbock mit Getriebe (4 × M4×12), Motor, Bremse, Kegelritzel; Bock 4 × M4×12",
+                 "Haube über den Antrieb, 4 × M4×12 von oben", "Ritzelwelle mit 2 Lagern 608, Tellerrad mit Gewindestift M4×4",
                  "Wagen, Schlitten (4 × M3×8), Zahnstangen (2 × M3×10 im Langloch, ausrichten, Stift Ø3)",
                  "Backenhalter mit Passstiften, 2 × M4×25", "Deckel, 4 × M4×16",
                  "Backen auf die Stifte, Arretierbolzen rastet ein; Belagplatten 2 × M3×8",
@@ -183,7 +184,9 @@ class Demo(QtGui.QDockWidget):
             if o.Role == "slide":
                 delta = App.Placement(App.Vector(o.Side * dd, 0, zg), App.Rotation())
             elif o.Role == "pinion":
-                delta = App.Placement(App.Vector(0, 0, zg), App.Rotation(App.Vector(0, 0, 1), ang))
+                delta = App.Placement(App.Vector(0, 0, zg), App.Rotation(App.Vector(0, 0, 1), ang), App.Vector(P.PINION_X, 0, 0))
+            elif o.Role == "pinion_x":
+                delta = App.Placement(App.Vector(0, 0, zg), App.Rotation(App.Vector(1, 0, 0), ang), App.Vector(0, 0, P.DRIVE_Z))
             elif o.Role == "static":
                 delta = App.Placement(App.Vector(0, 0, zg), App.Rotation())
             elif o.Role == "part":

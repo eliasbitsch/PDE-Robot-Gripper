@@ -15,6 +15,7 @@ import gripper_params as P  # noqa: E402
 from parts import core as C  # noqa: E402
 from parts import demo_seq  # noqa: E402
 from parts import fasteners as F  # noqa: E402
+from parts import drive as D  # noqa: E402
 
 OUT = os.path.join(HERE, "out")
 VENDOR = os.path.join(HERE, "vendor")
@@ -29,37 +30,50 @@ def vendor(name, rot, base):
     return s
 
 
-def build_static(gear_pin, gear_rack):
-    gb_face = P.GEAR_FLANGE_Z + 21.0        # STEP: output flange at local x = 21
-    gb_in = gb_face + 23.7                  # STEP: motor-side face at local x = -23.7
-    motor_base = gb_in + 5.5                # STEP: motor front face at local z = 5.5
-    motor_rear = motor_base + 24.5          # STEP: rear boss at local z = -24.5
-    brake_base = motor_rear + 9.7           # STEP: brake mounting face at local x = -9.7
-    brake_top = brake_base + 19.5
-    tower_top = brake_top + 2.0
+def brake(x, za):
+    """Brake with its leads turned towards the window; the lead stubs of the STEP end at the hood wall."""
+    s = vendor("nanotec_bwa_035_5.step", App.Rotation(V(1, 0, 0), 60), V(x, 0, za))
+    return s.common(C.box(x - 15, x + 25, -30, P.HOOD_Y - P.HOOD_WALL - 0.5, za - 25, za + 25))
+
+
+def build_static(gear_pin, gear_racks, bev):
+    xp, za = P.PINION_X, P.DRIVE_Z
+    xf = D.gearbox_flange_x()                 # gearbox output flange face, output pointing -X
+    gb_t = xf + 21.0                          # STEP: flange at local x = 21; turned 180 deg about Z
+    gb_in = gb_t + 23.7                       # STEP: motor side at local x = -23.7
+    motor_t = gb_in + 5.5                     # STEP: motor front at local z = 5.5
+    brake_t = motor_t + 24.5 + 9.7            # STEP: rear boss local z = -24.5, brake face local x = -9.7
     parts = {
         "Housing": (C.housing_body(), "EN AW-6082", 0),
         "Cover": (C.cover(), "EN AW-6082", 0),
         "Rail": (C.rail(), "steel", 0),
-        "Tower": (C.tower(tower_top), "EN AW-6082", 0),
-        "Adapter_ISO9409": (C.iso_adapter(tower_top + P.LID_T), "EN AW-6082", 0),
-        "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 1, 0), 90), V(0, 0, gb_face + 0.0) + V(0, 0, 0)), "vendor", 0),
-        "Motor": (vendor("nanotec_st4118s1404b.step",
-                         App.Rotation(V(0, 0, 1), 90).multiply(App.Rotation(V(1, 0, 0), 180)), V(0, 0, motor_base)), "vendor", 0),
-        "Brake": (vendor("nanotec_bwa_035_5.step", App.Rotation(V(0, 0, 1), P.BRAKE_TURN).multiply(App.Rotation(V(0, 1, 0), -90)),
-                         V(0, 0, brake_base)), "vendor", 0),
-        "Pinion": (C.pinion(gear_pin), "steel", "rot"),
-        "Setscrew_ISO4029-M4x4": (F.iso4029_x(4, 4, -P.PINION_HUB_D / 2, 0, P.SETSCREW_Z, 1), "steel", "rot"),
+        "Hood": (D.hood(), "EN AW-6082", 0),
+        "Adapter_ISO9409": (C.iso_adapter(P.HOOD_TOP), "EN AW-6082", 0),
+        "Bracket": (D.bracket(), "EN AW-6082", 0),
+        "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 0, 1), 180), V(gb_t, 0, za)), "vendor", 0),
+        "Motor": (vendor("nanotec_st4118s1404b.step", App.Rotation(V(0, 1, 0), -90), V(motor_t, 0, za)), "vendor", 0),   # connector +Y into the window
+        "Brake": (brake(brake_t, za), "vendor", 0),
+        "Pinion_Shaft": (D.pinion_shaft(gear_pin), "steel", "rot"),
+        "Bevel_Wheel": (D.wheel(bev), "steel", "rot"),
+        "Bevel_Pinion": (D.bevel_pinion(bev), "steel", "rotx"),
+        "Bearing_608_lower": (D.bearing(xp, 0, P.BEARING_LOWER_Z), "steel", 0),
+        "Bearing_608_upper": (D.bearing(xp, 0, P.BEARING_UPPER_Z), "steel", 0),
+        "Setscrew_ISO4029-M4x4_Wheel": (F.iso4029_x(4, 4, xp - P.BEVEL_HUB_D / 2, 0, P.BEARING_UPPER_Z + P.BEARING[2] + 3, 1), "steel", "rot"),
+        "Window_Plate": (D.window_plate(), "EN AW-6082", 0),
+        "Cable_Gland_Lapp_SKINTOP_M16": (D.gland(), "vendor", 0),
     }
-    wp, zc = C.window_plate(tower_top)
-    parts["Window_Plate"] = (wp, "EN AW-6082", 0)
-    parts["Cable_Gland_Lapp_SKINTOP_M16"] = (C.gland(zc), "vendor", 0)
-    for i, (y, z) in enumerate(C.window_screws(tower_top), 1):
-        parts[f"Screw_ISO4762-M3x8_Window{i}"] = (F.iso4762_x(3, 8, P.POD_X[1] + P.WINDOW_PLATE_T, y, z, -1), "steel", 0)
+    for i, (x, z) in enumerate(D.window_screws(), 1):
+        parts[f"Screw_ISO4762-M3x6_Window{i}"] = (F.oriented(F.iso4762(3, 6, 0, 0, 0), V(x, P.HOOD_Y + P.WINDOW_PLATE_T, z), V(0, -1, 0)), "steel", 0)
+    for i, (x, y) in enumerate(D.bracket_screws(), 1):
+        parts[f"Screw_ISO4762-M4x12_Bracket{i}"] = (F.iso4762(4, 12, x, y, P.PLATE_T + 6, up=False), "steel", 0)
+    for i, (y, dz) in enumerate(D.gearbox_screws(), 1):
+        parts[f"Screw_ISO4762-M4x12_Gearbox{i}"] = (F.oriented(F.iso4762(4, 12, 0, 0, 0), V(xf - P.BRACKET_T + 4, y, za + dz), V(1, 0, 0)), "steel", 0)
+    for i, (x, y) in enumerate(D.hood_screws(), 1):
+        parts[f"Screw_ISO4762-M4x12_Hood{i}"] = (F.iso4762(4, 12, x, y, P.PLATE_T + 6, up=False), "steel", 0)
     for side, tag in ((-1, "L"), (1, "R")):
         parts[f"Carriage_{tag}"] = (C.carriage(side * P.CARR_X0), "steel", side)
         parts[f"Slide_{tag}"] = (C.slide(side), "EN AW-6082", side)
-        parts[f"Rack_{tag}"] = (C.rack(gear_rack, side), "steel", side)
+        parts[f"Rack_{tag}"] = (C.rack(gear_racks[P.RACK_TEETH_SIDE[side]], side), "steel", side)
         parts[f"Holder_{tag}"] = (C.holder(side), "EN AW-6082", side)
         jb, plate, rubber = C.jaw(side)
         parts[f"Jaw_{tag}"] = (jb, "EN AW-7075", side)
@@ -81,17 +95,12 @@ def build_static(gear_pin, gear_rack):
             parts[f"Screw_ISO4762-M3x8_Carriage{tag}{i}"] = (F.iso4762(3, 8, x, y, P.SLIDE_Z_TOP - P.SLIDE_T + P.SLIDE_CBORE_CARR), "steel", side)
     for i, x in enumerate(C.rail_hole_x(), 1):
         parts[f"Screw_ISO4762-M3x8_Rail{i}"] = (F.iso4762(3, 8, x, P.RAIL_Y, P.RAIL_BASE_Z - P.RAIL_H + P.RAIL_CBORE_DEPTH), "steel", 0)
-    for i, (x, y) in enumerate(P.TOWER_BOSS, 1):
-        parts[f"Screw_ISO4762-M4x16_Tower{i}"] = (F.iso4762(4, 16, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
     for i, (x, y) in enumerate(C.cover_screws(), 1):
         parts[f"Screw_ISO4762-M3x10_Cover{i}"] = (F.iso4762(3, 10, x, y, P.POCKET_Z - P.COVER_T), "steel", 0)
-    for i, a in enumerate((45, 135, 225, 315), 1):
-        x, y = 18 * math.cos(math.radians(a)), 18 * math.sin(math.radians(a))
-        parts[f"Screw_ISO4762-M4x16_Gearbox{i}"] = (F.iso4762(4, 16, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
-    z_ad = tower_top + P.LID_T
+    z_ad = P.HOOD_TOP
     for i, (x, y) in enumerate(C.adapter_screws(), 1):
         parts[f"Screw_ISO10642-M4x16_Adapter{i}"] = (F.iso10642(4, 16, x, y, z_ad + P.ADAPTER_T), "steel", 0)
-    return parts, {"tower_top": tower_top, "flange_z": z_ad + P.ADAPTER_T}
+    return parts, {"flange_z": z_ad + P.ADAPTER_T}
 
 
 def scene_parts():
@@ -104,12 +113,14 @@ def scene_parts():
 
 
 def at(parts, d, theta0):
-    """Shapes at opening travel d (0 = closed stop). Pinion turns +d/r for opening."""
+    """Shapes at opening travel d (0 = closed stop). Pinion shaft turns +d/r for opening, bevel pinion with it."""
     out = {}
     for name, (shape, mat, mov) in parts.items():
         s = shape.copy()
         if mov == "rot":
-            s.rotate(V(0, 0, 0), V(0, 0, 1), math.degrees(theta0 + d / (P.PINION_D / 2)))
+            s.rotate(V(P.PINION_X, 0, 0), V(0, 0, 1), math.degrees(theta0 + d / (P.PINION_D / 2)))
+        elif mov == "rotx":
+            s.rotate(V(0, 0, P.DRIVE_Z), V(1, 0, 0), math.degrees(theta0 + d / (P.PINION_D / 2)))
         elif mov:
             s.translate(V(mov * d, 0, 0))
         out[name] = s
@@ -127,31 +138,42 @@ def overlap(a, b):
 
 def phase_pinion(parts):
     """Turn the pinion and shift the right rack so the teeth mesh without overlap."""
-    pin = parts["Pinion"][0]
+    pin = parts["Pinion_Shaft"][0]
     rl, rr = parts["Rack_L"][0], parts["Rack_R"][0]
 
     def rot(a):
         s = pin.copy()
-        s.rotate(V(0, 0, 0), V(0, 0, 1), a)
+        s.rotate(V(P.PINION_X, 0, 0), V(0, 0, 1), a)
         return s
 
     best = min((overlap(rot(a / 4), rl), a / 4) for a in range(0, 72))
     theta = best[1]
     best_r = (1e9, 0.0)
-    for i in range(0, 32):
-        dx = i * math.pi / 32
+    for i in range(0, 96):
+        dx = i * math.pi / 96
         s = rr.copy()
         s.translate(V(dx, 0, 0))
         best_r = min(best_r, (overlap(rot(theta), s), dx))
     rr2 = rr.copy()
     rr2.translate(V(best_r[1], 0, 0))
     parts["Rack_R"] = (rr2, parts["Rack_R"][1], parts["Rack_R"][2])
+    # bevel pair: turn the bevel pinion about its own axis until it meshes with the wheel at theta
+    wh = parts["Bevel_Wheel"][0].copy()
+    wh.rotate(V(P.PINION_X, 0, 0), V(0, 0, 1), theta)
+    bp = parts["Bevel_Pinion"][0]
+
+    def rotb(a):
+        s = bp.copy()
+        s.rotate(V(0, 0, P.DRIVE_Z), V(1, 0, 0), a)
+        return s
+    best_b = min((overlap(rotb(a / 4), wh), a / 4) for a in range(0, 72))
+    parts["Bevel_Pinion"] = (rotb(best_b[1] - theta), parts["Bevel_Pinion"][1], "rotx")   # at() adds theta again
+    print(f"bevel phase {best_b[1]:.1f} deg, residual overlap {best_b[0]:.3f} mm3")
     return math.radians(theta), best[0], best_r[0], best_r[1]
 
 
-SKIP = {frozenset(p) for p in [("Gearbox", "Motor"), ("Motor", "Brake"), ("Gearbox", "Brake"),
-                                ("Gearbox", "Pinion")]}
-SKIP |= {frozenset(("Gearbox", f"Screw_ISO4762-M4x16_Gearbox{i}")) for i in range(1, 5)}  # thread depth in the vendor model unknown
+SKIP = {frozenset(p) for p in [("Gearbox", "Motor"), ("Motor", "Brake"), ("Gearbox", "Brake"), ("Gearbox", "Bevel_Pinion")]}
+SKIP |= {frozenset(("Gearbox", f"Screw_ISO4762-M4x12_Gearbox{i}")) for i in range(1, 5)}  # thread depth in the vendor model unknown
 
 
 def wall_check(parts):
@@ -228,7 +250,13 @@ def wall_check(parts):
 BOM_INFO = {
     "Housing": ("Gear housing", "own part, milled", "EN AW-6082 T6"),
     "Cover": ("Bottom cover", "own part, cut + milled", "EN AW-6082 T6"),
-    "Tower": ("Motor housing", "own part, milled", "EN AW-6082 T6"),
+    "Hood": ("Drive hood", "own part, milled", "EN AW-6082 T6"),
+    "Bracket": ("Drive bracket", "own part, milled", "EN AW-6082 T6"),
+    "Pinion_Shaft": ("Pinion shaft m = 1, z = 20", "own part, turned + hobbed", "16MnCr5 case hardened"),
+    "Bevel_Wheel": ("Bevel gear m = 1, z = 20, i = 1, bored 8 H7", "Maedler", "C45"),
+    "Bevel_Pinion": ("Bevel gear m = 1, z = 20, i = 1, bored 8 H7", "Maedler", "C45"),
+    "Bearing_608_lower": ("Deep groove ball bearing 608-2Z", "DIN 625 (Schaeffler / SKF)", "steel"),
+    "Bearing_608_upper": ("Deep groove ball bearing 608-2Z", "DIN 625 (Schaeffler / SKF)", "steel"),
     "Adapter_ISO9409": ("Robot adapter ISO 9409-1-40-4-M6", "own part, turned", "EN AW-6082 T6"),
     "Window_Plate": ("Cable window plate", "own part, cut", "EN AW-6082 T6"),
     "Slide": ("Slide", "own part, milled", "EN AW-6082 T6"),
@@ -239,7 +267,6 @@ BOM_INFO = {
     "Rail": ("Miniature ball rail size 9, L = 110, T1 = 15", "Bosch Rexroth R0445", "steel"),
     "Carriage": ("Ball carriage SLS size 9", "Bosch Rexroth R0444 913 01", "steel"),
     "Rack": ("Rack m = 1, 10 x 12, cut to 56.5", "Maedler", "C45"),
-    "Pinion": ("Spur gear m = 1, z = 20, with hub, bored 8 H7 + keyway", "Maedler", "C45"),
     "Gearbox": ("Planetary gearbox GP42-S1-7-SR", "Nanotec", "-"),
     "Motor": ("Stepper motor ST4118S1404-B", "Nanotec", "-"),
     "Brake": ("Spring-applied brake BRAKE-BWA-0,35-5, 24 V", "Nanotec", "-"),
@@ -286,9 +313,11 @@ def interference(shapes):
 def main():
     os.makedirs(OUT, exist_ok=True)
     doc = App.newDocument("Gripper")
-    gear_pin, gear_rack = C.gears(doc)
-    parts, info = build_static(gear_pin, gear_rack)
+    gear_pin, gear_racks = C.gears(doc)
+    bev = D.bevel_gears(doc)
+    parts, info = build_static(gear_pin, gear_racks, bev)
     theta0, ov_l, ov_r, dx_r = phase_pinion(parts)
+    parts["Rack_R"] = (C.rack(gear_racks[P.RACK_TEETH_SIDE[1]], 1, shift=dx_r), "steel", 1)   # holes cut after the shift
     print(f"phase: pinion {math.degrees(theta0):.1f} deg, rack R shift {dx_r:.2f} mm, residual overlap L {ov_l:.3f} R {ov_r:.3f} mm3")
 
     scene = scene_parts()
@@ -351,7 +380,7 @@ def main():
         o = doc.addObject("Part::Feature", name)
         o.Shape = shapes[name]
         o.addProperty("App::PropertyString", "Material", "Gripper").Material = mat
-        o.addProperty("App::PropertyString", "Role", "Gripper").Role = "pinion" if mov == "rot" else ("slide" if mov else "static")
+        o.addProperty("App::PropertyString", "Role", "Gripper").Role = {"rot": "pinion", "rotx": "pinion_x"}.get(mov, "slide" if mov else "static")
         o.addProperty("App::PropertyInteger", "Side", "Gripper").Side = mov if isinstance(mov, int) else 0
         o.addProperty("App::PropertyPlacement", "BasePlacement", "Gripper").BasePlacement = o.Placement
         objs.append(o)

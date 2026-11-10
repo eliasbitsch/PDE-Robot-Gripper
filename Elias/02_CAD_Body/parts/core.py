@@ -84,13 +84,16 @@ def housing_body():
     s = rounded_box(-hx, hx, y0, y1, P.POCKET_Z, P.PLATE_T, P.HOUSING_R)
     s = chamfer_z_edges(s, P.PLATE_T, P.EDGE_CHAMFER)
     s = s.cut(rounded_box(-hx + P.WALL, hx - P.WALL, y0 + P.WALL, y1 - P.WALL, P.POCKET_Z - 1, 0, 6.0))   # R6: standard d10 cutter
-    s = s.fuse(box(-P.RAIL_L / 2 - 2, P.RAIL_L / 2 + 2, P.RAIL_Y - P.RAIL_W / 2 - 3, P.RAIL_Y + P.RAIL_W / 2 + 3, P.RAIL_BASE_Z, 0.01))  # rail land
-    tools = [cylz(8.0, -1, P.PLATE_T + 1)]                                  # shaft + gearbox seal ring d14.7
-    tools += holes_pcd(2.25, 36.0, -1, P.PLATE_T + 1)                       # gearbox M4 through
-    tools += holes_pcd(3.75, 36.0, -1, P.GEAR_SCREW_CBORE)                  # flush heads
+    s = s.fuse(box(-P.RAIL_L / 2 - 2, P.RAIL_L / 2 + 2, P.RAIL_Y - P.RAIL_W / 2 - 5, P.RAIL_Y + P.RAIL_W / 2 + 5, P.RAIL_BASE_Z, 0.01))  # rail land
+    xp = P.PINION_X
+    s = s.fuse(cylz(P.BOSS_D / 2, P.PLATE_T - 0.1, P.BEARING_UPPER_Z + P.BEARING[2], xp, 0))   # bearing boss
+    tools = [cylz(P.BEARING[1] / 2, -1, P.BEARING_LOWER_Z + P.BEARING[2], xp, 0),              # lower 608 seat
+             cylz(P.BEARING[0] / 2 + 1, -1, P.PLATE_T + 1, xp, 0),
+             cylz(P.BEARING[1] / 2, P.BEARING_UPPER_Z, P.BEARING_UPPER_Z + P.BEARING[2] + 1, xp, 0)]
+    from parts import drive as D
+    tools += [cylz(1.65, 2.0, P.PLATE_T + 1, x, y) for x, y in D.bracket_screws()]          # M4 blind from the top
+    tools += [cylz(1.65, 2.0, P.PLATE_T + 1, x, y) for x, y in D.hood_screws()]                  # M4 blind from the top
     tools += [cylz(1.25, P.RAIL_BASE_Z - 1, 5, x, P.RAIL_Y) for x in rail_hole_x()]   # rail M3 tapped
-    tools += [cylz(2.25, -1, P.PLATE_T + 1, x, y) for x, y in P.TOWER_BOSS]  # tower M4 from below
-    tools += [cylz(3.75, -1, P.GEAR_SCREW_CBORE, x, y) for x, y in P.TOWER_BOSS]
     tools += [cylz(1.25, P.POCKET_Z - 1, P.POCKET_Z + 10, x, y) for x, y in cover_screws()]   # cover M3 tapped
     return cut_all(s, tools)
 
@@ -144,10 +147,12 @@ def slide(side):
     x_outer = side * max(abs(xc) + hl, abs(xh_top))
     s = box(xc - side * hl, x_outer, y_car0, P.RAIL_Y + P.CARRIAGE_W / 2 + P.SLIDE_EDGE, z0, z1)
     y_top = (P.RACK_H + P.PINION_D / 2 + 0.5) if side < 0 else P.HOLDER_W / 2
-    s = s.fuse(box(side * P.SLIDE_TRIM_X, x_outer, y_car0, y_top, z0, z1))
+    s = s.fuse(box(xc - side * hl, x_outer, y_car0, y_top, z0, z1))      # pinion runs 1 mm above, no cut-out needed
     ry = -side * (P.PINION_D / 2 - 1.0)
-    rack_x_out = xc + side * (-P.RACK_REL)
-    s = s.fuse(box(side * P.SLIDE_TRIM_X, rack_x_out, ry, ry - side * P.RACK_H, z1, z1 + P.RACK_GAP))   # boss under the rack
+    xs = list(P.RACK_SCREW_XS[side]) + [P.RACK_PIN_XS[side]]
+    bx0 = max(min(xs) - 5.5, min(P.RACK_SPAN[side]), min(xc - side * hl, x_outer))
+    bx1 = min(max(xs) + 5.5, max(P.RACK_SPAN[side]), max(xc - side * hl, x_outer))
+    s = s.fuse(box(bx0, bx1, ry, ry - side * P.RACK_H, z1, z1 + P.RACK_GAP))   # boss under the own rack
     tools = []
     for hx, hy in carriage_holes(xc):
         tools += [cylz(1.7, z0 - 1, z1 + 1, hx, hy), cylz(3.0, z0 - 1, z0 + P.SLIDE_CBORE_CARR, hx, hy)]
@@ -165,11 +170,11 @@ def rack_y(side):
 
 def rack_screws(side):
     """Two M3 from below through slots in the slide into the rack body, behind the teeth."""
-    return [(side * x, rack_y(side)) for x in P.RACK_SCREW_X]
+    return [(x, rack_y(side)) for x in P.RACK_SCREW_XS[side]]
 
 
 def rack_pin(side):
-    return side * P.RACK_PIN_X, rack_y(side)
+    return P.RACK_PIN_XS[side], rack_y(side)
 
 
 def slot_z(r, x, y, z0, z1, half):
@@ -278,15 +283,19 @@ def gears(doc):
     g = doc.addObject("Part::FeaturePython", "_pinion_gen")
     InvoluteGear(g)
     g.num_teeth, g.module, g.height = P.Z_RITZEL, P.MODUL, P.PINION_B
-    r = doc.addObject("Part::FeaturePython", "_rack_gen")
-    InvoluteGearRack(r)
-    r.num_teeth, r.module, r.height = P.RACK_TEETH, P.MODUL, P.PINION_B
-    r.thickness = P.RACK_H - 2.25 * P.MODUL
+    racks = {}
+    for n in sorted(set(P.RACK_TEETH_SIDE.values())):
+        r = doc.addObject("Part::FeaturePython", f"_rack_gen{n}")
+        InvoluteGearRack(r)
+        r.num_teeth, r.module, r.height = n, P.MODUL, P.PINION_B
+        r.thickness = P.RACK_H - 2.25 * P.MODUL
+        doc.recompute()
+        racks[n] = r.Shape.copy()
+        doc.removeObject(r.Name)
     doc.recompute()
-    pin, rk = g.Shape.copy(), r.Shape.copy()
+    pin = g.Shape.copy()
     doc.removeObject(g.Name)
-    doc.removeObject(r.Name)
-    return pin, rk
+    return pin, racks
 
 
 def pinion(gear_shape):
@@ -332,7 +341,7 @@ def gland(zc):
     return s
 
 
-def rack(rack_shape, side):
+def rack(rack_shape, side, shift=0.0):
     """Right jaw rack at -Y with teeth to +Y, left at +Y with teeth to -Y."""
     s = rack_shape.copy()
     bb = s.BoundBox
@@ -342,8 +351,7 @@ def rack(rack_shape, side):
     bb = s.BoundBox
     pitch = P.PINION_D / 2 + P.BACKLASH_SHIFT - P.MODUL
     dy = (pitch - bb.YMin) if side < 0 else (-pitch - bb.YMax)
-    x_out = side * P.CARR_X0 + side * (-P.RACK_REL)
-    dx = (x_out - bb.XMax) if side > 0 else (x_out - bb.XMin)
+    dx = P.RACK_SPAN[side][1] - bb.XMax + shift          # shift: tooth phase found by build.phase_pinion
     s.translate(V(dx, dy, P.RACK_Z0 - bb.ZMin))
     px, py = rack_pin(side)
     tools = [cylz(1.25, P.RACK_Z0 - 1, P.RACK_Z0 + 7, hx, hy) for hx, hy in rack_screws(side)]   # M3 tapped

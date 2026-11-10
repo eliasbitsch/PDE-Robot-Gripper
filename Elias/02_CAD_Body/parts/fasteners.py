@@ -63,3 +63,11 @@ def iso4029_x(d, length, x_outer, y, z, inward):
     tip = x_outer + inward * length
     cup = Part.makeCone(dz / 2, 0.0, 0.6, V(tip, y, z), V(-inward, 0, 0))      # cup point recess
     return body.cut(cup).removeSplitter()
+
+
+def oriented(shape_along_z, base, direction):
+    """Turn a fastener built along +Z at the origin so +Z points along direction, then move it to base."""
+    import FreeCAD as App
+    s = shape_along_z.copy()
+    s.Placement = App.Placement(base, App.Rotation(V(0, 0, 1), direction)).multiply(s.Placement)
+    return s

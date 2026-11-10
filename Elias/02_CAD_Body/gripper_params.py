@@ -53,8 +53,8 @@ RAIL_BASE_Z = -3.0                  # rail sits on a 3 mm land = reference shoul
 
 PLATE_T = 10.0                      # top plate
 WALL = 7.0                          # M3 cover screws on the wall centre line
-HOUSING_X = 146.0
-HOUSING_Y = (-53.5, 42.0)
+HOUSING_X = 164.0                   # long enough for the lying drive and the long rack
+HOUSING_Y = (-53.5, 44.0)
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
 COVER_T = 4.0
 
@@ -107,3 +107,24 @@ SLIDE_EDGE = 2.5                    # slide wider than the carriage so the M3 co
 GEAR_FLANGE_Z = PLATE_T             # gearbox output flange on top of the plate
 ADAPTER_T, ISO_PCD, ISO_SPIGOT_D, ISO_SPIGOT_H = 10.0, 40.0, 25.0, 4.5   # ISO 9409-1-40-4-M6 (ABB IRB 1300)
 BACKLASH_SHIFT = 0.05               # racks 0.05 mm further out -> about 0.036 mm flank backlash
+
+# ---------------------------------------------------------------- lying drive (since 10 Nov, variant 4)
+# Motor, gearbox and brake lie along X under a flat hood; a bevel pair 1:1 turns the drive down onto a pinion shaft
+# at x = PINION_X. The racks have different lengths so the jaws, the hood and the flange all stay centred.
+PINION_X = -56.0
+DRIVE_Z = 32.5                      # drive axis height: NEMA 17 (42.3 square) clears the top plate
+PINION_Z0 = -11.0                   # pinion teeth z -11..-1, 1 mm above the rack bosses on the slides
+BEVEL_Z, BEVEL_B, BEVEL_HUB_D, BEVEL_HUB_L = 20, 5.0, 16.0, 6.0   # Maedler bevel gears m = 1, i = 1
+BEARING = (8.0, 22.0, 7.0)          # DIN 625 608-2Z
+BEARING_LOWER_Z, BEARING_UPPER_Z = 0.0, 9.5
+BOSS_D = 32.0
+SHAFT_TOP = 27.0
+BEVEL_WHEEL_DZ = -0.25              # 0.25 mm lower than nominal: interference-free mesh with a little backlash (fitted)
+GEAR_SHAFT_L = 22.6                 # GP42 output shaft beyond the flange (STEP)
+BRACKET_T, BRACKET_FOOT_Y = 6.0, 25.5          # feet 8 wide, beside the gearbox
+HOOD_Y, HOOD_LIP_Y, HOOD_WALL, HOOD_R = 34.0, 38.5, 4.0, 14.0
+HOOD_TOP, HOOD_TOP_T = 63.0, 8.0
+RACK_SPAN = {1: (-72.5, 37.5), -1: (-61.98, -18.0)}     # x at d = 0
+RACK_TEETH_SIDE = {1: 35, -1: 14}
+RACK_SCREW_XS = {1: (18.0, 32.5), -1: (-23.0, -39.0)}
+RACK_PIN_XS = {1: 25.0, -1: -31.0}
