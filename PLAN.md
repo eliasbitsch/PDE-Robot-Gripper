@@ -35,39 +35,47 @@ of the assignment.
 Six decisions. If Viktoriia sees any of them differently, **now** is the moment.
 After the design freeze in week 40 every change costs half the chain.
 
-> **Changed 15 Sep 2026:** the mechanism was rack-and-pinion first. The variant
-> comparison in `cad/mechanismus.py` only had directly-translating pusher
-> mechanisms in the field - rack, wedge hook, trapezoidal screw. The whole
-> family of linkages was missing. With the four-bar added the result flips,
-> above all on the criterion "holding on power failure": a self-locking screw
-> removes the holding brake that the rack made mandatory.
+> **Changed 30 Oct 2026:** the mechanism is **rack and pinion**, modelled on
+> one half of the [Cartesian Hand](https://arxiv.org/abs/2609.25696). An
+> earlier four-bar concept was dropped: transmission-angle proof, pad scrub
+> and a screw drive were a lot of mechanism for two flat faces 70 mm apart.
 
 | Topic | Decision | Why |
 |---|---|---|
 | **Gripping concept** | 2-finger parallel gripper with jaws | Part B has two flat, parallel side faces 70 mm apart. No form fit needed, friction is enough. |
-| **Mechanism** | **Four-bar parallelogram per finger**, one motor drives both | Inspired by the Robotiq 2F-85 (see below). Pads stay parallel, the tip travels on an arc. Without the original's underactuation - in encompassing mode that is statically indeterminate and buys nothing on two flat faces. |
-| **Drive** | **Servo motor** with self-locking screw or worm | Adjustable force (PA 6 is soft, Ra 1.6 has to survive), quiet, no compressed air. **Self-locking → no holding brake.** That was mandatory with the rack. |
-| **CAD + FEM** | **Onshape** (parametric, browser-based) | Both of us in the same model live, no version conflicts, no local install. FEM on the same model, no export break. |
+| **Mechanism** | **Rack and pinion**: one pinion between two racks, each rack carries one jaw | Like one gripper of the Cartesian Hand (see below). Jaws move in a straight line and stay parallel, no scrub, **constant jaw force over the stroke**, one gear mesh to calculate. **Rack and pinion are catalogue parts** (steel, m = 1), screws and pins to DIN/ISO - few own parts, a short BOM. Racks run in a milled dovetail slot in the housing; a bought miniature profile rail is the alternative, decided in V2. |
+| **Drive** | **Industrial servo motor**, 24 V, with gearbox and a self-locking stage or holding brake, on the pinion | The cell is industrial: 5 s cycle ≈ 720 grips per hour, millions per year - a hobby servo does not survive that. Force set by the motor current limit, no force sensor. Self-locking stage or brake holds part B on power failure. Candidates with datasheets in V2. |
+| **CAD** | **FreeCAD 1.1, built by Python scripts** (changed 10 Nov 2026, was Onshape) | The assignment leaves the tool open. One parameter file drives every part, a sizing change is one edit plus a rebuild. STEP to Onshape for viewing. Details in [`Elias/02_CAD_Body/CAD_PLAN.md`](Elias/02_CAD_Body/CAD_PLAN.md). |
 | **Calculation / docs** | **LaTeX** | Formulas, units and cross-references stay consistent; the report is worth 10 points and grows from M1 on. |
 | **Simulation** | **MuJoCo** | See § 4. |
 
-### Inspired by the Robotiq 2F-85
+### Inspired by the Cartesian Hand - one half of it
 
-<img src="shared/references/robotiq-2f-85-2f-140.jpg" width="420" alt="Robotiq 2F-85 and 2F-140">
+[The Cartesian Hand](https://arxiv.org/abs/2609.25696) (Xia et al., Duke
+University, 2026; [video](https://www.youtube.com/watch?v=ktNcPPTPsQE)) is a
+7-DoF hand built only from prismatic joints. Every axis is a rack and pinion
+driven by a hobby servo, guided in printed dovetail rails, the structure FDM-
+or SLS-printed.
 
-*Robotiq 2F-85 and 2F-140. Photo: Robotiq Inc. Source and data in
+<img src="shared/references/cartesian-hand.png" width="420" alt="Cartesian Hand, isometric view">
+
+*Cartesian Hand, Fig. 2b from Xia et al. (2026), CC BY 4.0. Source in
 [`shared/references/SOURCES.md`](shared/references/SOURCES.md).*
 
-What we take from it: electric drive, two fingers, one four-bar parallelogram
-per finger so the pads stay parallel while the fingertip travels on an arc.
+What we take: **one** of its two parallel grippers - one servo, one pinion,
+two racks moving in opposite directions, jaws on the racks.
 
-What we leave out: the underactuated second phalanx. Its adaptive wrap is
-statically indeterminate in encompassing mode, which makes the force
-distribution between the phalanges hard to prove - and on two flat parallel
-faces it adds nothing.
+What we leave out: the second (auxiliary) gripper, the axis between the two,
+and the four **fingertip slides** along the fingers. Part B only has to be
+held, not manipulated in the hand.
 
-It also settles the force question. A 2F-85 delivers 20-235 N; we need 14.3 N.
-Nothing about this concept is force-limited.
+It also settles the force question. Their servo (1.39 N·m stall) gives about
+170 N per rack; we need 14.3 N per jaw. Nothing about this concept is
+force-limited - the task is limiting the force, not raising it.
+
+The Cartesian Hand is the model for the **principle only**. Our graded design
+is industrial: milled aluminium housing, EN AW-7075 jaws, steel rack and
+pinion from a catalogue, an industrial drive.
 
 ### Figures from the preliminary work (to be confirmed, not fixed)
 
@@ -75,14 +83,14 @@ Nothing about this concept is force-limited.
 - Grip faces: ±X, jaw distance **70 mm**, 6200 mm² on the smaller side
 - Path acceleration from the cycle-time budget: **2.05 m/s²**
 - Required gripping force: **14.3 N per jaw** (µ = 0.5 NBR/PA 6, S = 2.0)
-- Starting geometry of the four-bar (to be confirmed in V2): link length
-  **90 mm**, swing **±4.46°** about the perpendicular to the grip direction,
-  stroke **14 mm per side** → **0.27 mm** pad scrub over the stroke. Longer
-  links reduce it further (120 mm → 0.20 mm), shorter ones raise it
-  (40 mm → 0.62 mm).
-- Reference Robotiq 2F-85: electric 24 V, **20-235 N**, 85 mm stroke, 5 kg
-  payload, ~1.3 kg, flange ISO 9409-1-50-4-M6. Force is not the bottleneck in
-  any variant - we need 14.3 N.
+- Starting geometry of the rack and pinion (to be confirmed in V2): module
+  **m = 1**, pinion **z = 20** (d = 20 mm, above the undercut limit), face width 8 mm, stroke
+  **14 mm per side** → pinion turns **80°** for the full stroke. Pinion
+  torque for 14.3 N on both jaws: T = 2 · F · r = 2 · 14.3 N · 10 mm =
+  **0.29 N·m**.
+- Reference Cartesian Hand: 52 mm gripper stroke, ~60 mm/s, servo 1.39 N·m
+  stall, ~170 N per rack, whole 7-axis hand 850 g. Force is not the
+  bottleneck - we need 14.3 N.
 - Robot: **ABB IRB 1600-6/1.45**
 - Most important finding: with the robot centred on the floor the sequence is
   **not executable** - not because of reach, but because of axis 5 (±115°).
@@ -179,7 +187,7 @@ Two halves, each a closed story. Nobody gets leftovers.
 | # | Package | Result | Folder |
 |---|---|---|---|
 | E1 | **Robot selection & placement** | Selection calculation (reach, cycle time, payload), placement study for pedestal/base offset, reachability proof for all waypoints | `Elias/01_Robot` |
-| E2 | **Gripper body** | Housing, drive unit (servo + self-locking screw), four-bar with bearings, quick-change coupler, robot flange ISO 9409-1-50-4-M6 | `Elias/02_CAD_Body` |
+| E2 | **Gripper body** | Housing with dovetail slots for the racks, drive unit (servo + pinion), quick-change coupler, robot flange ISO 9409-1-50-4-M6 | `Elias/02_CAD_Body` |
 | E3 | **Assembly drawing & BOM** | A3 drawing, item numbers, BOM split into bought and made parts | `Elias/03_Drawing` |
 | E4 | **Motion, grip & collision study** | MuJoCo model of the full cell, path pick → place, grip analysis (contact forces, part does not slip), collision log incl. fence, sequence video | `Elias/04_Simulation` |
 | E5 | **FEM of the jaws** | Mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result, **deviation ≤ 5 %** (lecture 17 Oct) | `Elias/05_FEM` |
@@ -190,8 +198,8 @@ Two halves, each a closed story. Nobody gets leftovers.
 
 | # | Package | Result | Folder |
 |---|---|---|---|
-| V1 | **Gripping concept & sketch** | Variant comparison to VDI 2225 - **with the Robotiq 2F-85 as a commercial reference in the field**, plus four-bar, rack, wedge hook, screw, and vacuum as a reasoned rejection. Dimensioned concept sketch | `Viktoriia/01_Concept` |
-| V2 | **Gripping force & drive sizing** | Force balance (weight + acceleration + safety), friction coefficient with a source, surface pressure on PA 6, **four-bar via virtual work including proof of the worst transmission angle**, screw sizing incl. self-locking, motor selection with margin | `Viktoriia/02_Sizing` |
+| V1 | **Gripping concept & sketch** | Variant comparison to VDI 2225 - rack and pinion (chosen), **four-bar (Robotiq-type parallel linkage)** as the strongest rejected variant, wedge hook, screw, and vacuum as a reasoned rejection. Dimensioned concept sketch | `Viktoriia/01_Concept` |
+| V2 | **Gripping force & drive sizing** | Force balance (weight + acceleration + safety), friction coefficient with a source, surface pressure on PA 6, **gear sizing (tooth root, flank pressure)**, tilting moment on the dovetail guide, holding on power failure (§ 8, point 4), motor selection with margin | `Viktoriia/02_Sizing` |
 | V3 | **Jaws & soft pads (CAD)** | Parametric jaws in Onshape, pad pocket, contour matched to part B | `Viktoriia/03_CAD_Jaws` |
 | V4 | **Analytical strength proof** | Bending stress and deflection of the jaw by hand, assumptions and sources documented - the reference the FEM has to meet within 5 % | `Viktoriia/04_Analytical` |
 | V5 | **3D-printed check** | Print the jaw, measure deflection under a defined load, hold it against Elias' FEM | `Viktoriia/05_Print_Check` |
@@ -318,11 +326,13 @@ These need clearing early, because they get expensive later:
    different orientation changes the path and possibly the grip direction.
    **This is the only open point that can still break the design freeze.**
 3. **FDM printer.** Clear availability and material (lab or private).
-4. **Transmission angle.** With a four-bar the jaw force is **not** constant
-   over the stroke. The worst point has to be proven - that is the price of the
-   topology and it belongs in V2, not at the end.
-5. **Pad scrub on the grip face.** 0.27 mm over the stroke at 90 mm links.
-   Prove for Ra 1.6 on PA 6 that the soft pad absorbs it elastically.
+4. **Holding on power failure.** A rack and pinion is back-drivable; the
+   pinion has to resist **0.29 N·m** (times safety) unpowered. In the series
+   design a self-locking stage or a holding brake in the drive solves it -
+   choose which in V2.
+5. **Tilting moment on the jaw guide.** The grip force acts below the rack,
+   the dovetail slot takes the moment. Size guide length and clearance so the
+   jaws stay parallel under 14.3 N and under the servo's maximum force.
 6. **Onshape FEM.** Check whether the education plan unlocks Simulation. If not,
    the existing CalculiX chain steps in - equivalent result, more manual work.
 7. **Onshape licence.** The free plan makes documents public. For student work

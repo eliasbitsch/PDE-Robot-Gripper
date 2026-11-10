@@ -1,0 +1,139 @@
+# Gripper demo: opens out/gripper.FCStd and adds a dock with a play button.
+import math
+import os
+import sys
+
+import FreeCAD as App
+import FreeCADGui as Gui
+from PySide import QtCore, QtGui
+
+ROOT = "C:/git/FH/PDE/Elias/02_CAD_Body"
+sys.path.insert(0, ROOT)
+import gripper_params as P  # noqa: E402
+from parts import demo_seq  # noqa: E402
+import importlib  # noqa: E402
+importlib.reload(demo_seq)
+
+COLORS = {"EN AW-6082": (0.72, 0.75, 0.78), "EN AW-7075": (0.76, 0.25, 0.05), "steel": (0.45, 0.48, 0.50),
+          "vendor": (0.16, 0.17, 0.18), "NBR": (0.08, 0.08, 0.08), "PA 6": (0.93, 0.90, 0.80), "table": (0.35, 0.38, 0.40)}
+SEE_THROUGH = {"Housing": 70, "Cover": 70, "Tower": 70}
+GRIP_COLOR, PAD_COLOR = (0.15, 0.65, 0.25), COLORS["NBR"]
+
+
+def get_doc():
+    path = os.path.join(ROOT, "out", "gripper.FCStd")
+    for d in list(App.listDocuments().values()):
+        if os.path.normcase(d.FileName) == os.path.normcase(path):
+            App.closeDocument(d.Name)   # reload so a rebuilt file is picked up
+    return App.openDocument(path)
+
+
+class Demo(QtGui.QDockWidget):
+    def __init__(self, doc):
+        super().__init__("Greifer-Demo")
+        self.setObjectName("GripperDemoDock")
+        self.doc, self.t, self.speed = doc, 0.0, 0.5
+        self.objs = [o for o in doc.Objects if hasattr(o, "Role")]
+        for o in self.objs:
+            vo = o.ViewObject
+            vo.Visibility = True  # file comes from freecadcmd without GUI state
+            vo.ShapeColor = COLORS.get(o.Material, (0.6, 0.6, 0.6))
+            vo.Transparency = SEE_THROUGH.get(o.Name, 0)
+        w = QtGui.QWidget()
+        lay = QtGui.QVBoxLayout(w)
+        self.btn = QtGui.QPushButton("▶  Play")
+        self.btn.setMinimumHeight(36)
+        self.btn.clicked.connect(self.toggle)
+        lay.addWidget(self.btn)
+        row = QtGui.QHBoxLayout()
+        row.addWidget(QtGui.QLabel("Tempo"))
+        self.sp = QtGui.QComboBox()
+        self.sp.addItems(["0,25×", "0,5×", "1× (echte Taktzeit)"])
+        self.sp.setCurrentIndex(1)
+        self.sp.currentIndexChanged.connect(lambda i: setattr(self, "speed", (0.25, 0.5, 1.0)[i]))
+        row.addWidget(self.sp)
+        lay.addLayout(row)
+        self.see = QtGui.QCheckBox("Gehäuse durchsichtig")
+        self.see.setChecked(True)
+        self.see.toggled.connect(self.toggle_see)
+        lay.addWidget(self.see)
+        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.slider.setRange(0, int(demo_seq.DURATION * 100))
+        self.slider.sliderMoved.connect(lambda v: self.seek(v / 100))
+        lay.addWidget(self.slider)
+        self.info = QtGui.QLabel()
+        self.info.setStyleSheet("font-family: Consolas, monospace;")
+        lay.addWidget(self.info)
+        lay.addStretch(1)
+        self.setWidget(w)
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.tick)
+        self.seek(0.0)
+
+    def toggle(self):
+        if self.timer.isActive():
+            self.timer.stop()
+            self.btn.setText("▶  Play")
+        else:
+            self.last = QtCore.QElapsedTimer()
+            self.last.start()
+            self.timer.start(20)
+            self.btn.setText("❚❚  Pause")
+
+    def toggle_see(self, on):
+        for o in self.objs:
+            if o.Name in SEE_THROUGH:
+                o.ViewObject.Transparency = SEE_THROUGH[o.Name] if on else 0
+
+    def tick(self):
+        dt = self.last.restart() / 1000.0
+        self.seek((self.t + dt * self.speed) % demo_seq.DURATION)
+
+    def seek(self, t):
+        self.t = t
+        d, zg, zp = demo_seq.state(t, P.D_GRIP)
+        dd = d - P.D_GRIP
+        ang = math.degrees(dd / (P.PINION_D / 2))
+        grip = d <= P.D_GRIP + 1e-6
+        for o in self.objs:
+            base = o.BasePlacement   # shapes carry their own placement from the build; move relative to it
+            if o.Role == "slide":
+                delta = App.Placement(App.Vector(o.Side * dd, 0, zg), App.Rotation())
+            elif o.Role == "pinion":
+                delta = App.Placement(App.Vector(0, 0, zg), App.Rotation(App.Vector(0, 0, 1), ang))
+            elif o.Role == "static":
+                delta = App.Placement(App.Vector(0, 0, zg), App.Rotation())
+            elif o.Role == "part":
+                delta = App.Placement(App.Vector(0, 0, zp), App.Rotation())
+            else:
+                delta = App.Placement()
+            o.Placement = delta.multiply(base)
+            if o.Name.startswith("Pad_"):
+                o.ViewObject.ShapeColor = GRIP_COLOR if grip else PAD_COLOR
+        phase = "hält Bauteil B" if grip else ("schließt" if dd > 0 and zg == 0 else "offen")
+        self.info.setText(f"t = {t:4.1f} s\nBackenabstand {2 * (P.PAD_X0 + d):5.1f} mm\n"
+                          f"Ritzel        {ang + math.degrees(P.D_GRIP / (P.PINION_D / 2)):5.1f}°\n"
+                          f"Hub           {zg:5.1f} mm\n{phase}")
+        self.slider.blockSignals(True)
+        self.slider.setValue(int(t * 100))
+        self.slider.blockSignals(False)
+        Gui.updateGui()
+
+
+def run():
+    doc = get_doc()
+    App.setActiveDocument(doc.Name)
+    mw = Gui.getMainWindow()
+    old = mw.findChild(QtGui.QDockWidget, "GripperDemoDock")
+    if old:
+        old.timer.stop() if hasattr(old, "timer") else None
+        old.deleteLater()
+    dock = Demo(doc)
+    mw.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
+    v = Gui.ActiveDocument.ActiveView
+    v.viewIsometric()
+    v.fitAll()
+    return dock
+
+
+demo_dock = run()
