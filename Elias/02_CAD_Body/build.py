@@ -48,7 +48,7 @@ def build_static(gear_pin, gear_rack):
                          App.Rotation(V(0, 0, 1), 90).multiply(App.Rotation(V(1, 0, 0), 180)), V(0, 0, motor_base)), "vendor", 0),
         "Brake": (vendor("nanotec_bwa_035_5.step", App.Rotation(V(0, 1, 0), -90), V(0, 0, brake_base)), "vendor", 0),
         "Pinion": (C.pinion(gear_pin), "steel", "rot"),
-        "Setscrew_ISO4029-M4x4": (C.setscrew(), "steel", "rot"),
+        "Setscrew_ISO4029-M4x4": (F.iso4029_x(4, 4, -P.PINION_HUB_D / 2, 0, P.SETSCREW_Z, 1), "steel", "rot"),
     }
     wp, zc = C.window_plate(tower_top)
     parts["Window_Plate"] = (wp, "EN AW-6082", 0)

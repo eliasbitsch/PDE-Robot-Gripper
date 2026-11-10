@@ -295,12 +295,6 @@ def pinion(gear_shape):
     return s.removeSplitter()
 
 
-def setscrew():
-    """ISO 4029 M4x4 (cup point), radial in the hub, tip on the shaft."""
-    s = cylx(1.65, -P.PINION_HUB_D / 2, -P.PINION_BORE / 2, 0, P.SETSCREW_Z)
-    return s.cut(cylx(1.0, -P.PINION_HUB_D / 2 - 0.1, -P.PINION_HUB_D / 2 + 2, 0, P.SETSCREW_Z))
-
-
 WINDOW_Y, WINDOW_Z0 = (-12.0, 16.0), 72.0
 WINDOW_YC = (WINDOW_Y[0] + WINDOW_Y[1]) / 2
 
