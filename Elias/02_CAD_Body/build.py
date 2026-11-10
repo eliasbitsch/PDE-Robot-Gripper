@@ -31,9 +31,8 @@ def vendor(name, rot, base):
 
 
 def brake(x, za):
-    """Brake with its leads turned towards the window; the lead stubs of the STEP end at the hood wall."""
-    s = vendor("nanotec_bwa_035_5.step", App.Rotation(V(1, 0, 0), 60), V(x, 0, za))
-    return s.common(C.box(x - 15, x + 25, -30, P.HOOD_Y - P.HOOD_WALL - 0.5, za - 25, za + 25))
+    """Brake turned about its axis so the lead stubs of the STEP stay inside the hood."""
+    return vendor("nanotec_bwa_035_5.step", App.Rotation(V(1, 0, 0), P.BRAKE_TURN_X), V(x, 0, za))
 
 
 def build_static(gear_pin, gear_racks, bev):

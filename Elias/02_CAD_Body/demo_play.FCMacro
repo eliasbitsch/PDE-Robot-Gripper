@@ -12,6 +12,7 @@ sys.path.insert(0, ROOT)
 import gripper_params as P  # noqa: E402
 from parts import demo_seq  # noqa: E402
 import importlib  # noqa: E402
+importlib.reload(P)        # FreeCAD keeps modules between macro runs
 importlib.reload(demo_seq)
 
 COLORS = {"EN AW-6082": (0.72, 0.75, 0.78), "EN AW-7075": (0.76, 0.25, 0.05), "steel": (0.45, 0.48, 0.50),

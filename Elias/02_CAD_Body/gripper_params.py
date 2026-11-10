@@ -122,7 +122,8 @@ SHAFT_TOP = 27.0
 BEVEL_WHEEL_DZ = -0.25              # 0.25 mm lower than nominal: interference-free mesh with a little backlash (fitted)
 GEAR_SHAFT_L = 22.6                 # GP42 output shaft beyond the flange (STEP)
 BRACKET_T, BRACKET_FOOT_Y = 6.0, 25.5          # feet 8 wide, beside the gearbox
-HOOD_Y, HOOD_LIP_Y, HOOD_WALL, HOOD_R = 34.0, 38.5, 4.0, 14.0
+HOOD_Y, HOOD_LIP_Y, HOOD_WALL, HOOD_R = 35.0, 39.0, 4.0, 14.0
+BRAKE_TURN_X = 95.0                 # brake leads stay inside the hood (the STEP has open lead stubs)
 HOOD_TOP, HOOD_TOP_T = 63.0, 8.0
 RACK_SPAN = {1: (-72.5, 37.5), -1: (-61.98, -18.0)}     # x at d = 0
 RACK_TEETH_SIDE = {1: 35, -1: 14}
