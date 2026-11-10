@@ -91,7 +91,7 @@ pinion from a catalogue, an industrial drive.
 - Reference Cartesian Hand: 52 mm gripper stroke, ~60 mm/s, servo 1.39 N·m
   stall, ~170 N per rack, whole 7-axis hand 850 g. Force is not the
   bottleneck - we need 14.3 N.
-- Robot: **ABB IRB 1600-6/1.45**
+- Robot: **ABB IRB 1300-7/1.4** (changed 10 Nov 2026 from the IRB 1600-6/1.45: current generation, OmniCore, axis 5 ±130° instead of ±115°; selection calculation E1 and placement study to be redone for it)
 - Most important finding: with the robot centred on the floor the sequence is
   **not executable** - not because of reach, but because of axis 5 (±115°).
   Fix: **500 mm pedestal + 100 mm base offset**. That belongs in the report as

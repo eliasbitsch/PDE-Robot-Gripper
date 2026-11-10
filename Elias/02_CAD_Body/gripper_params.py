@@ -100,5 +100,5 @@ ADAPTER_D, ADAPTER_SCREW_PCD = 88.0, 72.0   # round ISO adapter, M5 countersunk 
 HOUSING_R, EDGE_CHAMFER, COVER_CHAMFER = 8.0, 1.5, 0.5
 SLIDE_EDGE = 2.5                    # slide wider than the carriage so the M3 counterbores keep a wall
 GEAR_FLANGE_Z = PLATE_T             # gearbox output flange on top of the plate
-ADAPTER_T, ISO_PCD, ISO_SPIGOT_D, ISO_SPIGOT_H = 10.0, 50.0, 31.5, 5.0
+ADAPTER_T, ISO_PCD, ISO_SPIGOT_D, ISO_SPIGOT_H = 10.0, 40.0, 25.0, 4.5   # ISO 9409-1-40-4-M6 (ABB IRB 1300)
 BACKLASH_SHIFT = 0.05               # racks 0.05 mm further out -> about 0.036 mm flank backlash

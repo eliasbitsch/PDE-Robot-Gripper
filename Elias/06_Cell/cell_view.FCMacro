@@ -1,0 +1,151 @@
+# Cell view: ABB robot (IRB 1300-7/1.4, IRB 1600 kept for comparison) on its pedestal, gripper flanged on, part B gripped on the buffer belt.
+import math
+import os
+import sys
+
+import FreeCAD as App
+import FreeCADGui as Gui
+import Part
+from FreeCAD import Vector as V
+
+ROOT = "C:/git/FH/PDE/Elias"
+sys.path.insert(0, ROOT + "/02_CAD_Body")
+import gripper_params as P  # noqa: E402
+
+ROBOTS = {
+    # STEP frame = home pose. a2: axis 2 (x, z); l2: axis 2 -> 3; c: axis 4 above axis 3; l3: axis 3 -> 5 along x;
+    # l_fl: axis 5 -> flange face; limits from the ABB data sheets.
+    "IRB1300-7/1.4": dict(files=ROOT + "/06_Cell/vendor/irb1300/IRB1300 Type A_7&12Kg-1400-IP40IP67CR-STD_OC_00_link{}.STEP",
+                          links=range(7), a2=(150.0, 544.0), l2=575.0, c=40.0, l3=675.0, l_fl=98.5,
+                          lim=[(-180, 180), (-95, 155), (-210, 65), (-230, 230), (-130, 130), (-400, 400)],
+                          color=(0.93, 0.95, 0.96), base_color=(0.93, 0.95, 0.96), accent=(0.85, 0.10, 0.10)),
+    "IRB1600-6/1.45": dict(files=ROOT + "/06_Cell/vendor/irb1600/IRB1600_X-145_STEP_rev03_j/IRB1600_X-145_STEP_joint/IRB1600_X-145_IRC5_rev2_{}.STEP",
+                           links=["BASE", "LINK1", "LINK2", "LINK3", "LINK4", "LINK5", "LINK6"], a2=(150.0, 486.5), l2=700.0,
+                           c=0.0, l3=600.0, l_fl=65.0,
+                           lim=[(-180, 180), (-90, 150), (-245, 65), (-200, 200), (-115, 115), (-400, 400)],
+                           color=(0.95, 0.45, 0.10), base_color=(0.25, 0.25, 0.27), accent=None),
+}
+ROBOT = ROBOTS["IRB1300-7/1.4"]
+
+# Cell layout (Angabe Abb. 1, placement study sim/aufstellung.py), mm
+BASE = V(-100.0, 0.0, 500.0)          # pedestal 500 mm, 100 mm towards the workpiece carrier
+X_PICK, H_PICK = 900.0, 1000.0
+X_PLACE, H_PLACE, DY_CHAIN = -900.0, 1300.0, 300.0
+H_FENCE = 2100.0
+
+A2_X, A2_Z = ROBOT["a2"]
+L2, C4, L3X, L_FL = ROBOT["l2"], ROBOT["c"], ROBOT["l3"], ROBOT["l_fl"]
+
+
+def rot_about(axis, angle, centre):
+    return App.Placement(V(0, 0, 0), App.Rotation(axis, angle), centre)
+
+
+def link_placements(q):
+    z3, z4 = A2_Z + L2, A2_Z + L2 + C4
+    chain = [(V(0, 0, 1), V(0, 0, 0)), (V(0, 1, 0), V(A2_X, 0, A2_Z)), (V(0, 1, 0), V(A2_X, 0, z3)),
+             (V(1, 0, 0), V(0, 0, z4)), (V(0, 1, 0), V(A2_X + L3X, 0, z4)), (V(1, 0, 0), V(0, 0, z4))]
+    p = App.Placement(BASE, App.Rotation())
+    out = [p]
+    for (ax, c), a in zip(chain, q):
+        p = p.multiply(rot_about(ax, a, c))
+        out.append(p)
+    return out
+
+
+def ik_tool_down(wrist_world, a6=0.0):
+    """Closed form for a tool pointing straight down (spherical wrist, axis-4 offset C4)."""
+    w = wrist_world - BASE
+    a1 = math.degrees(math.atan2(w.y, w.x))
+    r = math.hypot(w.x, w.y) - A2_X
+    h = w.z - A2_Z
+    l3 = math.hypot(L3X, C4)
+    beta = math.atan2(C4, L3X)
+    s3 = (L2 ** 2 + l3 ** 2 - (r * r + h * h)) / (2 * L2 * l3)
+    if abs(s3) > 1:
+        raise ValueError("target out of reach")
+    a3p = math.asin(s3)
+    a, b = L2 - l3 * math.sin(a3p), l3 * math.cos(a3p)
+    a2 = math.degrees(math.atan2(a * r - b * h, a * h + b * r))
+    a3 = math.degrees(a3p + beta)
+    q = [a1, a2, a3, 0.0, 90.0 - a2 - a3, a6]
+    bad = [i + 1 for i, (v, (lo, hi)) in enumerate(zip(q, ROBOT["lim"])) if not lo <= v <= hi]
+    return q, bad
+
+
+def add(doc, name, shape, color, transp=0):
+    o = doc.addObject("Part::Feature", name)
+    o.Shape = shape
+    o.ViewObject.ShapeColor = color
+    o.ViewObject.Transparency = transp
+    return o
+
+
+def build():
+    for d in list(App.listDocuments().values()):
+        if d.Name == "cell":
+            App.closeDocument(d.Name)
+    doc = App.newDocument("cell")
+    grip = App.openDocument(ROOT + "/02_CAD_Body/out/gripper.FCStd")
+    adapter = grip.getObject("Adapter_ISO9409").Shape.BoundBox
+    fz = adapter.ZMax - P.ISO_SPIGOT_H                       # flange face in the gripper frame
+    part_bottom = grip.getObject("Part_B").Shape.BoundBox.ZMin
+    # tool down: flange sits (fz - part_bottom) above the belt, wrist centre another L_FL above
+    drop = (fz - part_bottom) + L_FL                          # wrist centre above the part underside, tool down
+    q, bad = ik_tool_down(V(X_PICK, 0.0, H_PICK + drop))
+    q_place, bad_place = ik_tool_down(V(X_PLACE, DY_CHAIN, H_PLACE + drop))
+    print("pick  A1..A6:", [round(a, 1) for a in q], "limits violated:", bad or "none")
+    print("place A1..A6:", [round(a, 1) for a in q_place], "limits violated:", bad_place or "none")
+    pl = link_placements(q)
+    for i, n in enumerate(ROBOT["links"]):
+        s = Part.read(ROBOT["files"].format(n))
+        s.Placement = pl[i].multiply(s.Placement)
+        add(doc, f"Robot_link{i}", s, ROBOT["base_color"] if i == 0 else ROBOT["color"])
+    # gripper: flange face to the robot flange, gripper +Z towards the robot (-X of tool0 at home)
+    mount = App.Placement(V(A2_X + L3X + L_FL, 0, A2_Z + L2 + C4), App.Rotation(V(0, 1, 0), -90)).multiply(
+        App.Placement(V(0, 0, -fz), App.Rotation()))
+    t = pl[6].multiply(mount)
+    colors = {"EN AW-6082": (0.72, 0.75, 0.78), "EN AW-7075": (0.76, 0.25, 0.05), "steel": (0.45, 0.48, 0.50),
+              "vendor": (0.16, 0.17, 0.18), "NBR": (0.08, 0.08, 0.08), "PA 6": (0.93, 0.90, 0.80)}
+    for o in grip.Objects:
+        if not hasattr(o, "Role") or o.Role == "table":
+            continue
+        s = o.Shape.copy()
+        s.Placement = t.multiply(s.Placement)
+        add(doc, "G_" + o.Name, s, colors.get(o.Material, (0.6, 0.6, 0.6)))
+    App.closeDocument(grip.Name)
+    # cell equipment
+    add(doc, "Pedestal", Part.makeCylinder(220, BASE.z, V(BASE.x, 0, 0)), (0.30, 0.32, 0.35))
+    frame = (0.55, 0.58, 0.62)
+
+    def conveyor(name, x0, x1, y0, y1, top, belt, color):
+        """Belt/chain on a frame with four legs (aluminium profile look)."""
+        add(doc, name, Part.makeBox(x1 - x0, y1 - y0, belt, V(x0, y0, top - belt)), color)
+        beam = Part.makeBox(x1 - x0, y1 - y0, 60, V(x0, y0, top - belt - 60))
+        legs = [Part.makeBox(45, 45, top - belt - 60, V(x, y, 0))
+                for x in (x0 + 10, x1 - 55) for y in (y0 + 5, y1 - 50)]
+        s = beam
+        for leg in legs:
+            s = s.fuse(leg)
+        add(doc, name + "_frame", s, frame)
+
+    conveyor("Buffer_belt", X_PICK - 150, X_PICK + 150, -700, 700, H_PICK, 40, (0.15, 0.15, 0.15))
+    for i, y in enumerate((-DY_CHAIN, DY_CHAIN)):
+        conveyor(f"Chain_{i + 1}", X_PLACE - 800, X_PLACE + 800, y - 60, y + 60, H_PLACE - 30, 30, (0.20, 0.20, 0.22))
+        add(doc, f"Carrier_{i + 1}", Part.makeBox(240, 160, 30, V(X_PLACE - 120, y - 80, H_PLACE - 30)), (0.25, 0.45, 0.70))
+    fence = [Part.makeBox(40, 2800, H_FENCE, V(X_PLACE - 750, -1400, 0)),
+             Part.makeBox(3400, 40, H_FENCE, V(X_PLACE - 750, 1400, 0)),
+             Part.makeBox(3400, 40, H_FENCE, V(X_PLACE - 750, -1440, 0))]
+    add(doc, "Fence", fence[0].fuse(fence[1]).fuse(fence[2]), (0.95, 0.80, 0.10), 75)
+    add(doc, "Floor", Part.makeBox(4200, 3600, 2, V(X_PLACE - 1000, -1800, -2)), (0.85, 0.86, 0.86))
+    doc.recompute()
+    os.makedirs(ROOT + "/06_Cell/out", exist_ok=True)
+    doc.saveAs(ROOT + "/06_Cell/out/cell.FCStd")
+    v = Gui.ActiveDocument.ActiveView
+    v.setCameraType("Orthographic")
+    v.viewIsometric()
+    v.fitAll()
+    return doc, q
+
+
+cell_doc, cell_q = build()

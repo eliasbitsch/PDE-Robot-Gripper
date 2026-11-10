@@ -237,7 +237,7 @@ def adapter_screws():
 
 
 def iso_adapter(z0):
-    """Round adapter plate to ISO 9409-1-50-4-M6, fixed to the housing lid from the top."""
+    """Round adapter plate to ISO 9409-1-40-4-M6, fixed to the housing lid from the top."""
     s = cylz(P.ADAPTER_D / 2, z0, z0 + P.ADAPTER_T)
     s = chamfer_z_edges(s, z0 + P.ADAPTER_T, 1.0)
     s = s.fuse(cylz(P.ISO_SPIGOT_D / 2, z0 + P.ADAPTER_T, z0 + P.ADAPTER_T + P.ISO_SPIGOT_H))

@@ -225,7 +225,7 @@ BOM_INFO = {
     "Housing": ("Gear housing", "own part, milled", "EN AW-6082 T6"),
     "Cover": ("Bottom cover", "own part, cut + milled", "EN AW-6082 T6"),
     "Tower": ("Motor housing", "own part, milled", "EN AW-6082 T6"),
-    "Adapter_ISO9409": ("Robot adapter ISO 9409-1-50-4-M6", "own part, turned", "EN AW-6082 T6"),
+    "Adapter_ISO9409": ("Robot adapter ISO 9409-1-40-4-M6", "own part, turned", "EN AW-6082 T6"),
     "Window_Plate": ("Cable window plate", "own part, cut", "EN AW-6082 T6"),
     "Slide": ("Slide", "own part, milled", "EN AW-6082 T6"),
     "Holder": ("Jaw holder", "own part, milled", "EN AW-6082 T6"),
