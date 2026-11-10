@@ -10,15 +10,16 @@ from params import *  # noqa: E402,F401,F403
 RACK_W, RACK_H, RACK_PITCH_LINE = 10.0, 12.0, 11.0
 PINION_D, PINION_B = MODUL * Z_RITZEL, 10.0
 
-# Bosch Rexroth miniature ball rail size 12 (catalogue R999001206, 2023-08, p. 19/21)
-# carriage SLS long, R0444 213 01 (accuracy H, preload); rail R0445 ...
-RAIL_W, RAIL_H, RAIL_PITCH = 12.0, 7.8, 25.0
+# Bosch Rexroth miniature ball rail size 9 (catalogue R999001206, 2023-08, p. 19/21)
+# carriage SLS long, R0444 913 01 (size 9/M3, accuracy H, preload); rail R0445 9..
+RAIL_W, RAIL_H, RAIL_PITCH = 9.0, 5.5, 20.0
 RAIL_HOLE_D, RAIL_CBORE_D, RAIL_SCREW = 3.5, 6.0, "M3"
-CARRIAGE_W, CARRIAGE_L, CARRIAGE_L_BODY = 27.0, 47.5, 34.5
-CARRIAGE_H, CARRIAGE_GAP = 13.0, 3.3          # rail base to carriage top, rail base to carriage underside
-CARRIAGE_HOLES_E1, CARRIAGE_HOLES_E2, CARRIAGE_THREAD = 20.0, 20.0, "M3x3.5"
-CARRIAGE_C0, CARRIAGE_MT0, CARRIAGE_ML0 = 5630.0, 33.5, 29.2   # N, N*m, N*m
-CARRIAGE_MASS = 0.051                         # kg
+RAIL_CBORE_DEPTH = 3.2
+CARRIAGE_W, CARRIAGE_L, CARRIAGE_L_BODY = 20.0, 41.4, 31.3
+CARRIAGE_H, CARRIAGE_GAP = 10.0, 2.8          # rail base to carriage top, rail base to carriage underside
+CARRIAGE_HOLES_E1, CARRIAGE_HOLES_E2, CARRIAGE_THREAD = 16.0, 15.0, "M3x3"   # E1 along the rail
+CARRIAGE_C0, CARRIAGE_MT0, CARRIAGE_ML0 = 3150.0, 14.5, 14.0   # N, N*m, N*m
+CARRIAGE_MASS = 0.026                         # kg
 
 # Drive, Nanotec
 MOTOR_FRAME = 42.3                              # NEMA 17 square
@@ -44,24 +45,26 @@ PLUNGER_SPRING = (7.0, 17.0)                     # N, start/end
 # d = opening travel per jaw from the closed end stop; pad face at |x| = PAD_X0 + d.
 PAD_X0 = 33.0                       # closed end stop, 2 mm past the grip faces
 D_GRIP = GREIF_ABSTAND / 2 - PAD_X0  # 2.0
-D_OPEN = 16.0                       # open: 98 mm between pads, part B is 95 wide
-CARR_X0 = 25.5                      # carriage centre at d = 0 (carriages 1.5 mm apart at the stop)
-RAIL_Y = -36.0                      # rail offset so racks and pinion hub stay clear
-RAIL_L, RAIL_T1, RAIL_NB = 135.0, 17.5, 5   # L = (nB-1)*T + 2*T1, Rexroth allows custom T1
+D_OPEN = 10.0                       # open: 86 mm between pads; jaws end above the lug, faces are 70 apart
+CARR_X0 = 21.5                      # carriage centre at d = 0 (carriages 1.6 mm apart at the stop)
+RAIL_Y = -32.5                      # carriages clear of the racks, which run at the same height
+RAIL_L, RAIL_T1, RAIL_NB = 110.0, 15.0, 5   # L = (nB-1)*T + 2*T1, Rexroth allows custom T1
+RAIL_BASE_Z = -3.0                  # rail sits on a 3 mm land = reference shoulder
 
 PLATE_T = 10.0                      # top plate
-WALL = 9.0                          # M4 cover screws need meat on both sides
-HOUSING_X = 162.0
-HOUSING_Y = (-63.0, 39.0)           # back wall 9 mm behind the widened slides
+WALL = 7.0                          # M3 cover screws on the wall centre line
+HOUSING_X = 146.0
+HOUSING_Y = (-53.5, 42.0)
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
 COVER_T = 4.0
 
 SLIDE_T = 8.0
-SLIDE_Z_TOP = -CARRIAGE_H           # slide sits under the hanging carriage
+SLIDE_Z_TOP = RAIL_BASE_Z - CARRIAGE_H   # slide sits under the hanging carriage
+SLIDE_CBORE_CARR = 3.0              # M3x8 ends at the carriage thread bottom (N3 = 3)
 RACK_GAP = 1.0                      # racks float 1 mm above the opposite slide
 RACK_Z0 = SLIDE_Z_TOP + RACK_GAP    # rack and pinion bottom
-RACK_TEETH = 20                     # 20 * pi = 62.8 mm
-RACK_REL = -12.0                    # rack outer end beyond its carriage centre (room for slots + pin)
+RACK_TEETH = 18                     # 18 * pi = 56.5 mm
+RACK_REL = -16.0                    # rack outer end beyond its carriage centre (room for slots + pin)
 RACK_SCREW_X, RACK_PIN_X, RACK_SLOT = (18.0, 32.5), 25.0, 1.0   # at d = 0; slots +-1 mm along X
 # rack position is set at assembly (jaws symmetric), then pinned: ISO 8734 3 m6 x 14, hole drilled/reamed at assembly
 SLIDE_TRIM_X = 12.0                 # slides keep |x| > 12 near y = 0 (pinion hub)
@@ -90,14 +93,16 @@ HOLDER_SCREW_X = 5.5                # from the jaw contact face: counterbore kee
 DOWEL_D, DOWEL_L, DOWEL_Y, DOWEL_Z = 4.0, 12.0, 5.5, -32.0   # ISO 8734 4 m6 x 12
 PLUNGER_Z = -39.0
 
-TOWER_X, TOWER_Y = (-40.0, 40.0), (-63.0, 39.0)   # flush with the housing front and back
-TOWER_R, TOWER_WALL, LID_T, LID_HOLE_D = 14.0, 4.0, 8.0, 62.0
+# Round motor housing around the NEMA 17 stack (square diagonal 59.8), connector pod on +X for the window plate
+TOWER_D, TOWER_WALL, LID_T, LID_HOLE_D = 72.0, 4.0, 8.0, 54.0
 TOWER_BOSS_H = 16.0
 GEAR_SCREW_CBORE = 4.4                # M4 heads flush in the plate underside (gearbox and tower screws)
 WALL_MIN = 1.5                      # checked for every hole of every own part
-TOWER_BOSS = [(-31.0, -25.0), (31.0, -25.0), (-29.0, 24.5), (29.0, 24.5)]   # free-standing, screwed from below
-ADAPTER_D, ADAPTER_SCREW_PCD = 88.0, 72.0   # round ISO adapter, M5 countersunk outside the robot flange
-HOUSING_R, EDGE_CHAMFER, COVER_CHAMFER = 8.0, 1.5, 0.5
+TOWER_BOSS = [(29.0, 0.0), (-29.0, 0.0), (0.0, 29.0)]   # three screws from below
+BRAKE_TURN = -35.0                  # brake leads point into the cable window
+POD_X, POD_Y = (28.0, 40.0), (-24.0, 28.0)              # flat connector pod, face at x = 40
+ADAPTER_D, ADAPTER_SCREW_PCD = 76.0, 62.0                # ISO 10642 M4 countersunk from the top
+HOUSING_R, EDGE_CHAMFER, COVER_CHAMFER = 12.0, 1.5, 0.0
 SLIDE_EDGE = 2.5                    # slide wider than the carriage so the M3 counterbores keep a wall
 GEAR_FLANGE_Z = PLATE_T             # gearbox output flange on top of the plate
 ADAPTER_T, ISO_PCD, ISO_SPIGOT_D, ISO_SPIGOT_H = 10.0, 40.0, 25.0, 4.5   # ISO 9409-1-40-4-M6 (ABB IRB 1300)

@@ -9,11 +9,11 @@ Status: 10 Nov 2026, proposal. Replaces "Onshape is the leading CAD model" in PL
 | D1 | CAD tool | **FreeCAD 1.1, built by Python scripts** (headless `freecadcmd`) | The assignment does not prescribe a tool. Scripts read one parameter file, so a change in sizing is one edit plus a rebuild. STEP is the exchange format to Onshape/Viktoriia. |
 | D2 | Mechanism | **One pinion, two opposed racks, one jaw per rack** (half of the Cartesian Hand) | Parallel jaws, constant jaw force over the stroke, one gear mesh to prove. |
 | D3 | Standard parts | **Standard or catalogue part wherever one exists**, from large, well-known (preferably German) manufacturers, metric; own parts only where the geometry is specific to part B or to our layout | Shorter BOM, ratings come from datasheets instead of own proofs, cheaper to justify. |
-| D4 | Guide | **Miniature profile rail size 12 (one rail, two carriages, one per jaw)**, Bosch Rexroth miniature ball rail: carriage SLS **R0444 213 01**, rail **R0445**; C0 = 5630 N, Mt0 = 33.5 N·m, ML0 = 29.2 N·m (catalogue R999001206). Worst case 47 N × ≈ 100 mm ≈ 4.7 N·m → S0 ≈ 6 instead of a milled dovetail | Catalogue part with rated static moments, so the tilting-moment proof (PLAN § 8.5) becomes a datasheet check. One shared rail keeps both jaws parallel by construction. |
+| D4 | Guide | **Miniature ball rail size 9, one rail, two carriages** (Bosch Rexroth: carriage SLS **R0444 913 01**, rail **R0445**, L = 110), rail on a 3 mm land that is also the reference shoulder; C0 = 3150 N, Mt0 = 14.5 N·m, ML0 = 14.0 N·m (catalogue R999001206). Worst case 63.6 N × ≈ 70 mm ≈ 4.5 N·m → S0 ≈ 3 (≈ 2 with the yaw moment added); normal operation (≈ 36 N) S0 ≈ 4 | Catalogue part with rated static moments; size 9 instead of 12 since 10 Nov to slim the housing. One shared rail keeps both jaws parallel by construction. |
 | D5 | Gear | **m = 1, pinion z = 20 (d = 20 mm), steel racks, both catalogue** | z = 20 is above the undercut limit (17), no profile shift. 14 mm stroke = 80° pinion rotation. Pinion torque for 14.3 N per jaw: 2 · 14.3 N · 10 mm = **0.29 N·m**. `cad/params.py` already says z = 20; PLAN.md still says z = 16 and gets corrected. |
 | D6 | Drive | **Upright, coaxial under the robot flange** (variant A, decided 10 Nov 2026): Nanotec **ST4118S1404-B** (NEMA 17, 34 mm, 0.20 N·m) + planetary **GP42-S1-7-SR** (i = 7.07, η = 0.90, 38 mm; changed from -5 on 10 Nov for oily parts) + spring-applied brake **BRAKE-BWA-0,35-5** (0.35 N·m, 24 V) on the rear shaft. Pinion sits directly on the gearbox shaft. | Part may be dirty or oily: designed with μ = 0.2 instead of 0.5 → **35.7 N per jaw** needed (S = 2). Static torque at the pinion 0.20 · 7.07 · 0.90 = **1.27 N·m** → 63.6 N per jaw (×1.78 on top of S); brake holds 0.35 · 7.07 = **2.5 N·m** at the pinion on power failure. Peak pinion speed 100 1/min (opening in 0.2 s) → 707 1/min at the motor. Stack ≈ 95 mm. Worm (efficiency, speed) and a lying motor with bevel gear (width, freedom of movement) were compared in 3D and rejected. Grip force is set by the current limit; full current gives ≈ 64 N per jaw, which is the FEM worst case. |
 | D7 | Jaw quick change | **2 dowel pins ISO 8734 + 1 indexing plunger (catalogue, e.g. GN 617) per jaw** on the carriage plate | The assignment requires quick-change jaws ("Greiferzangen ... mit einem Schnellwechselsystem"), not a tool changer. Pins locate, the plunger locks, no tool needed. |
-| D8 | Robot interface | **Round adapter Ø88 to ISO 9409-1-40-4-M6** (ABB IRB 1300 flange, changed 10 Nov from the IRB 1600's -50), fixed to the housing lid from the top with 4 × ISO 10642 M5 on PCD 72 | Prescribed by the robot; screw heads stay reachable outside the robot flange. |
+| D8 | Robot interface | **Round adapter Ø76 to ISO 9409-1-40-4-M6** (ABB IRB 1300-7/1.4), fixed to the motor housing lid from the top with 4 × ISO 10642 M4 on PCD 62 | Prescribed by the robot; screw heads stay reachable outside the robot flange. |
 | D9 | Visuals | **Blender** (glTF from FreeCAD) for materials, renders and the open/close animation | FreeCAD has no proper material rendering. Same parameters drive the Blender rig. |
 | D10 | Animation | Kinematic check in the **FreeCAD Assembly workbench** (rack-pinion joint + "Create Simulation"); the **presentation animation in Blender**; the cell sequence stays in **MuJoCo** | FreeCAD proves the kinematics are right, Blender makes it look good, MuJoCo proves the cell. |
 
@@ -34,7 +34,7 @@ Standard / catalogue parts:
 
 | Part | Standard / source |
 |---|---|
-| Miniature ball rail size 12 R0445 + 2 carriages SLS R0444 213 01 | Bosch Rexroth |
+| Miniature ball rail size 9 R0445 + 2 carriages SLS R0444 913 01 | Bosch Rexroth |
 | Rack m = 1, steel, 10 × 12 mm (pitch line 11 mm), cut to length x2 | Mädler |
 | Pinion m = 1, z = 20, d = 20 mm, b = 10 mm, bored to the gearbox shaft | Mädler |
 | Stepper ST4118S1404-B + gearbox GP42-S1-5-SR + brake BRAKE-BWA-0,35-5 | Nanotec (supplied assembled) |
@@ -121,24 +121,24 @@ chips are recycled. For a series the motor housing would become an extruded prof
 Rules the build checks or the layout follows:
 
 - every hole of every own part keeps at least **1.5 mm** wall (`wall_check` in `build.py`)
-- inner pocket corners R6 (gear housing) and R10 (motor housing): standard Ø10 / Ø16 cutters
+- inner pocket corners R6 (gear housing), motor housing bore Ø64: standard cutters
 - each housing is machined from two sides only (pocket from below, holes from the top)
-- outer edges R8 vertical, 1.5 mm chamfer on top edges, 0.5 mm on the cover
+- gear housing 146 × 95.5 mm, walls 7 mm, outer edges R12; round motor housing Ø72 with a flat connector pod; 1.5 mm chamfer on top edges
 
-**Few fastener variants:** ISO 4762 M3×8, M3×10, M4×16, M4×25, ISO 10642 M5×16, ISO 4029 M4×4,
+**Few fastener variants:** ISO 4762 M3×8, M3×10, M4×16, M4×25, ISO 10642 M4×16, ISO 4029 M4×4,
 ISO 7089 3, ISO 8734 4×12. The Rexroth hole pattern fixes M3 at rail and carriages.
 
 **Assembly order** (every screw reachable with a straight hex key at its step):
 
 1. Gear housing upside down: rail against the reference edge, 5 × M3×8 (Rexroth asks for all holes)
 2. Nanotec drive (motor + gearbox + brake, supplied assembled) onto the top plate, 4 × M4×16 from below, heads flush
-3. Motor housing over the drive, 4 × M4×16 from below into the free-standing bosses, heads flush
+3. Round motor housing over the drive, 3 × M4×16 from below into its bosses, heads flush
 4. Pinion with key onto the gearbox shaft, set screw M4×4 from the side
 5. Carriages onto the rail, slides onto the carriages (4 × M3×8 each), racks onto the slides (2 × M3×10 each)
 6. Jaw holders with pressed-in dowels onto the slides, 2 × M4×25 each
-7. Bottom cover, 4 × M4×16
+7. Bottom cover, 4 × M3×10
 8. Jaws onto the dowels until the plunger snaps in; pad plates 2 × M3×8 + washer each
 9. Window plate with cable gland, 4 × M3×8; cables
-10. Adapter onto the robot (ISO screws, robot side), gripper onto the adapter with 4 × M5×16 countersunk from the top
+10. Adapter onto the robot (ISO screws, robot side), gripper onto the adapter with 4 × M4×16 countersunk from the top
 
 Jaw change in the cell: pull the plunger knob, pull the jaw off the dowels, push the new one on.

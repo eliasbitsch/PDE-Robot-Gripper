@@ -6,7 +6,7 @@ from FreeCAD import Vector as V
 
 # d: (head dia dk, head height k, core radius, socket across flats)
 ISO4762 = {3: (5.5, 3.0, 1.25, 2.5), 4: (7.0, 4.0, 1.65, 3.0), 5: (8.5, 5.0, 2.1, 4.0), 6: (10.0, 6.0, 2.5, 5.0)}
-ISO10642 = {5: (10.4, 2.45, 2.1, 3.0)}
+ISO10642 = {4: (8.96, 2.48, 1.65, 2.5), 5: (10.4, 2.45, 2.1, 3.0)}
 
 
 def hex_socket(s, depth, base, direction):

@@ -32,11 +32,11 @@ def get_doc():
 def explode(o):
     n, s = o.Label, o.Side   # FreeCAD turns "-" into "_" in names and labels
     rules = [
-        ("Screw_ISO10642-M5x16_Adapter", 10, (0, 0, 230)), ("Adapter_ISO9409", 10, (0, 0, 190)),
+        ("Screw_ISO10642-M4x16_Adapter", 10, (0, 0, 230)), ("Adapter_ISO9409", 10, (0, 0, 190)),
         ("Screw_ISO4762-M3x8_Window", 9, (80, 0, 0)), ("Cable_Gland", 9, (65, 0, 0)), ("Window_Plate", 9, (50, 0, 0)),
         ("Screw_ISO4762-M3x8_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),
         ("PadPlate_", 8, (-10 * s, 0, -235)), ("Pad_", 8, (-10 * s, 0, -235)), ("Jaw_", 8, (12 * s, 0, -200)),
-        ("Screw_ISO4762-M4x16_Cover", 7, (0, 0, -175)), ("Cover", 7, (0, 0, -140)),
+        ("Screw_ISO4762-M3x10_Cover", 7, (0, 0, -175)), ("Cover", 7, (0, 0, -140)),
         ("Plunger_", 6, (40 * s, 0, -120)), ("Dowel_ISO8734-4x12", 6, (-15 * s, 0, -120)),
         ("Screw_ISO4762-M4x25_Holder", 6, (0, 0, -150)), ("Holder_", 6, (0, 0, -120)),
         ("Screw_ISO4762-M3x8_Carriage", 5, (0, 0, -115)), ("Screw_ISO4762-M3x10_Rack", 5, (0, 0, -115)),
@@ -159,7 +159,7 @@ class Demo(QtGui.QDockWidget):
 
     def seek(self, t):
         self.t = t
-        d, zg, zp = demo_seq.state(t, P.D_GRIP)
+        d, zg, zp = demo_seq.state(t, P.D_GRIP, P.D_OPEN)
         f_all = self.ex.value() / 100.0
         exploding = f_all > 0 or self.asm_tau is not None
         if exploding:

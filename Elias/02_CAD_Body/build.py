@@ -46,7 +46,8 @@ def build_static(gear_pin, gear_rack):
         "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 1, 0), 90), V(0, 0, gb_face + 0.0) + V(0, 0, 0)), "vendor", 0),
         "Motor": (vendor("nanotec_st4118s1404b.step",
                          App.Rotation(V(0, 0, 1), 90).multiply(App.Rotation(V(1, 0, 0), 180)), V(0, 0, motor_base)), "vendor", 0),
-        "Brake": (vendor("nanotec_bwa_035_5.step", App.Rotation(V(0, 1, 0), -90), V(0, 0, brake_base)), "vendor", 0),
+        "Brake": (vendor("nanotec_bwa_035_5.step", App.Rotation(V(0, 0, 1), P.BRAKE_TURN).multiply(App.Rotation(V(0, 1, 0), -90)),
+                         V(0, 0, brake_base)), "vendor", 0),
         "Pinion": (C.pinion(gear_pin), "steel", "rot"),
         "Setscrew_ISO4029-M4x4": (F.iso4029_x(4, 4, -P.PINION_HUB_D / 2, 0, P.SETSCREW_Z, 1), "steel", "rot"),
     }
@@ -54,7 +55,7 @@ def build_static(gear_pin, gear_rack):
     parts["Window_Plate"] = (wp, "EN AW-6082", 0)
     parts["Cable_Gland_Lapp_SKINTOP_M16"] = (C.gland(zc), "vendor", 0)
     for i, (y, z) in enumerate(C.window_screws(tower_top), 1):
-        parts[f"Screw_ISO4762-M3x8_Window{i}"] = (F.iso4762_x(3, 8, P.TOWER_X[1] + P.WINDOW_PLATE_T, y, z, -1), "steel", 0)
+        parts[f"Screw_ISO4762-M3x8_Window{i}"] = (F.iso4762_x(3, 8, P.POD_X[1] + P.WINDOW_PLATE_T, y, z, -1), "steel", 0)
     for side, tag in ((-1, "L"), (1, "R")):
         parts[f"Carriage_{tag}"] = (C.carriage(side * P.CARR_X0), "steel", side)
         parts[f"Slide_{tag}"] = (C.slide(side), "EN AW-6082", side)
@@ -77,19 +78,19 @@ def build_static(gear_pin, gear_rack):
         for i, (x, y) in enumerate(C.rack_screws(side), 1):
             parts[f"Screw_ISO4762-M3x10_Rack{tag}{i}"] = (F.iso4762(3, 10, x, y, P.SLIDE_Z_TOP - P.SLIDE_T + 3.2), "steel", side)
         for i, (x, y) in enumerate(C.carriage_holes(side * P.CARR_X0), 1):
-            parts[f"Screw_ISO4762-M3x8_Carriage{tag}{i}"] = (F.iso4762(3, 8, x, y, P.SLIDE_Z_TOP - P.SLIDE_T + 3.2), "steel", side)
+            parts[f"Screw_ISO4762-M3x8_Carriage{tag}{i}"] = (F.iso4762(3, 8, x, y, P.SLIDE_Z_TOP - P.SLIDE_T + P.SLIDE_CBORE_CARR), "steel", side)
     for i, x in enumerate(C.rail_hole_x(), 1):
-        parts[f"Screw_ISO4762-M3x8_Rail{i}"] = (F.iso4762(3, 8, x, P.RAIL_Y, -P.RAIL_H + 4.5), "steel", 0)
+        parts[f"Screw_ISO4762-M3x8_Rail{i}"] = (F.iso4762(3, 8, x, P.RAIL_Y, P.RAIL_BASE_Z - P.RAIL_H + P.RAIL_CBORE_DEPTH), "steel", 0)
     for i, (x, y) in enumerate(P.TOWER_BOSS, 1):
         parts[f"Screw_ISO4762-M4x16_Tower{i}"] = (F.iso4762(4, 16, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
     for i, (x, y) in enumerate(C.cover_screws(), 1):
-        parts[f"Screw_ISO4762-M4x16_Cover{i}"] = (F.iso4762(4, 16, x, y, P.POCKET_Z - P.COVER_T), "steel", 0)
+        parts[f"Screw_ISO4762-M3x10_Cover{i}"] = (F.iso4762(3, 10, x, y, P.POCKET_Z - P.COVER_T), "steel", 0)
     for i, a in enumerate((45, 135, 225, 315), 1):
         x, y = 18 * math.cos(math.radians(a)), 18 * math.sin(math.radians(a))
         parts[f"Screw_ISO4762-M4x16_Gearbox{i}"] = (F.iso4762(4, 16, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
     z_ad = tower_top + P.LID_T
     for i, (x, y) in enumerate(C.adapter_screws(), 1):
-        parts[f"Screw_ISO10642-M5x16_Adapter{i}"] = (F.iso10642(5, 16, x, y, z_ad + P.ADAPTER_T), "steel", 0)
+        parts[f"Screw_ISO10642-M4x16_Adapter{i}"] = (F.iso10642(4, 16, x, y, z_ad + P.ADAPTER_T), "steel", 0)
     return parts, {"tower_top": tower_top, "flange_z": z_ad + P.ADAPTER_T}
 
 
@@ -208,6 +209,9 @@ def wall_check(parts):
                         continue             # same hole: other half, counterbore or thread core
                     if off <= 2 * P.RACK_SLOT + 1e-3:
                         continue             # other end of the same slot
+                if isinstance(gs, Part.Cone) and abs(abs(gs.Axis.dot(su.Axis)) - 1) < 1e-6 \
+                        and (gs.Apex - su.Center).cross(su.Axis).Length < 1e-3:
+                    continue                 # countersink of the same hole
                 if isinstance(gs, Part.Plane) and abs(gs.Axis.dot(su.Axis)) < 1e-6:
                     d_axis = abs((su.Center - gs.Position).dot(gs.Axis))
                     if any(abs(d_axis - r) < 1e-3 for r in own_radii):
@@ -232,8 +236,8 @@ BOM_INFO = {
     "Jaw": ("Jaw", "own part, milled", "EN AW-7075 T6"),
     "PadPlate": ("Pad plate, rubber-metal (steel 3 + NBR 70 Sh A 3)", "bought to drawing", "S235 / NBR"),
     "Pad": None,                                   # part of the pad plate
-    "Rail": ("Miniature ball rail size 12, L = 135, T1 = 17.5", "Bosch Rexroth R0445", "steel"),
-    "Carriage": ("Ball carriage SLS size 12", "Bosch Rexroth R0444 213 01", "steel"),
+    "Rail": ("Miniature ball rail size 9, L = 110, T1 = 15", "Bosch Rexroth R0445", "steel"),
+    "Carriage": ("Ball carriage SLS size 9", "Bosch Rexroth R0444 913 01", "steel"),
     "Rack": ("Rack m = 1, 10 x 12, cut to 56.5", "Maedler", "C45"),
     "Pinion": ("Spur gear m = 1, z = 20, with hub, bored 8 H7 + keyway", "Maedler", "C45"),
     "Gearbox": ("Planetary gearbox GP42-S1-7-SR", "Nanotec", "-"),
@@ -304,7 +308,7 @@ def main():
     seq_hits, n = [], 0
     t = 0.0
     while t <= demo_seq.DURATION:
-        d, zg, zp = demo_seq.state(t, P.D_GRIP)
+        d, zg, zp = demo_seq.state(t, P.D_GRIP, P.D_OPEN)
         g = at(parts, d, theta0)
         for sh in g.values():
             sh.translate(V(0, 0, zg))

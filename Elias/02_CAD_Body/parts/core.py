@@ -63,11 +63,13 @@ def holder_screws(side):
 def cover_screws():
     hx = P.HOUSING_X / 2
     y0, y1 = P.HOUSING_Y
-    return [(x, y) for x in (-hx + P.WALL / 2, hx - P.WALL / 2) for y in (y0 + 15, y1 - 15)]
+    return [(x, y) for x in (-hx + P.WALL / 2, hx - P.WALL / 2) for y in (y0 + 18, y1 - 18)]
 
 
 def chamfer_z_edges(s, z, size):
     """Chamfer the outer horizontal edges lying at height z; keeps the part if OCC refuses."""
+    if size <= 0:
+        return s
     edges = [e for e in s.Edges if all(abs(v.Point.z - z) < 1e-6 for v in e.Vertexes)
              and e.BoundBox.ZLength < 1e-6 and e.Length > 5]
     try:
@@ -82,13 +84,14 @@ def housing_body():
     s = rounded_box(-hx, hx, y0, y1, P.POCKET_Z, P.PLATE_T, P.HOUSING_R)
     s = chamfer_z_edges(s, P.PLATE_T, P.EDGE_CHAMFER)
     s = s.cut(rounded_box(-hx + P.WALL, hx - P.WALL, y0 + P.WALL, y1 - P.WALL, P.POCKET_Z - 1, 0, 6.0))   # R6: standard d10 cutter
+    s = s.fuse(box(-P.RAIL_L / 2 - 2, P.RAIL_L / 2 + 2, P.RAIL_Y - P.RAIL_W / 2 - 3, P.RAIL_Y + P.RAIL_W / 2 + 3, P.RAIL_BASE_Z, 0.01))  # rail land
     tools = [cylz(8.0, -1, P.PLATE_T + 1)]                                  # shaft + gearbox seal ring d14.7
     tools += holes_pcd(2.25, 36.0, -1, P.PLATE_T + 1)                       # gearbox M4 through
     tools += holes_pcd(3.75, 36.0, -1, P.GEAR_SCREW_CBORE)                  # flush heads
-    tools += [cylz(1.25, -1, 8, x, P.RAIL_Y) for x in rail_hole_x()]        # rail M3 tapped
+    tools += [cylz(1.25, P.RAIL_BASE_Z - 1, 5, x, P.RAIL_Y) for x in rail_hole_x()]   # rail M3 tapped
     tools += [cylz(2.25, -1, P.PLATE_T + 1, x, y) for x, y in P.TOWER_BOSS]  # tower M4 from below
     tools += [cylz(3.75, -1, P.GEAR_SCREW_CBORE, x, y) for x, y in P.TOWER_BOSS]
-    tools += [cylz(1.65, P.POCKET_Z - 1, P.POCKET_Z + 14, x, y) for x, y in cover_screws()]   # cover M4 tapped
+    tools += [cylz(1.25, P.POCKET_Z - 1, P.POCKET_Z + 10, x, y) for x, y in cover_screws()]   # cover M3 tapped
     return cut_all(s, tools)
 
 
@@ -103,29 +106,30 @@ def cover():
         _, _, xj1, xh_top, _ = jaw_x(sg)
         tools.append(box(xj1 - sg * 1, xh_top + sg * (P.D_OPEN + 1), -P.HOLDER_W / 2 - 1, P.HOLDER_W / 2 + 1, z1 - P.COVER_T - 1, z1 + 1))
     tools.append(cylz(6.0, z1 - P.COVER_T - 1, z1 + 1))                    # access to the pinion set screw
-    tools += [cylz(2.25, z1 - P.COVER_T - 1, z1 + 1, x, y) for x, y in cover_screws()]
+    tools += [cylz(1.7, z1 - P.COVER_T - 1, z1 + 1, x, y) for x, y in cover_screws()]
     return cut_all(s, tools)
 
 
 def rail():
     x = P.RAIL_L / 2
     y = P.RAIL_Y
-    s = box(-x, x, y - P.RAIL_W / 2, y + P.RAIL_W / 2, -P.RAIL_H, 0)
+    zb = P.RAIL_BASE_Z - P.RAIL_H
+    s = box(-x, x, y - P.RAIL_W / 2, y + P.RAIL_W / 2, zb, P.RAIL_BASE_Z)
     for xi in rail_hole_x():
-        s = s.cut(cylz(P.RAIL_HOLE_D / 2, -P.RAIL_H - 1, 1, xi, y))
-        s = s.cut(cylz(P.RAIL_CBORE_D / 2, -P.RAIL_H - 1, -P.RAIL_H + 4.5, xi, y))
+        s = s.cut(cylz(P.RAIL_HOLE_D / 2, zb - 1, P.RAIL_BASE_Z + 1, xi, y))
+        s = s.cut(cylz(P.RAIL_CBORE_D / 2, zb - 1, zb + P.RAIL_CBORE_DEPTH, xi, y))
     return s
 
 
 def carriage(xc):
     """Hanging carriage: mounting face at z = -CARRIAGE_H, wraps the rail."""
     y = P.RAIL_Y
-    zb, zt = -P.CARRIAGE_H, -P.CARRIAGE_GAP
+    zb, zt = P.RAIL_BASE_Z - P.CARRIAGE_H, P.RAIL_BASE_Z - P.CARRIAGE_GAP
     hb, hl = P.CARRIAGE_L_BODY / 2, P.CARRIAGE_L / 2
     body = box(xc - hb, xc + hb, y - P.CARRIAGE_W / 2, y + P.CARRIAGE_W / 2, zb, zt)
     seals = box(xc - hl, xc + hl, y - P.CARRIAGE_W / 2 + 0.5, y + P.CARRIAGE_W / 2 - 0.5, zb + 0.5, zt - 0.5)
     s = body.fuse(seals)
-    s = s.cut(box(xc - hl - 1, xc + hl + 1, y - P.RAIL_W / 2, y + P.RAIL_W / 2, -P.RAIL_H, zt + 1))
+    s = s.cut(box(xc - hl - 1, xc + hl + 1, y - P.RAIL_W / 2, y + P.RAIL_W / 2, P.RAIL_BASE_Z - P.RAIL_H, zt + 1))
     s = cut_all(s, [cylz(1.25, zb - 1, zb + 3.5, hx, hy) for hx, hy in carriage_holes(xc)])
     return s.removeSplitter()
 
@@ -138,7 +142,7 @@ def slide(side):
     y_car0 = P.RAIL_Y - P.CARRIAGE_W / 2 - P.SLIDE_EDGE
     _, _, _, xh_top, _ = jaw_x(side)
     x_outer = side * max(abs(xc) + hl, abs(xh_top))
-    s = box(xc - side * hl, x_outer, y_car0, P.RAIL_Y + P.CARRIAGE_W / 2, z0, z1)
+    s = box(xc - side * hl, x_outer, y_car0, P.RAIL_Y + P.CARRIAGE_W / 2 + P.SLIDE_EDGE, z0, z1)
     y_top = (P.RACK_H + P.PINION_D / 2 + 0.5) if side < 0 else P.HOLDER_W / 2
     s = s.fuse(box(side * P.SLIDE_TRIM_X, x_outer, y_car0, y_top, z0, z1))
     ry = -side * (P.PINION_D / 2 - 1.0)
@@ -146,7 +150,7 @@ def slide(side):
     s = s.fuse(box(side * P.SLIDE_TRIM_X, rack_x_out, ry, ry - side * P.RACK_H, z1, z1 + P.RACK_GAP))   # boss under the rack
     tools = []
     for hx, hy in carriage_holes(xc):
-        tools += [cylz(1.7, z0 - 1, z1 + 1, hx, hy), cylz(3.0, z0 - 1, z0 + 3.2, hx, hy)]
+        tools += [cylz(1.7, z0 - 1, z1 + 1, hx, hy), cylz(3.0, z0 - 1, z0 + P.SLIDE_CBORE_CARR, hx, hy)]
     tools += [cylz(1.65, z0 - 1, z1 + 1, hx, hy) for hx, hy in holder_screws(side)]   # holder M4 tapped
     for hx, hy in rack_screws(side):
         tools += [slot_z(1.7, hx, hy, z0 - 1, z1 + P.RACK_GAP + 1, P.RACK_SLOT), slot_z(3.0, hx, hy, z0 - 1, z0 + 3.2, P.RACK_SLOT)]
@@ -245,25 +249,25 @@ def iso_adapter(z0):
     tools += holes_pcd(5.5, P.ISO_PCD, z0 - 1, z0 + 6.5)
     tools.append(cylz(3.0, z0 + 2, z0 + 20, P.ISO_PCD / 2, 0))             # locating pin d6 H7
     for x, y in adapter_screws():
-        tools.append(cylz(2.75, z0 - 1, z0 + P.ADAPTER_T + 1, x, y))
-        tools.append(Part.makeCone(2.75, 5.2, 2.45, V(x, y, z0 + P.ADAPTER_T - 2.45)))   # ISO 10642 M5 countersink
+        tools.append(cylz(2.25, z0 - 1, z0 + P.ADAPTER_T + 1, x, y))
+        tools.append(Part.makeCone(2.4, 4.6, 2.48, V(x, y, z0 + P.ADAPTER_T - 2.48)))   # ISO 10642 M4 countersink
     return cut_all(s, tools)
 
 
 def tower(z_top):
-    """Motor housing, milled from the solid, open at the bottom, lid with opening for the ISO screws."""
-    (x0, x1), (y0, y1) = P.TOWER_X, P.TOWER_Y
-    t, r = P.TOWER_WALL, P.TOWER_R
-    s = rounded_box(x0, x1, y0, y1, P.PLATE_T, z_top + P.LID_T, r)
+    """Round motor housing, milled from the solid, open at the bottom; flat pod on +X carries the window plate."""
+    ro, ri = P.TOWER_D / 2, P.TOWER_D / 2 - P.TOWER_WALL
+    s = cylz(ro, P.PLATE_T, z_top + P.LID_T)
+    s = s.fuse(box(P.POD_X[0], P.POD_X[1], P.POD_Y[0], P.POD_Y[1], WINDOW_Z0 - 14, window_top(z_top) + 14))
     s = chamfer_z_edges(s, z_top + P.LID_T, P.EDGE_CHAMFER)
-    s = s.cut(rounded_box(x0 + t, x1 - t, y0 + t, y1 - t, P.PLATE_T - 1, z_top, r - t))
+    s = s.cut(cylz(ri, P.PLATE_T - 1, z_top))
     for x, y in P.TOWER_BOSS:
-        s = s.fuse(cylz(5.0, P.PLATE_T, P.PLATE_T + P.TOWER_BOSS_H, x, y))
+        s = s.fuse(cylz(5.0, P.PLATE_T, P.PLATE_T + P.TOWER_BOSS_H, x, y).cut(cylz(ri + 10, P.PLATE_T - 1, P.PLATE_T - 0.5)))
     tools = [cylz(P.LID_HOLE_D / 2, z_top - 1, z_top + P.LID_T + 1)]
-    tools += [cylz(2.1, z_top + P.LID_T - 10, z_top + P.LID_T + 1, x, y) for x, y in adapter_screws()]   # M5 tapped
+    tools += [cylz(1.65, z_top + P.LID_T - 6.5, z_top + P.LID_T + 1, x, y) for x, y in adapter_screws()]   # M4 blind, 1.5 mm floor
     tools += [cylz(1.65, P.PLATE_T - 1, P.PLATE_T + 14, x, y) for x, y in P.TOWER_BOSS]                  # M4 tapped from below
-    tools.append(box(x1 - t - 1, x1 + 1, WINDOW_Y[0], WINDOW_Y[1], WINDOW_Z0, window_top(z_top)))   # connector and brake leads
-    tools += [cylx(1.25, x1 - t - 1, x1 + 1, y, z) for y, z in window_screws(z_top)]   # M3 for the window plate
+    tools.append(box(ri - 6, P.POD_X[1] + 1, WINDOW_Y[0], WINDOW_Y[1], WINDOW_Z0, window_top(z_top)))   # connector and leads
+    tools += [cylx(1.25, P.POD_X[1] - 8, P.POD_X[1] + 1, y, z) for y, z in window_screws(z_top)]          # M3 for the plate
     return cut_all(s, tools).removeSplitter()
 
 
@@ -309,7 +313,7 @@ def window_screws(z_top):
 
 def window_plate(z_top):
     """Cover over the cable window with the cable gland."""
-    x1 = P.TOWER_X[1]
+    x1 = P.POD_X[1]
     s = box(x1, x1 + P.WINDOW_PLATE_T, WINDOW_Y[0] - 11, WINDOW_Y[1] + 11, WINDOW_Z0 - 11, window_top(z_top) + 11)
     zc = (WINDOW_Z0 + window_top(z_top)) / 2
     tools = [cylx(P.GLAND[1] / 2, x1 - 1, x1 + P.WINDOW_PLATE_T + 1, WINDOW_YC, zc)]
@@ -319,7 +323,7 @@ def window_plate(z_top):
 
 def gland(zc):
     _, m, dk, l_out = P.GLAND
-    x1 = P.TOWER_X[1] + P.WINDOW_PLATE_T
+    x1 = P.POD_X[1] + P.WINDOW_PLATE_T
     s = cylx(m / 2, x1 - P.WINDOW_PLATE_T - 6, x1)                                  # thread + lock nut inside
     s = s.fuse(cylx(dk / 2, x1, x1 + 6))                                           # hex body (as cylinder)
     s = s.fuse(cylx(dk / 2 - 2, x1 + 6, x1 + l_out))                                # dome nut
