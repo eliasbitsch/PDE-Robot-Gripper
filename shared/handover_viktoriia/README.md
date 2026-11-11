@@ -6,6 +6,22 @@ from the CAD parameters; if you need a value that is missing, ask before assumin
 
 ![Gripper assembled](images/gripper_assembled.png) ![Gripper exploded](images/gripper_exploded.png)
 
+**How it moves.** The stepper (with brake and planetary gearbox) drives a bevel pair, the bevel wheel sits on the
+pinion shaft, and the pinion pushes two racks in opposite directions. Each rack carries a slide on a ball rail
+carriage, and the jaw holder with the quick-change jaw is screwed to the slide. Pads turn green when the part is held.
+
+| Pick and place cycle (housing see-through) | Drive train (housing, hood and cover hidden) |
+|---|---|
+| ![Gripper cycle](images/gripper_cycle.gif) | ![Drive train](images/drive_train.gif) |
+
+<details><summary>Assembly order (animation)</summary>
+
+![Assembly](images/assembly.gif)
+
+</details>
+
+The GIFs come from `Elias/02_CAD_Body/render_media.py` (PyVista, headless) and are regenerated after every CAD build.
+
 ## 1. Files
 
 | What | File | Note |
