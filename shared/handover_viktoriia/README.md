@@ -20,7 +20,7 @@ from the CAD parameters; if you need a value that is missing, ask before assumin
 | Design decisions | [../../Elias/02_CAD_Body/CAD_PLAN.md](../../Elias/02_CAD_Body/CAD_PLAN.md) | D1-D10, manufacturing and assembly order |
 | Catalogue sources | [../../Elias/02_CAD_Body/vendor/SOURCES.md](../../Elias/02_CAD_Body/vendor/SOURCES.md) | links to the data sheets |
 | Calculation template (marimo, units, live recalculation) | [../calc_template/demo.py](../calc_template/demo.py) | `pip install marimo pint matplotlib`, then `marimo edit demo.py` |
-| Task board (Kanban, timeline, overview) | https://claude.ai/artifact/3gQTn4NuiM27SdwwwSC6XU | shared with you as editor |
+| FEM pipeline (gmsh + CalculiX), to play with | [../../Elias/05_FEM/](../../Elias/05_FEM/README.md) | `marimo edit fem_notebook.py`: change load, mesh, clamp and compare with your V4 |
 | Existing force estimate | [../../Viktoriia/02_Sizing/greifkraft_abschaetzung.tex](../../Viktoriia/02_Sizing/greifkraft_abschaetzung.tex) | starting point for V2, still with mu = 0.5 |
 
 Frame used everywhere: z = 0 is the underside of the housing top plate, X = grip axis,
@@ -65,7 +65,7 @@ Y = 0 through the jaws and the flange axis. d = travel per jaw from the closed e
 | Holding torque of the brake at the pinion | 2.47 Nm -> about 124 N per jaw |
 | Jaw stroke | open d = 10 mm, grip d = 2 mm, assumes part position ±5 mm |
 
-## 3. Your checklist
+## 3. Your to-do list
 
 Deadlines are proposals; M3 (22 Nov) is fixed in the plan.
 
