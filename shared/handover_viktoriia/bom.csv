@@ -1,0 +1,32 @@
+Pos;Qty;Designation;Standard / supplier;Material;Mass each [g]
+1;1;Bottom cover;own part, cut + milled;EN AW-6082 T6;104
+2;1;Cable window plate;own part, cut;EN AW-6082 T6;13
+3;1;Drive bracket;own part, milled;EN AW-6082 T6;46
+4;1;Drive hood;own part, milled;EN AW-6082 T6;312
+5;1;Gear housing;own part, milled;EN AW-6082 T6;501
+6;2;Jaw;own part, milled;EN AW-7075 T6;31
+7;2;Jaw holder;own part, milled;EN AW-6082 T6;29
+8;1;Pinion shaft m = 1, z = 20;own part, turned + hobbed;16MnCr5 case hardened;35
+9;1;Robot adapter ISO 9409-1-40-4-M6;own part, turned;EN AW-6082 T6;117
+10;2;Slide;own part, milled;EN AW-6082 T6;73
+11;2;Ball carriage SLS size 9;Bosch Rexroth R0444 913 01;steel;37
+12;2;Bevel gear m = 1, z = 20, i = 1, bored 8 H7;Maedler;C45;12
+13;1;Cable gland SKINTOP STR-M 16x1.5;Lapp;PA;10
+14;2;Deep groove ball bearing 608-2Z;DIN 625 (Schaeffler / SKF);steel;18
+15;2;Indexing plunger GN 617-5-A;Ganter;steel;54
+16;1;Miniature ball rail size 9, L = 110, T1 = 15;Bosch Rexroth R0445;steel;38
+17;2;Pad plate, rubber-metal (steel 3 + NBR 70 Sh A 3);bought to drawing;S235 / NBR;19
+18;1;Planetary gearbox GP42-S1-7-SR;Nanotec;-;270
+19;2;Rack m = 1, 10 x 12, cut to 56.5;Maedler;C45;65
+20;1;Spring-applied brake BRAKE-BWA-0,35-5, 24 V;Nanotec;-;150
+21;1;Stepper motor ST4118S1404-B;Nanotec;-;200
+22;4;ISO 10642 M4x16;standard part;steel 8.8;2
+23;1;ISO 4029 M4x4;standard part;steel 45H;0
+24;12;ISO 4762 M3x10;standard part;steel 8.8;1
+25;4;ISO 4762 M3x6;standard part;steel 8.8;1
+26;17;ISO 4762 M3x8;standard part;steel 8.8;1
+27;8;ISO 4762 M4x12;standard part;steel 8.8;2
+28;4;ISO 4762 M4x25;standard part;steel 8.8;3
+29;4;ISO 7089 3;standard part;steel 200 HV;0
+30;2;ISO 8734 3x14;standard part;steel;1
+31;4;ISO 8734 4x12;standard part;steel;1

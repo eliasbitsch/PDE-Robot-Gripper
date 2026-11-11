@@ -8,3 +8,9 @@ robotiq.jpg
 videos/
 onshape/oscall.py
 out/onshape_session/
+# Course material and other courses: kept out of the public repo
+Angabe*.pdf
+angabe_bilder/
+3D-Daten der Bauteile-*/
+Onshape-Lifecycle*.txt
+vpe-plm/
