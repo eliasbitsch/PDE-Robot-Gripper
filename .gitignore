@@ -14,3 +14,6 @@ angabe_bilder/
 3D-Daten der Bauteile-*/
 Onshape-Lifecycle*.txt
 vpe-plm/
+
+# marimo session cache
+__marimo__/
