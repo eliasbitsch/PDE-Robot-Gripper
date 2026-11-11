@@ -19,6 +19,8 @@ from the CAD parameters; if you need a value that is missing, ask before assumin
 | Part, cell and force inputs | [../../cad/params.py](../../cad/params.py) | part mass, cycle time, acceleration, safety factor |
 | Design decisions | [../../Elias/02_CAD_Body/CAD_PLAN.md](../../Elias/02_CAD_Body/CAD_PLAN.md) | D1-D10, manufacturing and assembly order |
 | Catalogue sources | [../../Elias/02_CAD_Body/vendor/SOURCES.md](../../Elias/02_CAD_Body/vendor/SOURCES.md) | links to the data sheets |
+| Calculation template (marimo, units, live recalculation) | [../calc_template/demo.py](../calc_template/demo.py) | `pip install marimo pint matplotlib`, then `marimo edit demo.py` |
+| Task board (Kanban, timeline, overview) | https://claude.ai/artifact/3gQTn4NuiM27SdwwwSC6XU | shared with you as editor |
 | Existing force estimate | [../../Viktoriia/02_Sizing/greifkraft_abschaetzung.tex](../../Viktoriia/02_Sizing/greifkraft_abschaetzung.tex) | starting point for V2, still with mu = 0.5 |
 
 Frame used everywhere: z = 0 is the underside of the housing top plate, X = grip axis,
