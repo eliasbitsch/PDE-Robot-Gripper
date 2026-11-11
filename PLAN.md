@@ -48,6 +48,7 @@ After the design freeze in week 40 every change costs half the chain.
 | **CAD** | **FreeCAD 1.1, built by Python scripts** (changed 10 Nov 2026, was Onshape) | The assignment leaves the tool open. One parameter file drives every part, a sizing change is one edit plus a rebuild. STEP to Onshape for viewing. Details in [`Elias/02_CAD_Body/CAD_PLAN.md`](Elias/02_CAD_Body/CAD_PLAN.md). |
 | **Calculation / docs** | **LaTeX** | Formulas, units and cross-references stay consistent; the report is worth 10 points and grows from M1 on. |
 | **Simulation** | **MuJoCo** | See § 4. |
+| **Analysis** | **Python, open source: gmsh + CalculiX for FEM, marimo or Calcpad for hand calculations** (decided 11 Nov 2026) | Same STEP and parameters as the CAD, mesh convergence and load cases run as a loop, every assumption sits in versioned code. CalculiX is an industrial solver (Abaqus input format); a commercial cross-check (e.g. SolidWorks Simulation) is optional. |
 
 ### Inspired by the Cartesian Hand - one half of it
 
@@ -190,8 +191,8 @@ Two halves, each a closed story. Nobody gets leftovers.
 | E2 | **Gripper body** | Housing with dovetail slots for the racks, drive unit (servo + pinion), quick-change coupler, robot flange ISO 9409-1-50-4-M6 | `Elias/02_CAD_Body` |
 | E3 | **Assembly drawing & BOM** | A3 drawing, item numbers, BOM split into bought and made parts | `Elias/03_Drawing` |
 | E4 | **Motion, grip & collision study** | MuJoCo model of the full cell, path pick → place, grip analysis (contact forces, part does not slip), collision log incl. fence, sequence video | `Elias/04_Simulation` |
-| E5 | **FEM of the jaws** | Mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result, **deviation ≤ 5 %** (lecture 17 Oct) | `Elias/05_FEM` |
-| E7 | **Cell assembly (CAD)** | Gripper flanged onto the IRB 1600 on its 500 mm pedestal, safety fence, buffer belt, workpiece carrier, part B - one Onshape assembly, the same layout as the simulation | `Elias/06_Cell` |
+| E5 | **FEM of the jaws** | gmsh + CalculiX, scripted: mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result, **deviation ≤ 5 %** (lecture 17 Oct) | `Elias/05_FEM` |
+| E7 | **Cell assembly (CAD)** | Gripper flanged onto the IRB 1300, safety fence, buffer belt, workpiece carrier, part B - one FreeCAD assembly built by script, the same layout as the simulation | `Elias/06_Cell` |
 | E6 | **Infrastructure** | Repo, Onshape document, API integration, parameter table, report template | `shared/` |
 
 ### Viktoriia - design & analytical proof
@@ -200,7 +201,7 @@ Two halves, each a closed story. Nobody gets leftovers.
 |---|---|---|---|
 | V1 | **Gripping concept & sketch** | Variant comparison to VDI 2225 - rack and pinion (chosen), **four-bar (Robotiq-type parallel linkage)** as the strongest rejected variant, wedge hook, screw, and vacuum as a reasoned rejection. Dimensioned concept sketch | `Viktoriia/01_Concept` |
 | V2 | **Gripping force & drive sizing** | Force balance (weight + acceleration + safety), friction coefficient with a source, surface pressure on PA 6, **gear sizing (tooth root, flank pressure)**, tilting moment on the dovetail guide, holding on power failure (§ 8, point 4), motor selection with margin | `Viktoriia/02_Sizing` |
-| V3 | **Jaws & soft pads (CAD)** | Parametric jaws in Onshape, pad pocket, contour matched to part B | `Viktoriia/03_CAD_Jaws` |
+| V3 | **Jaws & soft pads (CAD)** | Parametric jaws (Onshape or FreeCAD, handed over as STEP), pad pocket, contour matched to part B, to the frozen jaw interface | `Viktoriia/03_CAD_Jaws` |
 | V4 | **Analytical strength proof** | Bending stress and deflection of the jaw by hand, assumptions and sources documented - the reference the FEM has to meet within 5 % | `Viktoriia/04_Analytical` |
 | V5 | **3D-printed check** | Print the jaw, measure deflection under a defined load, hold it against Elias' FEM | `Viktoriia/05_Print_Check` |
 
@@ -333,8 +334,8 @@ These need clearing early, because they get expensive later:
 5. **Tilting moment on the jaw guide.** The grip force acts below the rack,
    the dovetail slot takes the moment. Size guide length and clearance so the
    jaws stay parallel under 14.3 N and under the servo's maximum force.
-6. **Onshape FEM.** Check whether the education plan unlocks Simulation. If not,
-   the existing CalculiX chain steps in - equivalent result, more manual work.
+6. ~~**Onshape FEM.**~~ **Cleared 11 Nov 2026:** FEM runs in the scripted
+   gmsh + CalculiX chain (`fem/`), not in Onshape.
 7. **Onshape licence.** The free plan makes documents public. For student work
    that is usually fine, but it should be a conscious choice - the education
    plan is free and private.
