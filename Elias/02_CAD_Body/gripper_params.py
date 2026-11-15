@@ -53,7 +53,7 @@ RAIL_BASE_Z = -3.0                  # rail sits on a 3 mm land = reference shoul
 
 PLATE_T = 7.0                       # top plate (lighter since 11 Nov; bearings sit in the boss above it)
 WALL = 7.0                          # M3 cover screws on the wall centre line
-HOUSING_X = 164.0                   # long enough for the lying drive and the long rack
+HOUSING_X = 192.0                   # 164 + 2 x 14 (15 Nov): NME2 encoder behind the brake, kept symmetric
 HOUSING_Y = (-53.5, 38.0)           # +y face flush with the hood and the flange edge; -y carries rail and slides
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
 COVER_T = 3.0

@@ -117,7 +117,7 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 
 1. **Placement orientation on the workpiece carrier** (PLAN § 8.2) - still the only point that can change the grip direction.
 
-2. **Encoder for D11:** pick a NEMA 17 encoder that fits together with the BRAKE-BWA on the ST4118 (or a motor with encoder and brake, e.g. Nanotec AS4118), check the longer motor tail inside the hood (x ≤ 79), the cable and gland, then update the BOM and V2 (motor selection). Plug & Drive study below for the record.
+2. **Controller for D11:** encoder solved (15 Nov): ST4118S1404-B with a long B shaft through the BRAKE-BWA, Nanotec NME2 magnetic encoder on the brake's rear face (16 mm), body lengthened to 192 mm (+14 per side) so it fits (1.5 mm to the hood). Still open: controller type in the cabinet (brake output, encoder input, fieldbus to the robot), cable and gland for motor + encoder + brake, then BOM and V2 (motor selection).
    Candidates (15 Nov 2026): **PD2-C4118L1804-E-08** (CANopen; -E-01 USB/IO), 0.50 N·m holding, 1.8 A, 12-48 V,
    single-turn absolute encoder 1024 CPR, body ≈ 74 mm (ST4118S: 34 mm); or the newer **PD2-E** (up to 0.80 N·m,
    CANopen / Modbus RTU / EtherCAT, PWM output for an external holding brake). Open: where the brake goes - the

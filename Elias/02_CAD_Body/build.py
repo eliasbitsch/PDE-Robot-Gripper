@@ -20,7 +20,7 @@ from parts import drive as D  # noqa: E402
 OUT = os.path.join(HERE, "out")
 VENDOR = os.path.join(HERE, "vendor")
 DENSITY = {"EN AW-6082": 2.70e-6, "EN AW-7075": 2.81e-6, "steel": 7.85e-6, "NBR": 1.20e-6}  # kg/mm3
-VENDOR_MASS = {"Gearbox": 0.27, "Motor": 0.20, "Brake": 0.15, "Cable_Gland_Lapp_SKINTOP_M16": 0.01}  # kg, datasheets
+VENDOR_MASS = {"Gearbox": 0.27, "Motor": 0.20, "Brake": 0.15, "Encoder": 0.03, "Cable_Gland_Lapp_SKINTOP_M16": 0.01}  # kg, datasheets (encoder estimated)
 TOL = 0.05  # mm3, below this an overlap counts as touching
 
 
@@ -37,6 +37,13 @@ def brake(x, za):
     s = Part.makeCylinder(9.5, 2.5, V(x0, 0, za), V(1, 0, 0))
     s = s.fuse(Part.makeCylinder(17.5, 26.7, V(x0 + 2.5, 0, za), V(1, 0, 0)))
     return s.cut(Part.makeCylinder(2.5, 30, V(x0 - 0.1, 0, za), V(1, 0, 0))).removeSplitter()
+
+
+def encoder(x0, za):
+    """Nanotec NME2 magnetic encoder on the brake's rear face (datasheet: 38 x 46, 16 high, closed cover);
+    round end around the shaft, connector end towards +Y like the motor leads."""
+    s = Part.makeCylinder(19.0, 16.0, V(x0, 0, za), V(1, 0, 0))
+    return s.fuse(Part.makeBox(16.0, 27.0, 38.0, V(x0, 0, za - 19.0))).removeSplitter()
 
 
 def build_static(gear_pin, gear_racks, bev):
@@ -56,6 +63,7 @@ def build_static(gear_pin, gear_racks, bev):
         "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 0, 1), 180), V(gb_t, 0, za)), "vendor", 0),
         "Motor": (vendor("nanotec_st4118s1404b.step", App.Rotation(V(0, 1, 0), -90), V(motor_t, 0, za)), "vendor", 0),   # connector +Y into the window
         "Brake": (brake(brake_t, za), "vendor", 0),
+        "Encoder": (encoder(brake_t - 9.7 + 29.2, za), "vendor", 0),
         "Pinion_Shaft": (D.pinion_shaft(gear_pin), "steel", "rot"),
         "Bevel_Wheel": (D.wheel(bev), "steel", "rot"),
         "Bevel_Pinion": (D.bevel_pinion(bev), "steel", "rotx"),
@@ -175,7 +183,7 @@ def phase_pinion(parts):
     return math.radians(theta), best[0], best_r[0], best_r[1]
 
 
-SKIP = {frozenset(p) for p in [("Gearbox", "Motor"), ("Motor", "Brake"), ("Gearbox", "Brake"), ("Gearbox", "Bevel_Pinion")]}
+SKIP = {frozenset(p) for p in [("Gearbox", "Motor"), ("Motor", "Brake"), ("Gearbox", "Brake"), ("Gearbox", "Bevel_Pinion"), ("Brake", "Encoder")]}
 SKIP |= {frozenset(("Gearbox", f"Screw_ISO4762-M4x12_Gearbox{i}")) for i in range(1, 5)}  # thread depth in the vendor model unknown
 
 
@@ -271,7 +279,8 @@ BOM_INFO = {
     "Carriage": ("Ball carriage SLS size 9", "Bosch Rexroth R0444 913 01", "steel"),
     "Rack": ("Rack m = 1, 10 x 12, cut to 56.5", "Maedler", "C45"),
     "Gearbox": ("Planetary gearbox GP42-S1-7-SR", "Nanotec", "-"),
-    "Motor": ("Stepper motor ST4118S1404-B", "Nanotec", "-"),
+    "Motor": ("Stepper motor ST4118S1404-B, long B shaft through brake and encoder", "Nanotec", "-"),
+    "Encoder": ("Magnetic encoder NME2 (on the brake), for the external closed-loop controller", "Nanotec", "-"),
     "Brake": ("Spring-applied brake BRAKE-BWA-0,35-5, 24 V", "Nanotec", "-"),
     "Cable_Gland_Lapp_SKINTOP_M16": ("Cable gland SKINTOP STR-M 16x1.5", "Lapp", "PA"),
     "Plunger_GN617-5-A": ("Indexing plunger GN 617-5-A", "Ganter", "steel"),
