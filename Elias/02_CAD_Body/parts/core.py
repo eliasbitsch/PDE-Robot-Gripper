@@ -63,7 +63,10 @@ def holder_screws(side):
 def cover_screws():
     hx = P.HOUSING_X / 2
     y0, y1 = P.HOUSING_Y
-    return [(x, y) for x in (-hx + P.WALL / 2, hx - P.WALL / 2) for y in (y0 + 18, y1 - 18)]
+    return [(x, y) for x in (-hx + COVER_SCREW_IN, hx - COVER_SCREW_IN) for y in (y0 + 18, y1 - 18)]
+
+
+COVER_SCREW_IN = 6.0                # countersunk M3 needs 6 mm to the edge; small bosses reach into the pocket
 
 
 def chamfer_z_edges(s, z, size):
@@ -85,6 +88,8 @@ def housing_body():
     s = chamfer_z_edges(s, P.PLATE_T, P.EDGE_CHAMFER)
     s = s.cut(rounded_box(-hx + P.WALL, hx - P.WALL, y0 + P.WALL, y1 - P.WALL, P.POCKET_Z - 1, 0, 6.0))   # R6: standard d10 cutter
     s = s.fuse(box(-P.RAIL_L / 2 - 2, P.RAIL_L / 2 + 2, P.RAIL_Y - P.RAIL_W / 2 - 5, P.RAIL_Y + P.RAIL_W / 2 + 5, P.RAIL_BASE_Z, 0.01))  # rail land
+    for x, y in cover_screws():
+        s = s.fuse(cylz(4.5, P.POCKET_Z, P.POCKET_Z + 12, x, y))                                 # cover screw bosses
     xp = P.PINION_X
     s = s.fuse(cylz(P.BOSS_D / 2, P.PLATE_T - 0.1, P.BEARING_UPPER_Z + P.BEARING[2], xp, 0))   # bearing boss
     tools = [cylz(P.BEARING[1] / 2, -1, P.BEARING_LOWER_Z + P.BEARING[2], xp, 0),              # lower 608 seat
@@ -111,6 +116,7 @@ def cover():
         tools.append(box(xj1 - sg * 1, xh_top + sg * (P.D_OPEN + 1), -P.HOLDER_W / 2 - 1, P.HOLDER_W / 2 + 1, z1 - P.COVER_T - 1, z1 + 1))
     tools.append(cylz(6.0, z1 - P.COVER_T - 1, z1 + 1))                    # access to the pinion set screw
     tools += [cylz(1.7, z1 - P.COVER_T - 1, z1 + 1, x, y) for x, y in cover_screws()]
+    tools += [Part.makeCone(3.46, 1.95, 1.9, V(x, y, z1 - P.COVER_T - 0.01)) for x, y in cover_screws()]   # ISO 10642 M3, flush
     return cut_all(s, tools)
 
 

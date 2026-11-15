@@ -148,24 +148,33 @@ chips are recycled. For a series the motor housing would become an extruded prof
 Rules the build checks or the layout follows:
 
 - every hole of every own part keeps at least **1.5 mm** wall (`wall_check` in `build.py`)
-- inner pocket corners R6 (gear housing), motor housing bore Ø64: standard cutters
+- inner pocket corners R6, standard d10 cutter; small bosses at the pocket ends carry the countersunk cover screws
 - each housing is machined from two sides only (pocket from below, holes from the top)
-- gear housing 146 × 95.5 mm, walls 7 mm, outer edges R12; round motor housing Ø72 with a flat connector pod; 1.5 mm chamfer on top edges
+- housing 192 × 91.5 mm (y -53.5 ... +38), walls 7 mm, outer edges R12; flat hood 192 × 76 mm (y ±38) with R12,
+  flush with the housing on the +y side and with the Ø76 robot adapter; 1.5 mm chamfer on the top edges
+- visible screw heads are countersunk (ISO 10642) or sit in counterbores, nothing stands proud of the outer faces
 
-**Few fastener variants:** ISO 4762 M3×8, M3×10, M4×16, M4×25, ISO 10642 M4×16, ISO 4029 M4×4,
-ISO 7089 3, ISO 8734 4×12. The Rexroth hole pattern fixes M3 at rail and carriages.
+**Fastener variants** (as in the model): ISO 4762 M3×8 (rail, carriages, pad plates), M3×10 (bracket, racks),
+M4×12 (gearbox, hood), M4×25 (jaw holders); ISO 10642 M3×6 (window plate), M3×10 (cover), M4×16 (adapter);
+ISO 4029 M4×4; ISO 7089 3; ISO 8734 3×14 and 4×12. Brake and encoder are fixed with the screws Nanotec specifies
+for them (3 × M3 brake to motor, 2 × M2.5 encoder to brake). The Rexroth hole pattern fixes M3 at rail and carriages.
 
-**Assembly order** (every screw reachable with a straight hex key at its step):
+**Assembly order** (every screw reachable with a straight hex key at its step; same text as the FreeCAD demo and
+the assembly GIF, kept in `parts/demo_seq.py`):
 
-1. Gear housing upside down: rail against the reference edge, 5 × M3×8 (Rexroth asks for all holes)
-2. Nanotec drive (motor + gearbox + brake, supplied assembled) onto the top plate, 4 × M4×16 from below, heads flush
-3. Round motor housing over the drive, 3 × M4×16 from below into its bosses, heads flush
-4. Pinion with key onto the gearbox shaft, set screw M4×4 from the side
-5. Carriages onto the rail, slides onto the carriages (4 × M3×8 each), racks onto the slides (2 × M3×10 each)
+1. Housing upside down: rail against the reference edge, 5 × M3×8 (Rexroth asks for all holes)
+2. Drive bracket with the gearbox (4 × M4×12), motor, brake, encoder and bevel pinion onto the top plate;
+   bracket 4 × M3×10 from the top
+3. Pinion shaft with the two 608 bearings from below, bevel wheel on top with the M4×4 set screw, mesh set.
+   This comes before the hood because the wheel sits under it.
+4. Hood over the drive, 4 × M4×12 from below through the top plate, heads flush
+5. Carriages onto the rail, slides onto the carriages (4 × M3×8 each), racks onto the slides
+   (2 × M3×10 each in slots, jaws aligned symmetric, then drilled and pinned with a dowel 3×14)
 6. Jaw holders with pressed-in dowels onto the slides, 2 × M4×25 each
-7. Bottom cover, 4 × M3×10
+7. Bottom cover, 4 × M3×10 countersunk
 8. Jaws onto the dowels until the plunger snaps in; pad plates 2 × M3×8 + washer each
-9. Window plate with cable gland, 4 × M3×8; cables
-10. Adapter onto the robot (ISO screws, robot side), gripper onto the adapter with 4 × M4×16 countersunk from the top
+9. Window plate with cable gland, 4 × M3×6 countersunk; one hybrid cable (motor, encoder, brake)
+10. Adapter onto the robot (ISO screws, robot side), gripper onto the adapter with 4 × M4×16 countersunk
+    from the top (heads lie outside the robot flange)
 
 Jaw change in the cell: pull the plunger knob, pull the jaw off the dowels, push the new one on.

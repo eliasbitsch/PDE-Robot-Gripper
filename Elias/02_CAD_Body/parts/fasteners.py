@@ -6,7 +6,7 @@ from FreeCAD import Vector as V
 
 # d: (head dia dk, head height k, core radius, socket across flats)
 ISO4762 = {3: (5.5, 3.0, 1.25, 2.5), 4: (7.0, 4.0, 1.65, 3.0), 5: (8.5, 5.0, 2.1, 4.0), 6: (10.0, 6.0, 2.5, 5.0)}
-ISO10642 = {4: (8.96, 2.48, 1.65, 2.5), 5: (10.4, 2.45, 2.1, 3.0)}
+ISO10642 = {3: (6.72, 1.86, 1.25, 2.0), 4: (8.96, 2.48, 1.65, 2.5), 5: (10.4, 2.45, 2.1, 3.0)}
 
 
 def hex_socket(s, depth, base, direction):
@@ -29,12 +29,13 @@ def iso4762(d, length, x, y, z_bearing, up=True):
     return shank.fuse(head).cut(socket).removeSplitter()
 
 
-def iso10642(d, length, x, y, z_top):
-    """Countersunk screw pointing down from a top face at z_top (length includes the head)."""
+def iso10642(d, length, x, y, z_top, up=False):
+    """Countersunk screw flush with a face at z_top, pointing down (or up from an underside); length includes the head."""
     dk, k, rc, s = ISO10642[d]
-    head = Part.makeCone(dk / 2, rc + 0.65, k, V(x, y, z_top), V(0, 0, -1))
-    shank = Part.makeCylinder(rc, length, V(x, y, z_top), V(0, 0, -1))
-    socket = hex_socket(s, k * 0.8, V(x, y, z_top), V(0, 0, -1))
+    sg = 1 if up else -1
+    head = Part.makeCone(dk / 2, rc + 0.65, k, V(x, y, z_top), V(0, 0, sg))
+    shank = Part.makeCylinder(rc, length, V(x, y, z_top), V(0, 0, sg))
+    socket = hex_socket(s, k * 0.8, V(x, y, z_top), V(0, 0, sg))
     return head.fuse(shank).cut(socket).removeSplitter()
 
 

@@ -129,6 +129,7 @@ def window_plate():
     xc, zc = sum(WIN_X) / 2, sum(WIN_Z) / 2
     tools = [Part.makeCylinder(P.GLAND[1] / 2, 10, V(xc, hy - 1, zc), V(0, 1, 0))]
     tools += [Part.makeCylinder(1.7, 10, V(x, hy - 1, z), V(0, 1, 0)) for x, z in window_screws()]
+    tools += [Part.makeCone(3.46, 1.95, 1.9, V(x, hy + P.WINDOW_PLATE_T + 0.01, z), V(0, -1, 0)) for x, z in window_screws()]   # ISO 10642 M3, flush
     return cut_all(s, tools)
 
 

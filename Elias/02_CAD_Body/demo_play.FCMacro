@@ -39,7 +39,7 @@ N_STEPS = 10
 
 class Demo(QtGui.QDockWidget):
     def __init__(self, doc):
-        super().__init__("Greifer-Demo")
+        super().__init__("Gripper demo")
         self.setObjectName("GripperDemoDock")
         self.doc, self.t, self.speed = doc, 0.0, 0.5
         self.objs = [o for o in doc.Objects if hasattr(o, "Role")]
@@ -57,12 +57,12 @@ class Demo(QtGui.QDockWidget):
         row = QtGui.QHBoxLayout()
         row.addWidget(QtGui.QLabel("Tempo"))
         self.sp = QtGui.QComboBox()
-        self.sp.addItems(["0,25×", "0,5×", "1× (echte Taktzeit)"])
+        self.sp.addItems(["0.25x", "0.5x", "1x (real cycle time)"])
         self.sp.setCurrentIndex(1)
         self.sp.currentIndexChanged.connect(lambda i: setattr(self, "speed", (0.25, 0.5, 1.0)[i]))
         row.addWidget(self.sp)
         lay.addLayout(row)
-        self.see = QtGui.QCheckBox("Gehäuse durchsichtig")
+        self.see = QtGui.QCheckBox("Housing see-through")
         self.see.setChecked(True)
         self.see.toggled.connect(self.toggle_see)
         lay.addWidget(self.see)
@@ -78,7 +78,7 @@ class Demo(QtGui.QDockWidget):
         self.ex.setRange(0, 100)
         self.ex.valueChanged.connect(lambda v: self.seek(self.t))
         lay.addWidget(self.ex)
-        self.asm = QtGui.QPushButton("Montage Schritt für Schritt")
+        self.asm = QtGui.QPushButton("Assembly step by step")
         self.asm.clicked.connect(self.play_assembly)
         lay.addWidget(self.asm)
         self.step_info = QtGui.QLabel()
@@ -94,12 +94,7 @@ class Demo(QtGui.QDockWidget):
         self.asm_timer.timeout.connect(self.tick_assembly)
         self.seek(0.0)
 
-    STEP_TEXT = ["", "Schiene an Anschlagkante, 5 × M3×8", "Antriebsbock mit Getriebe (4 × M4×12), Motor, Bremse, Kegelritzel; Bock 4 × M4×12",
-                 "Haube über den Antrieb, 4 × M4×12 von oben", "Ritzelwelle mit 2 Lagern 608, Tellerrad mit Gewindestift M4×4",
-                 "Wagen, Schlitten (4 × M3×8), Zahnstangen (2 × M3×10 im Langloch, ausrichten, Stift Ø3)",
-                 "Backenhalter mit Passstiften, 2 × M4×25", "Deckel, 4 × M4×16",
-                 "Backen auf die Stifte, Arretierbolzen rastet ein; Belagplatten 2 × M3×8",
-                 "Fensterplatte mit Kabelverschraubung, 4 × M3×8", "Adapter am Roboter, Greifer mit 4 × M5×16 von oben"]
+    STEP_TEXT = demo_seq.STEP_TEXT
 
     def play_assembly(self):
         self.timer.stop()
@@ -148,7 +143,7 @@ class Demo(QtGui.QDockWidget):
         grip = d <= P.D_GRIP + 1e-6
         if self.asm_tau is not None:
             k = min(int(self.asm_tau), N_STEPS)
-            self.step_info.setText(f"Schritt {k}: {self.STEP_TEXT[k]}" if k else "Gehäuse als Basis")
+            self.step_info.setText(f"Step {k}: {self.STEP_TEXT[k]}" if k else self.STEP_TEXT[0])
         for o in self.objs:
             if o.Role in ("part", "table"):
                 o.ViewObject.Visibility = not exploding
@@ -174,10 +169,10 @@ class Demo(QtGui.QDockWidget):
             o.Placement = delta.multiply(base)
             if o.Label.startswith("Pad_"):
                 o.ViewObject.ShapeColor = GRIP_COLOR if grip else PAD_COLOR
-        phase = "hält Bauteil B" if grip else ("schließt" if dd > 0 and zg == 0 else "offen")
-        self.info.setText(f"t = {t:4.1f} s\nBackenabstand {2 * (P.PAD_X0 + d):5.1f} mm\n"
-                          f"Ritzel        {ang + math.degrees(P.D_GRIP / (P.PINION_D / 2)):5.1f}°\n"
-                          f"Hub           {zg:5.1f} mm\n{phase}")
+        phase = "holding part B" if grip else ("closing" if dd > 0 and zg == 0 else "open")
+        self.info.setText(f"t = {t:4.1f} s\njaw gap       {2 * (P.PAD_X0 + d):5.1f} mm\n"
+                          f"pinion        {ang + math.degrees(P.D_GRIP / (P.PINION_D / 2)):5.1f}°\n"
+                          f"lift          {zg:5.1f} mm\n{phase}")
         self.slider.blockSignals(True)
         self.slider.setValue(int(t * 100))
         self.slider.blockSignals(False)

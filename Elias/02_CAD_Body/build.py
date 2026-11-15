@@ -74,7 +74,7 @@ def build_static(gear_pin, gear_racks, bev):
         "Cable_Gland_Lapp_SKINTOP_M16": (D.gland(), "vendor", 0),
     }
     for i, (x, z) in enumerate(D.window_screws(), 1):
-        parts[f"Screw_ISO4762-M3x6_Window{i}"] = (F.oriented(F.iso4762(3, 6, 0, 0, 0), V(x, P.HOOD_Y + P.WINDOW_PLATE_T, z), V(0, -1, 0)), "steel", 0)
+        parts[f"Screw_ISO10642-M3x6_Window{i}"] = (F.oriented(F.iso10642(3, 6, 0, 0, 0, up=True), V(x, P.HOOD_Y + P.WINDOW_PLATE_T, z), V(0, -1, 0)), "steel", 0)
     for i, (x, y) in enumerate(D.bracket_screws(), 1):
         parts[f"Screw_ISO4762-M3x10_Bracket{i}"] = (F.iso4762(3, 10, x, y, P.PLATE_T + 6, up=False), "steel", 0)
     for i, (y, dz) in enumerate(D.gearbox_screws(), 1):
@@ -107,7 +107,7 @@ def build_static(gear_pin, gear_racks, bev):
     for i, x in enumerate(C.rail_hole_x(), 1):
         parts[f"Screw_ISO4762-M3x8_Rail{i}"] = (F.iso4762(3, 8, x, P.RAIL_Y, P.RAIL_BASE_Z - P.RAIL_H + P.RAIL_CBORE_DEPTH), "steel", 0)
     for i, (x, y) in enumerate(C.cover_screws(), 1):
-        parts[f"Screw_ISO4762-M3x10_Cover{i}"] = (F.iso4762(3, 10, x, y, P.POCKET_Z - P.COVER_T), "steel", 0)
+        parts[f"Screw_ISO10642-M3x10_Cover{i}"] = (F.iso10642(3, 10, x, y, P.POCKET_Z - P.COVER_T, up=True), "steel", 0)
     z_ad = P.HOOD_TOP + P.HOOD_SEAT
     for i, (x, y) in enumerate(C.adapter_screws(), 1):
         parts[f"Screw_ISO10642-M4x16_Adapter{i}"] = (F.iso10642(4, 16, x, y, z_ad + P.ADAPTER_T), "steel", 0)

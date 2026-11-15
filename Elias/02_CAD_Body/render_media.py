@@ -139,9 +139,9 @@ def cycle():
 
 def drive():
     """Housing, hood and cover hidden: motor -> bevel pair -> pinion -> racks -> jaws."""
-    s = Scene(with_part=False, see_through=False, hide=("Housing", "Hood", "Cover", "Screw_ISO4762-M3x10_Cover",
+    s = Scene(with_part=False, see_through=False, hide=("Housing", "Hood", "Cover", "Screw_ISO10642-M3x10_Cover",
                                                         "Screw_ISO4762-M4x12_Hood", "Adapter", "Screw_ISO10642",
-                                                        "Window", "Cable", "Screw_ISO4762-M3x6_Window"))
+                                                        "Window", "Cable", "Screw_ISO10642-M3x6_Window"))
     s.camera((-45, -5, -8), (-1, -1.3, 0.8), 300)
     n = 4 * FPS
 
@@ -153,12 +153,7 @@ def drive():
     gif("drive_train.gif", s, n, draw)
 
 
-STEPS = ["housing as the base", "rail against the locating edge, 5 x M3x8",
-         "drive bracket with gearbox, motor, brake and bevel pinion", "hood over the drive, 4 x M4x12 from below",
-         "pinion shaft with two 608 bearings, bevel wheel with M4 set screw",
-         "carriages, slides, racks (aligned in the slots, 3 mm dowel)", "jaw holders on dowels, 2 x M4x25 each",
-         "cover, 4 x M3x10", "jaws onto the dowels, plunger locks; pad plates 2 x M3x8",
-         "window plate with cable gland, 4 x M3x6", "ISO 9409 adapter, 4 x M4x16 countersunk"]
+STEPS = demo_seq.STEP_TEXT
 
 
 def explode():
@@ -185,9 +180,9 @@ def explode():
 
 def stills():
     for name, kw, cam in [("drive_train.png", {"with_part": False, "see_through": False,
-                                               "hide": ("Housing", "Hood", "Cover", "Screw_ISO4762-M3x10_Cover",
+                                               "hide": ("Housing", "Hood", "Cover", "Screw_ISO10642-M3x10_Cover",
                                                         "Screw_ISO4762-M4x12_Hood", "Adapter", "Screw_ISO10642",
-                                                        "Window", "Cable", "Screw_ISO4762-M3x6_Window")},
+                                                        "Window", "Cable", "Screw_ISO10642-M3x6_Window")},
                            ((-45, -5, -8), (-1, -1.3, 0.8), 300))]:
         s = Scene(size=(1200, 900), **kw)
         s.camera(*cam)
