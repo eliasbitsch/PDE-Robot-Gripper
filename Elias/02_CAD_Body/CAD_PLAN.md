@@ -117,7 +117,17 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 
 1. **Placement orientation on the workpiece carrier** (PLAN § 8.2) - still the only point that can change the grip direction.
 
-2. **Controller for D11:** encoder solved (15 Nov): ST4118S1404-B with a long B shaft through the BRAKE-BWA, Nanotec NME2 magnetic encoder on the brake's rear face (16 mm), body lengthened to 192 mm (+14 per side) so it fits (1.5 mm to the hood). Still open: controller type in the cabinet (brake output, encoder input, fieldbus to the robot), cable and gland for motor + encoder + brake, then BOM and V2 (motor selection).
+2. **D11 drive electronics (chosen 15 Nov 2026, to be confirmed against the CL4-E manual):**
+   - Gripper: ST4118S1404-B with long B shaft, BRAKE-BWA-0,35-5, NME2 incremental encoder (5 V) on the brake; body 192 mm.
+   - Cabinet: **Nanotec CL4-E-1-12** (12-58 V, 3 A rated / 6 A peak, encoder input, brake output, 4 DI / 2 DO,
+     CANopen / Modbus RTU / USB, programmable in NanoJ). Supply 24 V, so the brake runs from the same rail.
+   - Robot interface over plain 24 V I/O (no fieldbus option needed on the OmniCore): DI "close", DI "open" to the
+     controller; DO "part gripped" (current limit reached and position inside the part window), DO "fault / nothing
+     gripped" (closed end stop reached). A NanoJ program on the CL4-E runs the current-limited close move.
+   - Cable: one shielded robot-rated hybrid cable (motor 4 + encoder 6 + brake 2 cores, about 8-9 mm), fits the
+     existing SKINTOP M16 (clamping range 4.5-10 mm).
+   - Still to check: NME2 output level against the CL4-E encoder input, NanoJ sequence, V2 motor sizing unchanged
+     (ST4118S stays).
    Candidates (15 Nov 2026): **PD2-C4118L1804-E-08** (CANopen; -E-01 USB/IO), 0.50 N·m holding, 1.8 A, 12-48 V,
    single-turn absolute encoder 1024 CPR, body ≈ 74 mm (ST4118S: 34 mm); or the newer **PD2-E** (up to 0.80 N·m,
    CANopen / Modbus RTU / EtherCAT, PWM output for an external holding brake). Open: where the brake goes - the
