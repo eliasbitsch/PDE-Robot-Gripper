@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Greifer Viergelenk</title>
+<title>Greifer Zahnstange-Ritzel</title>
 <style>
   :root {
     --bg: #f6f7f9; --panel: #ffffff; --ink: #1f2933; --muted: #6b7280; --line: #d5d9e0;
-    --kupfer: #b87333; --graphit: #2f3640; --teil: #c9ced6; --teil-rand: #8a8f98;
+    --kupfer: #b87333; --graphit: #2f3640; --gehaeuse: #e4e7ec; --stange: #9aa3ae;
+    --teil: #c9ced6; --teil-rand: #8a8f98;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
@@ -35,21 +36,22 @@
 </head>
 <body>
 <main>
-  <h1>Greifer-Konzept: Parallel-Viergelenk je Finger</h1>
-  <p class="sub">Maße wie im Onshape-Master-Sketch · Vorbild Robotiq 2F-85 · Bauteil B, Schnitt 70 × 80 mm</p>
+  <h1>Greifer-Konzept: Zahnstange und Ritzel</h1>
+  <p class="sub">Ein Ritzel (m = 1, z = 16) treibt zwei gegenläufige Zahnstangen · Vorbild Cartesian Hand · Bauteil B, Schnitt 70 × 80 mm</p>
 
   <div class="wrap">
     <div class="bild">
-      <svg id="svg" viewBox="-110 -12 220 185" aria-label="Greifer-Animation"></svg>
+      <svg id="svg" viewBox="-95 -58 190 160" aria-label="Greifer-Animation"></svg>
     </div>
     <div class="seite">
-      <div class="wert"><span>Lenkerwinkel φ</span><span id="vPhi">–</span></div>
+      <div class="wert"><span>Ritzeldrehung</span><span id="vDreh">–</span></div>
+      <div class="wert"><span>Hub je Seite</span><span id="vHub">–</span></div>
       <div class="wert"><span>Backenabstand</span><span id="vGap">–</span></div>
-      <div class="wert"><span>Backe vertikal ggü. Greifstellung</span><span id="vDy">–</span></div>
+      <div class="wert"><span>Ritzelmoment bei 14,3 N</span><span>0,23 N·m</span></div>
       <div class="status" id="status">–</div>
       <label class="check"><input type="checkbox" id="mitTeil" checked> Bauteil B anzeigen</label>
-      <p class="hinweis">Die Backen bleiben in jeder Stellung senkrecht (Parallelogramm).
-        Sie wandern beim Schließen aber auf einem Kreisbogen auch nach unten. Das muss die Bahnplanung berücksichtigen.</p>
+      <p class="hinweis">Die Backen fahren geradlinig und bleiben parallel. Die Backenkraft
+        F = T / (2 r) ist über den ganzen Hub gleich, weil der Ritzelradius konstant ist.</p>
     </div>
   </div>
 
@@ -61,21 +63,17 @@
 </main>
 
 <script>
-// Geometrie in mm, y nach oben, Ursprung = Mitte Greifergrundkörper (wie Sketch)
+// mm, y nach oben, Ursprung = Mitte Gehaeuseunterkante
 const G = {
-  palm: 80,          // Breite Grundkörper
-  halter: 5,         // Halter unter dem Grundkörper
-  lagerX: 15,        // feste Lager zur Mitte
-  lagerAbst: 20,     // Abstand der festen Lager
-  lenker: 55,        // Lenkerlänge
-  backe: 40,         // Backenlänge
-  teilB: 70, teilH: 80, teilOben: -80
+  geh: 140, gehH: 46,   // Gehaeuse
+  r: 8, z: 16, m: 1,    // Ritzel, Teilkreisradius r = m z / 2
+  ritzelY: 24,
+  stangeL: 66, stangeH: 6,
+  backeB: 6, backeOben: 40, backeUnten: -88,
+  hub: 14,
+  teilB: 70, teilH: 80, teilOben: -6
 };
-const P1 = { x: G.lagerX, y: -G.halter };
-const P2 = { x: G.lagerX, y: -G.halter - G.lagerAbst };
-const phiGreif = Math.asin((G.teilB / 2 - G.lagerX) / G.lenker);   // Backe liegt am Teil an
-const phiAuf = 55 * Math.PI / 180;
-const yGreif = P2.y - G.lenker * Math.cos(phiGreif);
+const p = Math.PI * G.m;                 // Teilung
 
 const svg = document.getElementById('svg');
 const NS = 'http://www.w3.org/2000/svg';
@@ -85,83 +83,86 @@ function el(tag, attrs, parent = svg) {
   parent.appendChild(e);
   return e;
 }
-// Darstellung: y spiegeln, damit "oben" oben ist
 const g = el('g', { transform: 'scale(1,-1)' });
 const css = getComputedStyle(document.documentElement);
 const c = n => css.getPropertyValue(n).trim();
 
-// Mittellinie
-el('line', { x1: 0, y1: 8, x2: 0, y2: -170, stroke: c('--muted'), 'stroke-width': 0.4,
+el('line', { x1: 0, y1: 52, x2: 0, y2: -95, stroke: c('--muted'), 'stroke-width': 0.4,
              'stroke-dasharray': '6 2 1 2' }, g);
-// Bauteil B
 const teil = el('rect', { x: -G.teilB / 2, y: G.teilOben - G.teilH, width: G.teilB, height: G.teilH,
                           fill: c('--teil'), stroke: c('--teil-rand'), 'stroke-width': 0.6 }, g);
-// Grundkörper
-el('rect', { x: -G.palm / 2, y: 0, width: G.palm, height: 9, rx: 1.5, fill: c('--graphit') }, g);
+el('rect', { x: -G.geh / 2, y: 0, width: G.geh, height: G.gehH, rx: 2,
+             fill: c('--gehaeuse'), stroke: c('--graphit'), 'stroke-width': 0.6 }, g);
 
-function finger(seite) {
-  const f = {};
-  f.halter = el('line', { stroke: c('--graphit'), 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
-  f.flaeche = el('polygon', { fill: c('--kupfer'), 'fill-opacity': 0.15 }, g);
-  f.l1 = el('line', { stroke: c('--kupfer'), 'stroke-width': 3.2, 'stroke-linecap': 'round' }, g);
-  f.l2 = el('line', { stroke: c('--kupfer'), 'stroke-width': 3.2, 'stroke-linecap': 'round' }, g);
-  f.koppel = el('line', { stroke: c('--graphit'), 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
-  f.backe = el('rect', { width: 6, height: G.backe, fill: c('--graphit'), rx: 1 }, g);
-  f.gel = [0, 1, 2, 3].map(() => el('circle', { r: 1.6, fill: '#fff', stroke: c('--graphit'), 'stroke-width': 0.8 }, g));
-  f.s = seite;
-  return f;
+// Zahnstange als Polygon: Grundkoerper plus Trapezzaehne zur Ritzelseite
+function stangePunkte(x0, yTeil, richtung, phase) {
+  // richtung +1: Zaehne zeigen nach oben (untere Stange), -1: nach unten (obere Stange)
+  const fuss = yTeil - richtung * 1.25 * G.m, kopf = yTeil + richtung * G.m;
+  const ruecken = fuss - richtung * G.stangeH;
+  const pts = [[x0, ruecken], [x0, fuss]];
+  for (let x = x0 + ((phase - x0) % p + p) % p - p; x < x0 + G.stangeL; x += p) {
+    const z = [[x, fuss], [x + 0.18 * p, kopf], [x + 0.32 * p, kopf], [x + 0.5 * p, fuss]];
+    for (const [px, py] of z) if (px >= x0 && px <= x0 + G.stangeL) pts.push([px, py]);
+  }
+  pts.push([x0 + G.stangeL, fuss], [x0 + G.stangeL, ruecken]);
+  return pts.map(q => q[0].toFixed(2) + ',' + q[1].toFixed(2)).join(' ');
 }
-const fingerR = finger(1), fingerL = finger(-1);
 
-// Maßlinie Backenabstand
+const stangeO = el('polygon', { fill: c('--stange'), stroke: c('--graphit'), 'stroke-width': 0.5 }, g);
+const stangeU = el('polygon', { fill: c('--stange'), stroke: c('--graphit'), 'stroke-width': 0.5 }, g);
+const backeL = el('rect', { width: G.backeB, height: G.backeOben - G.backeUnten, fill: c('--graphit'), rx: 1 }, g);
+const backeR = el('rect', { width: G.backeB, height: G.backeOben - G.backeUnten, fill: c('--graphit'), rx: 1 }, g);
+
+const ritzel = el('g', {}, g);
+(function () {
+  const ra = G.r + G.m, rf = G.r - 1.25 * G.m, pts = [];
+  for (let i = 0; i < G.z; i++) {
+    const a = 2 * Math.PI * i / G.z, w = 2 * Math.PI / G.z;
+    [[rf, -0.5], [ra, -0.18], [ra, 0.18], [rf, 0.5]].forEach(([rr, f]) =>
+      pts.push((rr * Math.cos(a + f * w)).toFixed(2) + ',' + (rr * Math.sin(a + f * w)).toFixed(2)));
+  }
+  el('polygon', { points: pts.join(' '), fill: c('--kupfer'), stroke: c('--graphit'), 'stroke-width': 0.5 }, ritzel);
+  el('circle', { r: 2.2, fill: '#fff', stroke: c('--graphit'), 'stroke-width': 0.6 }, ritzel);
+  el('line', { x1: 0, y1: 2.2, x2: 0, y2: 5.5, stroke: c('--graphit'), 'stroke-width': 0.8 }, ritzel);
+})();
+
 const mass = el('g', {});
 const massLinie = el('line', { stroke: c('--kupfer'), 'stroke-width': 0.6 }, mass);
 const massText = el('text', { 'font-size': 6, fill: c('--kupfer'), 'text-anchor': 'middle',
                               'font-family': 'Segoe UI, sans-serif' }, mass);
 
-function setze(f, phi) {
-  const s = f.s;
-  const a = { x: s * P1.x, y: P1.y }, b = { x: s * P2.x, y: P2.y };
-  const dx = s * G.lenker * Math.sin(phi), dy = -G.lenker * Math.cos(phi);
-  const A = { x: a.x + dx, y: a.y + dy }, B = { x: b.x + dx, y: b.y + dy };
-  const set = (e, p, q) => { e.setAttribute('x1', p.x); e.setAttribute('y1', p.y);
-                             e.setAttribute('x2', q.x); e.setAttribute('y2', q.y); };
-  set(f.halter, { x: s * P1.x, y: 0 }, b);
-  set(f.l1, a, A); set(f.l2, b, B); set(f.koppel, A, B);
-  f.flaeche.setAttribute('points', [a, A, B, b].map(p => p.x + ',' + p.y).join(' '));
-  // Backe hängt vom unteren Koppelpunkt nach unten, Innenfläche zur Mitte
-  f.backe.setAttribute('x', s > 0 ? B.x : B.x - 6);
-  f.backe.setAttribute('y', B.y - G.backe);
-  [a, b, A, B].forEach((p, i) => { f.gel[i].setAttribute('cx', p.x); f.gel[i].setAttribute('cy', p.y); });
-  return B;
-}
-
 const slider = document.getElementById('slider');
 const mitTeil = document.getElementById('mitTeil');
+const deutsch = (v, n = 1) => v.toFixed(n).replace('.', ',');
 function zeichne() {
-  const t = slider.value / 1000;                     // 0 = Greifstellung, 1 = offen
-  const phi = phiGreif + t * (phiAuf - phiGreif);
-  const B = setze(fingerR, phi);
-  setze(fingerL, phi);
-  const gap = 2 * B.x;
-  const yMass = B.y - G.backe - 7;
-  massLinie.setAttribute('x1', -B.x); massLinie.setAttribute('x2', B.x);
+  const s = slider.value / 1000 * G.hub;          // Hub je Seite, 0 = Greifstellung
+  const innen = G.teilB / 2 + s;
+  const yO = G.ritzelY + G.r, yU = G.ritzelY - G.r;
+  // obere Stange traegt die linke Backe, untere die rechte; beide laufen gegenlaeufig
+  const xO = -innen - G.backeB, xU = innen + G.backeB - G.stangeL;
+  stangeO.setAttribute('points', stangePunkte(xO, yO, -1, p / 2 - s));
+  stangeU.setAttribute('points', stangePunkte(xU, yU, 1, p / 2 + s));
+  backeL.setAttribute('x', -innen - G.backeB); backeL.setAttribute('y', G.backeUnten);
+  backeR.setAttribute('x', innen); backeR.setAttribute('y', G.backeUnten);
+  const winkel = s / G.r * 180 / Math.PI;          // gegen den Uhrzeigersinn beim Oeffnen
+  ritzel.setAttribute('transform', `translate(0 ${G.ritzelY}) rotate(${winkel + 90 + 180 / G.z})`);
+
+  const gap = 2 * innen, yMass = G.backeUnten - 6;
+  massLinie.setAttribute('x1', -innen); massLinie.setAttribute('x2', innen);
   massLinie.setAttribute('y1', -yMass); massLinie.setAttribute('y2', -yMass);
-  massText.setAttribute('x', 0); massText.setAttribute('y', -yMass - 2);
-  massText.textContent = gap.toFixed(1).replace('.', ',') + ' mm';
+  massText.setAttribute('x', 0); massText.setAttribute('y', -yMass + 7);
+  massText.textContent = deutsch(gap) + ' mm';
   teil.style.display = mitTeil.checked ? '' : 'none';
 
-  document.getElementById('vPhi').textContent = (phi * 180 / Math.PI).toFixed(1).replace('.', ',') + ' °';
-  document.getElementById('vGap').textContent = gap.toFixed(1).replace('.', ',') + ' mm';
-  const dyBacke = B.y - yGreif;
-  document.getElementById('vDy').textContent = (dyBacke >= 0 ? '+' : '') + dyBacke.toFixed(1).replace('.', ',') + ' mm';
+  document.getElementById('vDreh').textContent = deutsch(winkel, 0) + ' °';
+  document.getElementById('vHub').textContent = deutsch(s) + ' mm';
+  document.getElementById('vGap').textContent = deutsch(gap) + ' mm';
   const st = document.getElementById('status');
-  if (t < 0.002) { st.textContent = 'Backen liegen am Bauteil an'; st.style.color = c('--kupfer'); }
-  else { st.textContent = 'offen, ' + (gap - G.teilB).toFixed(1).replace('.', ',') + ' mm Spiel zum Bauteil';
-         st.style.color = c('--ink'); }
+  if (s < 0.03) { st.textContent = 'Backen liegen am Bauteil an'; st.style.color = c('--kupfer'); }
+  else { st.textContent = 'offen, ' + deutsch(2 * s) + ' mm Spiel zum Bauteil'; st.style.color = c('--ink'); }
 }
 
-// Abspielen: offen -> greifen -> kurz halten -> öffnen, in Schleife
+// offen -> greifen -> halten -> oeffnen, in Schleife
 let laeuft = false, t0 = 0;
 const play = document.getElementById('play');
 const periode = 4000;
@@ -169,7 +170,6 @@ function schritt(ts) {
   if (!laeuft) return;
   if (!t0) t0 = ts;
   const u = ((ts - t0) % periode) / periode;
-  // 0-0.4 schließen, 0.4-0.55 halten, 0.55-0.95 öffnen, 0.95-1 offen halten
   let v;
   if (u < 0.4) v = 1 - ease(u / 0.4);
   else if (u < 0.55) v = 0;
@@ -183,7 +183,6 @@ function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
 play.onclick = () => {
   laeuft = !laeuft; play.textContent = laeuft ? 'Pause' : 'Abspielen';
   if (laeuft) {
-    // dort weitermachen, wo der Regler gerade steht (Phase "öffnen")
     const v = slider.value / 1000;
     t0 = performance.now() - (0.55 + 0.4 * v) * periode;
     requestAnimationFrame(schritt);

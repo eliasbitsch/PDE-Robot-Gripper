@@ -16,6 +16,7 @@ Status: 10 Nov 2026, proposal. Replaces "Onshape is the leading CAD model" in PL
 | D8 | Robot interface | **Round adapter Ø76 to ISO 9409-1-40-4-M6** (ABB IRB 1300-7/1.4), fixed to the motor housing lid from the top with 4 × ISO 10642 M4 on PCD 62 | Prescribed by the robot; screw heads stay reachable outside the robot flange. |
 | D9 | Visuals | **Blender** (glTF from FreeCAD) for materials, renders and the open/close animation | FreeCAD has no proper material rendering. Same parameters drive the Blender rig. |
 | D10 | Animation | Kinematic check in the **FreeCAD Assembly workbench** (rack-pinion joint + "Create Simulation"); the **presentation animation in Blender**; the cell sequence stays in **MuJoCo** | FreeCAD proves the kinematics are right, Blender makes it look good, MuJoCo proves the cell. |
+| D11 | Motor control | **Closed-loop stepper with integrated controller and encoder** (Nanotec Plug & Drive, PD2-C / PD4-C family, NEMA 17) instead of the open-loop ST4118 (decided 12 Nov 2026); gearbox GP42 and brake stay | Grip force set by motor current, "part gripped / nothing gripped" from current and following error, no lost steps, fieldbus to the robot controller instead of an external driver. Stepper kept over a BLDC servo: high torque at low speed, no hunting at standstill, same NEMA 17 flange, so housing and hood stay. Exact type, length and brake/gearbox combination still to be checked against the datasheets (open point 2). |
 
 ## 2. Parts list (target BOM)
 
@@ -115,6 +116,8 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 0. **Assumption, part position on the buffer belt:** part B arrives within about ±5 mm of its nominal position (the assignment does not say; stops or a centring guide on the belt are assumed). The 10 mm stroke per jaw opens to 86 mm, 8 mm clearance per side over the 70 mm grip faces. Without redesign the stroke can grow to about 12.5 mm (carriage at the rail end, long rack still covering the pinion) if a larger tolerance is required.
 
 1. **Placement orientation on the workpiece carrier** (PLAN § 8.2) - still the only point that can change the grip direction.
+
+2. **Plug & Drive motor (D11):** pick the exact Nanotec type (torque at the pinion ≥ 1.27 N·m through i = 7.07, brake option, fieldbus or IO-Link), check the longer motor (integrated controller) under the hood, the connector position and the mass/COG, then update `gripper_params.py`, the BOM and V2 (motor selection).
 
 ## 8. Manufacturing and assembly
 

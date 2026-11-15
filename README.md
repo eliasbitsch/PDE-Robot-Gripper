@@ -34,31 +34,30 @@ belt, which rules out both a vacuum cup and anything that reaches underneath.
 
 ## The concept
 
-A **2-finger parallel gripper**, one **four-bar parallelogram per finger**,
-driven by a single **servo motor** through a self-locking screw.
+A **2-finger parallel gripper** with **rack and pinion**: one servo turns a
+pinion between two racks, each rack carries one jaw.
 
-The design is **inspired by the Robotiq 2F-85**: electric, two fingers, one
-four-bar per finger, pads that stay parallel. What we do not take over is its
-underactuated adaptive wrap - in encompassing mode that is statically
-indeterminate, and on two flat faces it buys nothing.
+The design takes **one half** of the
+[Cartesian Hand](https://arxiv.org/abs/2609.25696) (Duke, 2026,
+[video](https://www.youtube.com/watch?v=ktNcPPTPsQE)): one of its two parallel
+grippers, without the second gripper and without the fingertip slides along
+the fingers.
 
-<img src="shared/references/robotiq-2f-85-2f-140.jpg" width="440" alt="Robotiq 2F-85 and 2F-140 adaptive grippers">
+<img src="shared/images/rack_pinion_principle.png" width="440" alt="Rack and pinion principle: one pinion moves both racks in opposite directions">
 
-*Robotiq 2F-85 and 2F-140. Photo: Robotiq Inc., used as a design reference.*
+Why rack and pinion:
 
-<img src="shared/images/linkage.png" width="380" alt="Our four-bar linkage, open and closed">
+- Jaws move in a **straight line** and stay parallel - no scrub on Ra 1.6
+- **Constant jaw force** over the whole stroke, no transmission angle to prove
+- One gear mesh and one guide to calculate; racks run in a dovetail slot, no bought linear rails
 
-*Our version: links 90 mm, swing +-4.46 degrees, 14 mm stroke per side.*
+The price, stated honestly: the rack is **back-drivable**. Holding on power
+failure needs a self-locking stage or a holding brake in the drive - to be
+decided in the sizing.
 
-Why this and not a rack:
-
-- **Pads stay parallel** through the four-bar, so the flat faces stay in full contact
-- **The screw is self-locking** - the part holds on power failure, no brake needed
-- The tip travels on an arc, but with 90 mm links and ±4.46° of swing that is
-  **0.27 mm of scrub** over the full 14 mm stroke per side
-
-The price, stated honestly: jaw force is **not constant** over the stroke. The
-worst transmission angle has to be proven, not assumed.
+The design is industrial: milled aluminium housing, catalogue rack and pinion
+in steel, a 24 V servo drive. The Cartesian Hand is the model for the
+principle, not for material or drive.
 
 **Required gripping force:** 14.3 N per jaw (µ = 0.5 NBR/PA 6, safety factor 2.0,
 path acceleration 2.05 m/s² out of the cycle-time budget).
