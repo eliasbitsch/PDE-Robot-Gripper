@@ -16,7 +16,7 @@ Status: 10 Nov 2026, proposal. Replaces "Onshape is the leading CAD model" in PL
 | D8 | Robot interface | **Round adapter Ø76 to ISO 9409-1-40-4-M6** (ABB IRB 1300-7/1.4), fixed to the motor housing lid from the top with 4 × ISO 10642 M4 on PCD 62 | Prescribed by the robot; screw heads stay reachable outside the robot flange. |
 | D9 | Visuals | **Blender** (glTF from FreeCAD) for materials, renders and the open/close animation | FreeCAD has no proper material rendering. Same parameters drive the Blender rig. |
 | D10 | Animation | Kinematic check in the **FreeCAD Assembly workbench** (rack-pinion joint + "Create Simulation"); the **presentation animation in Blender**; the cell sequence stays in **MuJoCo** | FreeCAD proves the kinematics are right, Blender makes it look good, MuJoCo proves the cell. |
-| D11 | Motor control | **Closed-loop stepper with integrated controller and encoder** (Nanotec Plug & Drive, PD2-C / PD4-C family, NEMA 17) instead of the open-loop ST4118 (decided 12 Nov 2026); gearbox GP42 and brake stay | Grip force set by motor current, "part gripped / nothing gripped" from current and following error, no lost steps, fieldbus to the robot controller instead of an external driver. Stepper kept over a BLDC servo: high torque at low speed, no hunting at standstill, same NEMA 17 flange, so housing and hood stay. Exact type, length and brake/gearbox combination still to be checked against the datasheets (open point 2). |
+| D11 | Motor control | **Closed-loop stepper with an external controller** (e.g. Nanotec CL3-E in the cabinet): ST4118 + encoder + BRAKE-BWA + GP42 stay in the hood (decided 15 Nov 2026, replaces the Plug & Drive idea of 12 Nov) | Grip force set by motor current, "part gripped / nothing gripped" from current and following error, no lost steps, fieldbus to the robot. A Plug & Drive (PD2-C/PD2-E) fits only without brake: its only brake (BCD42, front-mounted) adds 45.5 mm and the chain would end at x ≈ 132 against 79 inside the hood. Holding on power failure wins; cost: a thicker cable (motor, encoder, brake) through the dress pack. Encoder type and the extra motor length are still open (open point 2). |
 
 ## 2. Parts list (target BOM)
 
@@ -117,7 +117,19 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 
 1. **Placement orientation on the workpiece carrier** (PLAN § 8.2) - still the only point that can change the grip direction.
 
-2. **Plug & Drive motor (D11):** pick the exact Nanotec type (torque at the pinion ≥ 1.27 N·m through i = 7.07, brake option, fieldbus or IO-Link), check the longer motor (integrated controller) under the hood, the connector position and the mass/COG, then update `gripper_params.py`, the BOM and V2 (motor selection).
+2. **Encoder for D11:** pick a NEMA 17 encoder that fits together with the BRAKE-BWA on the ST4118 (or a motor with encoder and brake, e.g. Nanotec AS4118), check the longer motor tail inside the hood (x ≤ 79), the cable and gland, then update the BOM and V2 (motor selection). Plug & Drive study below for the record.
+   Candidates (15 Nov 2026): **PD2-C4118L1804-E-08** (CANopen; -E-01 USB/IO), 0.50 N·m holding, 1.8 A, 12-48 V,
+   single-turn absolute encoder 1024 CPR, body ≈ 74 mm (ST4118S: 34 mm); or the newer **PD2-E** (up to 0.80 N·m,
+   CANopen / Modbus RTU / EtherCAT, PWM output for an external holding brake). Open: where the brake goes - the
+   controller sits on the motor's rear end, so the BRAKE-BWA can no longer sit on the rear shaft; the PD2-C page lists
+   a brake accessory, its mounting and length are still to be read from the datasheet drawing.
+   Datasheets read (vendor/nanotec_pd2, gitignored): PD2-E421M 0.28 N·m, 74.7 mm long but 69.5 mm high (controller
+   box on one side), brake output on X4; PD2-C4118L1804 74 mm, 58.7 mm high; the only brake that fits a Plug & Drive
+   is the front-mounted BRAKE-BCD42-0,4-5 (45.5 mm between motor and gearbox, needs the motor shaft cut to 10-11 mm).
+   Fit check against the lying layout: gearbox input flange at x ≈ 12, hood inside to x ≈ 79, hood top z = 66.
+   Without brake the PD2 ends at x ≈ 87 (8 mm too long) and its controller box does not fit in height or width;
+   with the BCD42 it ends at x ≈ 132. **The integrated drive does not fit the current hood.** Decision pending
+   (see options in the 15 Nov chat: external closed-loop controller, self-locking worm stage, or a larger hood).
 
 ## 8. Manufacturing and assembly
 

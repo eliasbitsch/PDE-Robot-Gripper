@@ -91,8 +91,7 @@ def bracket():
 
 
 def hood_screws():
-    x, y = P.HOOD_SCREW_XY
-    return [(sx * x, sy * y) for sx in (-1, 1) for sy in (-1, 1)]
+    return [(sx * P.HOOD_SCREW_X, y) for sx in (-1, 1) for y in P.HOOD_SCREW_Y]
 
 
 WIN_X, WIN_Z = (30.0, 60.0), (30.0, 48.0)
@@ -104,12 +103,12 @@ def window_screws():
 
 def hood():
     """Flat hood over the drive, milled from the solid; a seat ring on top carries the robot adapter."""
-    hx, hy = P.HOUSING_X / 2, P.HOOD_Y
+    hx, y0, hy = P.HOUSING_X / 2, -P.HOOD_Y, P.HOOD_Y
     top = P.HOOD_TOP
-    s = rounded_box(-hx, hx, -hy, hy, P.PLATE_T, top, P.HOOD_R)
+    s = rounded_box(-hx, hx, y0, hy, P.PLATE_T, top, P.HOOD_R)
     s = chamfer_z_edges(s, top, P.EDGE_CHAMFER)
     s = s.fuse(cylz(P.ADAPTER_D / 2, top - 0.1, top + P.HOOD_SEAT))
-    s = s.cut(rounded_box(-hx + P.HOOD_WALL, hx - P.HOOD_WALL, -hy + P.HOOD_WALL, hy - P.HOOD_WALL,
+    s = s.cut(rounded_box(-hx + P.HOOD_WALL, hx - P.HOOD_WALL, y0 + P.HOOD_WALL, hy - P.HOOD_WALL,
                           P.PLATE_T - 1, top - P.HOOD_TOP_T, P.HOOD_R - P.HOOD_WALL))
     for x, y in hood_screws():
         s = s.fuse(cylz(4.5, P.PLATE_T, P.PLATE_T + 13.5, x, y))   # 2.5 mm above the blind thread
