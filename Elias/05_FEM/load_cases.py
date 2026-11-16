@@ -6,6 +6,7 @@ The jaw is a mock until Viktoriia's jaw (V3) exists: it only carries the pad loa
 right place. All forces act at the pad centre, per jaw; signs in the gripper frame (CAD_PLAN.md):
 x = grip direction (positive = towards the part for the left jaw), y = along the robot path, z = up.
 """
+import math
 import os
 import sys
 
@@ -13,9 +14,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "02_CAD_Body"))
 import gripper_params as P  # noqa: E402
 
-# Emergency stop deceleration of the IRB 1300 is still open in V2 (Viktoriia); this value is an assumption
-# until V2 delivers it. Change it here, everything below follows.
-A_STOP = 15.0                                   # m/s^2, assumed (about 1.5 g)
+# Emergency stop, ABB product specification IRB 1300 (3HAC070393 rev. M, p. 91, IRB 1300 1.4 m 7 kg):
+# category 0 at max speed, arm stretched, max load: stopping angle and time per axis. Constant deceleration:
+# alpha = 2 phi / t^2. Axis 1 dominates our transfer; the TCP is at most about 1.0 m from axis 1 (at the pick).
+STOP_CAT0 = {1: (55.25, 0.40), 2: (33.39, 0.37), 3: (35.66, 0.27)}       # axis: (deg, s)
+ALPHA_STOP = {k: 2 * math.radians(phi) / t ** 2 for k, (phi, t) in STOP_CAT0.items()}   # rad/s^2
+R_TCP_A1 = 1.0                                  # m, TCP radius about axis 1 at the pick (largest in the cycle)
+A_STOP = ALPHA_STOP[1] * R_TCP_A1               # m/s^2, about 12
 
 R_PINION = P.PINION_D / 2 / 1000                # m
 F_BRAKE = P.T_PINION_BRAKE / (2 * R_PINION)     # N per jaw before the brake slips
@@ -32,7 +37,7 @@ LOAD_CASES = [
     ("LC3 transport", P.F_GRIP_OILY, M_PART * P.A_BAHN / P.N_BACKEN, -F_HOLD_Z, 2.0,
      "LC1 plus the part's weight and path acceleration carried by friction"),
     ("LC4 emergency stop", P.F_JAW_MAX, F_STOP_Y, -F_STOP_Z, 1.5,
-     "LC2 plus the part decelerating at A_STOP (assumed, V2)"),
+     "LC2 plus the part decelerating at A_STOP (ABB stop data, axis 1)"),
     ("LC5 brake limit", F_BRAKE, 0.0, 0.0, 1.2,
      "power off, jaw pushed until the brake slips (misuse / collision)"),
 ]
@@ -72,4 +77,4 @@ if __name__ == "__main__":
         print(f"{part:11s} {mat}: allowed von Mises {m['Rp02'] / 2:.0f} MPa (S 2), "
               f"fatigue amplitude for LC1 <= {m['fatigue'] / 2:.0f} MPa")
     print(f"\npad tilt, LC2: <= {TILT_MAX} deg (deflection at the pad centre reported, target {DEFLECTION_MAX} mm)")
-    print(f"brake limit per jaw: {F_BRAKE:.0f} N, emergency stop assumed {A_STOP} m/s^2 (update from V2)")
+    print(f"brake limit per jaw: {F_BRAKE:.0f} N, emergency stop {A_STOP:.1f} m/s^2 (ABB category 0, axis 1 at {R_TCP_A1} m)")

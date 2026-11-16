@@ -5,7 +5,7 @@ python validate_grip.py  ->  out/grip_results.json, figures/grip_slip.png
 Cases (force = jaw force limit of the current-limited drive, per jaw):
   nominal      F = F_GRIP_OILY (S = 2 in the hand calculation): the part must not slip
   limit        F = F_GRIP_OILY / S: no safety left, slip expected to start
-  e-stop       F nominal, emergency stop in the middle of the transfer at A_STOP; the brake locks the jaws
+  e-stop       F nominal, category 0 stop in the middle of the transfer with the ABB axis decelerations; the brake locks the jaws
 Path: pick on the buffer belt, lift, transfer to the workpiece carrier in T_EINWEG with a trapezoidal profile
 (A_BAHN, V_BAHN from cad/params.py), lower. The robot follows the joint path through stiff position control.
 """
@@ -58,9 +58,14 @@ def set_force(m, f_jaw):
     m.actuator_forcerange[a] = (-2 * f_jaw, 2 * f_jaw)
 
 
-def run(case, force, estop=False, dt_log=0.005):
+def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, record=False):
+    """One cycle. mu: pad friction (default MU_PAD), t_transfer: transfer time (default T_EINWEG, ramps T/3)."""
     m, d = S.load()
     m.opt.timestep = 0.0005
+    mu = S.B.MU_PAD if mu is None else mu
+    m.pair_friction[:, 0:2] = mu
+    T_TR = T_TRANSFER if t_transfer is None else t_transfer
+    TA_ = T_TR / 3.0
     q0, _ = S.q_pick()
     q1, _ = S.q_pick(LIFT)
     q2, _ = S.q_place(LIFT)
@@ -73,9 +78,9 @@ def run(case, force, estop=False, dt_log=0.005):
 
     t_lift0 = T_CLOSE + T_SETTLE
     t_tr0 = t_lift0 + T_LIFT
-    t_low0 = t_tr0 + T_TRANSFER
+    t_low0 = t_tr0 + T_TR
     t_end = t_low0 + T_LIFT + 0.3
-    t_stop = t_tr0 + 0.5 * T_TRANSFER if estop else None
+    t_stop = t_tr0 + 0.5 * T_TR if estop else None
     L_tcp = np.linalg.norm(np.array([GP.X_PLACE if hasattr(GP, "X_PLACE") else S.CP.X_PLACE, S.CP.DY_CHAIN])
                            - np.array([S.CP.X_PICK, 0.0])) * MM          # rough TCP path length per unit s
     log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util")}
@@ -95,22 +100,23 @@ def run(case, force, estop=False, dt_log=0.005):
         elif t < t_low0 or (estop and t_halt is not None):
             if estop and t >= t_stop:
                 if s_stop is None:                             # e-stop: decelerate the path at A_STOP, brake the jaws
-                    s_stop, sd_stop = trapezoid(t_stop - t_tr0, T_TRANSFER, TA)
+                    s_stop, sd_stop = trapezoid(t_stop - t_tr0, T_TR, TA_)
                     # brake: the jaws stay where they are, up to the brake limit (2 x per jaw, see set_force)
                     # the brake locks the drive under load: the elastic preload (the grip force) stays
                     d.ctrl[ja] = d.ten_length[m.tendon("jaws").id] - 2 * force / m.actuator_gainprm[ja, 0]
                     m.actuator_forcerange[ja] = (-2 * L.F_BRAKE, 2 * L.F_BRAKE)
                     t_halt = t
-                    v6 = np.zeros(6)
-                    mujoco.mj_objectVelocity(m, d, mujoco.mjtObj.mjOBJ_SITE, m.site("tcp").id, v6, 0)
-                    sdd_stop = L.A_STOP * sd_stop / max(np.linalg.norm(v6[3:]), 1e-6)   # TCP decelerates at A_STOP
+                    # category 0: every axis brakes at its ABB deceleration; the path stops with the slowest one
+                    dq = np.abs(q2 - q1)
+                    alpha = np.array([L.ALPHA_STOP.get(i + 1, L.ALPHA_STOP[3]) for i in range(6)])
+                    sdd_stop = float(np.min(alpha[dq > 1e-6] / dq[dq > 1e-6]))
                 tau = t - t_halt
                 sdd = sdd_stop
                 tau_end = sd_stop / sdd
                 tau = min(tau, tau_end)
                 s = s_stop + sd_stop * tau - 0.5 * sdd * tau * tau
             else:
-                s, _ = trapezoid(t - t_tr0, T_TRANSFER, TA)
+                s, _ = trapezoid(t - t_tr0, T_TR, TA_)
             q = q1 + s * (q2 - q1)
         else:
             s, _ = trapezoid(t - t_low0, T_LIFT, T_LIFT / 3)
@@ -127,6 +133,8 @@ def run(case, force, estop=False, dt_log=0.005):
             log["tcp"].append(d.site("tcp").xpos.copy())
             log["jaw_force"].append(float(d.actuator_force[ja]))
             log["part_z"].append(float(d.body("part").xpos[2] / MM))
+            if record and len(log["t"]) % 8 == 1:          # every 40 ms for the animation
+                log.setdefault("qpos", []).append(d.qpos.copy())
             fn = ft = 0.0                                   # summed over both pads: friction use = |Ft| / (mu Fn)
             for i in range(d.ncon):
                 c = d.contact[i]
@@ -134,11 +142,12 @@ def run(case, force, estop=False, dt_log=0.005):
                     mujoco.mj_contactForce(m, d, i, f6)
                     fn += f6[0]
                     ft += np.hypot(f6[1], f6[2])
-            log["util"].append(float(ft / (S.B.MU_PAD * fn)) if fn > 1e-6 else float("nan"))
+            log["util"].append(float(ft / (mu * fn)) if fn > 1e-6 else float("nan"))
     tcp = np.array(log["tcp"])
     tt = np.array(log["t"])
     acc = np.gradient(np.gradient(tcp, tt, axis=0), tt, axis=0)
     a_mag = np.linalg.norm(acc, axis=1)
+    log["a_tcp"] = a_mag.tolist()
     win = (tt > t_lift0) & (tt < t_low0 + T_LIFT)
     slip = np.array(log["slip"])
     util = np.nan_to_num(np.array(log["util"]))
@@ -188,3 +197,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def animate(log, path, size=(720, 450), fps=25):
+    """GIF of a recorded run (run(..., record=True)), camera on the cell."""
+    from PIL import Image
+    m, d = S.load()
+    r = mujoco.Renderer(m, size[1], size[0])
+    cam = mujoco.MjvCamera()
+    cam.lookat[:] = (0.0, 0.1, 1.1)
+    cam.distance, cam.azimuth, cam.elevation = 3.0, 125, -25
+    frames = []
+    for q in log["qpos"]:
+        d.qpos[:] = q
+        mujoco.mj_forward(m, d)
+        r.update_scene(d, cam)
+        frames.append(Image.fromarray(r.render()))
+    r.close()
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=int(1000 / fps), loop=0)
+    return path

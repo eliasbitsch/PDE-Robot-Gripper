@@ -49,7 +49,7 @@ so holder and slide see their real loads. When V3 arrives only `export_train.py`
 | LC1 nominal grip | 35.7 | 0.0 | 0.0 | 2.0 | required grip force, oily part, mu 0.2, S 2 |
 | LC2 full current | 63.6 | 0.0 | 0.0 | 2.0 | motor at full current, end stop or part |
 | LC3 transport | 35.7 | 0.6 | -3.6 | 2.0 | LC1 plus the part's weight and path acceleration carried by friction |
-| LC4 emergency stop | 63.6 | 4.5 | -7.5 | 1.5 | LC2 plus the part decelerating at 15 m/s² (assumed until V2) |
+| LC4 emergency stop | 63.6 | 3.6 | -6.6 | 1.5 | LC2 plus the part decelerating at 12.1 m/s² (ABB category 0 stop data, axis 1 at 1.0 m) |
 | LC5 brake limit | 123.7 | 0.0 | 0.0 | 1.2 | power off, jaw pushed until the brake slips (misuse / collision) |
 
 **Model.** Slide fixed on its contact patch with the ball carriage (carriage taken as rigid), slide - holder and
@@ -68,7 +68,7 @@ pulsating load at about 3 million cycles a year, stress amplitude ≤ 45 MPa in 
 | LC1 nominal grip | 36.2 | 0.050 | 8.9 / 28.0 | 9.3 / 26.9 | 9.8 / 46.9 |
 | LC2 full current | 64.5 | 0.089 | 15.9 / 15.7 | 16.5 / 15.1 | 17.5 / 26.3 |
 | LC3 transport | 36.4 | 0.050 | 9.0 / 27.8 | 9.4 / 26.7 | 10.0 / 46.2 |
-| LC4 emergency stop | 65.6 | 0.090 | 15.9 / 15.8 | 17.7 / 14.1 | 17.8 / 25.9 |
+| LC4 emergency stop | 65.4 | 0.090 | 15.9 / 15.7 | 17.4 / 14.3 | 17.7 / 25.9 |
 | LC5 brake limit | 125.4 | 0.173 | 30.9 / 8.1 | 32.2 / 7.8 | 34.0 / 13.5 |
 
 - Strength is far from critical: S ≥ 7.8 in every part and load case, also at the brake limit.

@@ -18,8 +18,9 @@ from two boxes (body with the flat grip faces, lug) because its convex hull woul
 
 **Path.** Pick on the belt, lift 60 mm in 0.4 s, transfer to the carrier in T_EINWEG = 2.0 s with a trapezoidal
 profile in joint space (MoveJ), lower 60 mm. Axis 1 turns about 160°, so the TCP sees up to 5 m/s², not the 2.05 m/s²
-of a straight 1.8 m line that the hand calculation assumes. E-stop: in the middle of the transfer the path decelerates
-at A_STOP (15 m/s², assumed until V2), the brake locks the drive with the preload kept.
+of a straight 1.8 m line that the hand calculation assumes. E-stop (category 0): in the middle of the transfer every
+axis brakes with its deceleration from the ABB product specification (3HAC070393 rev. M, p. 91: axis 1 55.25° in
+0.40 s, i.e. 12.1 rad/s²), which gives 12.3 m/s² at the TCP; the brake locks the drive with the preload kept.
 
 **Results, 16 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`). Friction use = |F_t| / (μ F_n) on the
 pads, 1.0 means the part is at the friction limit; median over the moving phases and 50 ms peak.
@@ -29,7 +30,7 @@ pads, 1.0 means the part is at the friction limit; median over the moving phases
 | nominal | 35.7 N | 0.46 / 0.93 | 0.48 mm | held |
 | no safety (F / S) | 17.9 N | 0.85 / 1.00 | 0.87 mm | held only just, micro-slip |
 | full current | 63.6 N | 0.32 / 0.75 | 0.41 mm | held |
-| e-stop at 15 m/s² | 35.7 N | 0.54 / 0.93 | 0.29 mm | held |
+| e-stop, ABB category 0 | 35.7 N | 0.57 / 0.93 | 0.28 mm | held |
 | e-stop, full current | 63.6 N | 0.27 / 0.75 | 0.24 mm | held |
 
 - The hand calculation is confirmed in the mean: with S = 2 the friction use should be 0.5; the simulation gives 0.46.
