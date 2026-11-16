@@ -12,29 +12,15 @@ ROOT = "C:/git/FH/PDE/Elias"
 sys.path.insert(0, ROOT + "/02_CAD_Body")
 import gripper_params as P  # noqa: E402
 
-ROBOTS = {
-    # STEP frame = home pose. a2: axis 2 (x, z); l2: axis 2 -> 3; c: axis 4 above axis 3; l3: axis 3 -> 5 along x;
-    # l_fl: axis 5 -> flange face; limits from the ABB data sheets.
-    "IRB1300-7/1.4": dict(files=ROOT + "/06_Cell/vendor/irb1300/IRB1300 Type A_7&12Kg-1400-IP40IP67CR-STD_OC_00_link{}.STEP",
-                          links=range(7), a2=(150.0, 544.0), l2=575.0, c=40.0, l3=675.0, l_fl=98.5,
-                          lim=[(-180, 180), (-95, 155), (-210, 65), (-230, 230), (-130, 130), (-400, 400)],
-                          color=(0.93, 0.95, 0.96), base_color=(0.93, 0.95, 0.96), accent=(0.85, 0.10, 0.10)),
-    "IRB1600-6/1.45": dict(files=ROOT + "/06_Cell/vendor/irb1600/IRB1600_X-145_STEP_rev03_j/IRB1600_X-145_STEP_joint/IRB1600_X-145_IRC5_rev2_{}.STEP",
-                           links=["BASE", "LINK1", "LINK2", "LINK3", "LINK4", "LINK5", "LINK6"], a2=(150.0, 486.5), l2=700.0,
-                           c=0.0, l3=600.0, l_fl=65.0,
-                           lim=[(-180, 180), (-90, 150), (-245, 65), (-200, 200), (-115, 115), (-400, 400)],
-                           color=(0.95, 0.45, 0.10), base_color=(0.25, 0.25, 0.27), accent=None),
-}
-ROBOT = ROBOTS["IRB1300-7/1.4"]
+sys.path.insert(0, ROOT + "/06_Cell")
+import cell_params as CP  # noqa: E402
+import importlib  # noqa: E402
+importlib.reload(CP)        # FreeCAD keeps modules between macro runs
 
-# Cell layout (Angabe Abb. 1, placement study sim/aufstellung.py), mm
-BASE = V(-100.0, 0.0, 500.0)          # pedestal 500 mm, 100 mm towards the workpiece carrier
-X_PICK, H_PICK = 900.0, 1000.0
-X_PLACE, H_PLACE, DY_CHAIN = -900.0, 1300.0, 300.0
-H_FENCE = 2100.0
-
-A2_X, A2_Z = ROBOT["a2"]
-L2, C4, L3X, L_FL = ROBOT["l2"], ROBOT["c"], ROBOT["l3"], ROBOT["l_fl"]
+ROBOT = dict(CP.ROBOT, color=(0.93, 0.95, 0.96), base_color=(0.93, 0.95, 0.96))
+BASE = V(*CP.BASE)
+X_PICK, H_PICK, X_PLACE, H_PLACE, DY_CHAIN, H_FENCE = CP.X_PICK, CP.H_PICK, CP.X_PLACE, CP.H_PLACE, CP.DY_CHAIN, CP.H_FENCE
+A2_X, A2_Z, L2, C4, L3X, L_FL = CP.A2_X, CP.A2_Z, CP.L2, CP.C4, CP.L3X, CP.L_FL
 
 
 def rot_about(axis, angle, centre):
@@ -42,35 +28,16 @@ def rot_about(axis, angle, centre):
 
 
 def link_placements(q):
-    z3, z4 = A2_Z + L2, A2_Z + L2 + C4
-    chain = [(V(0, 0, 1), V(0, 0, 0)), (V(0, 1, 0), V(A2_X, 0, A2_Z)), (V(0, 1, 0), V(A2_X, 0, z3)),
-             (V(1, 0, 0), V(0, 0, z4)), (V(0, 1, 0), V(A2_X + L3X, 0, z4)), (V(1, 0, 0), V(0, 0, z4))]
     p = App.Placement(BASE, App.Rotation())
     out = [p]
-    for (ax, c), a in zip(chain, q):
-        p = p.multiply(rot_about(ax, a, c))
+    for (ax, c), a in zip(CP.joint_chain(), q):
+        p = p.multiply(rot_about(V(*ax), a, V(*c)))
         out.append(p)
     return out
 
 
 def ik_tool_down(wrist_world, a6=0.0):
-    """Closed form for a tool pointing straight down (spherical wrist, axis-4 offset C4)."""
-    w = wrist_world - BASE
-    a1 = math.degrees(math.atan2(w.y, w.x))
-    r = math.hypot(w.x, w.y) - A2_X
-    h = w.z - A2_Z
-    l3 = math.hypot(L3X, C4)
-    beta = math.atan2(C4, L3X)
-    s3 = (L2 ** 2 + l3 ** 2 - (r * r + h * h)) / (2 * L2 * l3)
-    if abs(s3) > 1:
-        raise ValueError("target out of reach")
-    a3p = math.asin(s3)
-    a, b = L2 - l3 * math.sin(a3p), l3 * math.cos(a3p)
-    a2 = math.degrees(math.atan2(a * r - b * h, a * h + b * r))
-    a3 = math.degrees(a3p + beta)
-    q = [a1, a2, a3, 0.0, 90.0 - a2 - a3, a6]
-    bad = [i + 1 for i, (v, (lo, hi)) in enumerate(zip(q, ROBOT["lim"])) if not lo <= v <= hi]
-    return q, bad
+    return CP.ik_tool_down((wrist_world.x, wrist_world.y, wrist_world.z), a6)
 
 
 def add(doc, name, shape, color, transp=0):
