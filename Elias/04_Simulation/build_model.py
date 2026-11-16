@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "06_Cell"))
 sys.path.insert(0, CAD)
 import cell_params as CP  # noqa: E402
 import gripper_params as GP  # noqa: E402
+import drive as DRV  # noqa: E402
 
 OUT = os.path.join(HERE, "out")
 MESH = os.path.join(HERE, "meshes")
@@ -91,7 +92,7 @@ def build():
         slide_xml[side] = f'''
             <body name="slide_{tag}">
               <inertial pos="{v(c, MM)}" mass="{SLIDE_MASS}" diaginertia="2e-4 2e-4 2e-4"/>
-              <joint name="jaw_{tag}" type="slide" axis="{side} 0 0" range="-0.001 {(GP.D_OPEN + 4) * MM:.4f}" damping="20"/>
+              <joint name="jaw_{tag}" type="slide" axis="{side} 0 0" range="-0.001 {(GP.D_OPEN + 4) * MM:.4f}" damping="20" armature="{DRV.ARMATURE_PER_JAW:.4f}"/>  <!-- rotor, gearbox, brake seen at the jaw -->
               {chr(10).join("              " + b for b in body)}
             </body>'''
     static = "\n".join("              " + visual(n, m) for n, m in groups[0])

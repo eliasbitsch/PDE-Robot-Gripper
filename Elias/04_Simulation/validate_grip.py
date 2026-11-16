@@ -58,8 +58,9 @@ def set_force(m, f_jaw):
     m.actuator_forcerange[a] = (-2 * f_jaw, 2 * f_jaw)
 
 
-def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, record=False):
-    """One cycle. mu: pad friction (default MU_PAD), t_transfer: transfer time (default T_EINWEG, ramps T/3)."""
+def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None):
+    """One cycle. mu: pad friction (default MU_PAD), t_transfer: transfer time (default T_EINWEG, ramps T/3),
+    rec: viz.Recorder for the slow-motion video."""
     m, d = S.load()
     m.opt.timestep = 0.0005
     mu = S.B.MU_PAD if mu is None else mu
@@ -70,7 +71,8 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, record
     q1, _ = S.q_pick(LIFT)
     q2, _ = S.q_place(LIFT)
     q3, _ = S.q_place()
-    S.set_robot(m, d, q0)
+    # jaws start just before the part: the closing stroke and its impact are closing_time.py's subject
+    S.set_robot(m, d, q0, jaw=(GP.D_GRIP + 0.3) * MM)
     S.place_part_in_gripper(m, d)
     set_force(m, force)
     ja = m.actuator("jaw").id
@@ -83,7 +85,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, record
     t_stop = t_tr0 + 0.5 * T_TR if estop else None
     L_tcp = np.linalg.norm(np.array([GP.X_PLACE if hasattr(GP, "X_PLACE") else S.CP.X_PLACE, S.CP.DY_CHAIN])
                            - np.array([S.CP.X_PICK, 0.0])) * MM          # rough TCP path length per unit s
-    log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util")}
+    log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util", "util_pad")}
     pads = {m.geom("pad_L").id, m.geom("pad_R").id}
     part_g = m.geom("part").id
     f6 = np.zeros(6)
@@ -123,6 +125,12 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, record
             q = q2 + s * (q3 - q2)
         d.ctrl[:6] = q
         mujoco.mj_step(m, d)
+        if rec is not None:
+            ph = ("grip" if t < t_lift0 else "lift" if t < t_tr0 else
+                  ("E-STOP, jaws braked" if t_halt is not None else "transfer") if t < t_low0 or t_halt is not None else "lower")
+            rel = part_in_gripper(m, d)
+            rec(m, d, phase=ph, mu=mu, jaw_mm=d.ten_length[m.tendon("jaws").id] / MM,
+                slip_mm=float(np.linalg.norm(rel - ref) / MM) if ref is not None else 0.0)
         if t >= T_CLOSE + T_SETTLE * 0.9 and ref is None:
             ref = part_in_gripper(m, d)
         if k % int(dt_log / m.opt.timestep) == 0:
@@ -133,16 +141,20 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, record
             log["tcp"].append(d.site("tcp").xpos.copy())
             log["jaw_force"].append(float(d.actuator_force[ja]))
             log["part_z"].append(float(d.body("part").xpos[2] / MM))
-            if record and len(log["t"]) % 8 == 1:          # every 40 ms for the animation
-                log.setdefault("qpos", []).append(d.qpos.copy())
-            fn = ft = 0.0                                   # summed over both pads: friction use = |Ft| / (mu Fn)
+            # friction use: net = |vector sum of the pad friction forces| / (mu sum Fn), the load the friction carries
+            # (hand calculation); worst pad = same per pad, includes the internal locked-in shear of the statically
+            # indeterminate two-pad grip, which depends on how the jaws closed
+            fn, ftv = {"L": 0.0, "R": 0.0}, {"L": np.zeros(3), "R": np.zeros(3)}
             for i in range(d.ncon):
                 c = d.contact[i]
                 if {c.geom1, c.geom2} & pads and part_g in (c.geom1, c.geom2):
                     mujoco.mj_contactForce(m, d, i, f6)
-                    fn += f6[0]
-                    ft += np.hypot(f6[1], f6[2])
-            log["util"].append(float(ft / (mu * fn)) if fn > 1e-6 else float("nan"))
+                    side = "L" if m.geom("pad_L").id in (c.geom1, c.geom2) else "R"
+                    fn[side] += f6[0]
+                    ftv[side] += f6[1] * c.frame[3:6] + f6[2] * c.frame[6:9]
+            n = fn["L"] + fn["R"]
+            log["util"].append(float(np.linalg.norm(ftv["L"] + ftv["R"]) / (mu * n)) if n > 1e-6 else float("nan"))
+            log["util_pad"].append(max(float(np.linalg.norm(ftv[k]) / (mu * fn[k])) if fn[k] > 1e-6 else 0.0 for k in "LR"))
     tcp = np.array(log["tcp"])
     tt = np.array(log["t"])
     acc = np.gradient(np.gradient(tcp, tt, axis=0), tt, axis=0)
@@ -155,9 +167,10 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, record
     u_s = np.convolve(util, np.ones(k) / k, mode="same")
     u_max = float(u_s[win].max())
     u_cruise = float(np.median(util[win]))
+    u_pad = float(np.convolve(np.nan_to_num(np.array(log["util_pad"])), np.ones(k) / k, mode="same")[win].max())
     dropped = bool(log["part_z"][-1] < S.CP.H_PLACE - 50)
     res = dict(case=case, force=force, estop=estop, slip_max=float(slip[win].max()),
-               slip_end=float(slip[-1]), util_max=u_max, util_median=u_cruise,
+               slip_end=float(slip[-1]), util_max=u_max, util_median=u_cruise, util_pad_max=u_pad,
                safety_eff=float(1.0 / u_max) if u_max > 0 else float("inf"),
                held=bool(not dropped and slip[win].max() < SLIP_OK),
                a_tcp_max=float(a_mag[win].max()), dropped=dropped)
@@ -174,7 +187,7 @@ def main():
         out.append(r)
         logs[name] = lg
         print(f"{name:20s} F {f:5.1f} N  friction use median {r['util_median']:4.2f} peak {r['util_max']:4.2f} "
-              f"(S_eff {r['safety_eff']:4.2f})  "
+              f"(S_eff {r['safety_eff']:4.2f}) worst pad {r['util_pad_max']:4.2f}  "
               f"slip max {r['slip_max']:7.2f} mm  "
               f"a_tcp max {r['a_tcp_max']:5.2f} m/s2  {'held' if r['held'] else 'SLIPS'}{'  DROPPED' if r['dropped'] else ''}")
     json.dump(dict(mu=S.B.MU_PAD, a_bahn=GP.A_BAHN, a_stop=L.A_STOP, cases=out),
@@ -195,24 +208,14 @@ def main():
     fig.savefig(os.path.join(HERE, "figures", "grip_slip.png"), dpi=130)
 
 
+
+def video(case, force, path, slowmo=0.25, **kw):
+    """Slow-motion multi-view video of one cycle (viz.py): cameras on the gripper, contacts, clearances."""
+    import viz
+    rec = viz.Recorder(dt=slowmo / 30)
+    res, _ = run(case, force, rec=rec, **kw)
+    return viz.render_video(rec, path, slowmo=slowmo, label=f"{case}, {force:.1f} N per jaw"), res
+
+
 if __name__ == "__main__":
     main()
-
-
-def animate(log, path, size=(720, 450), fps=25):
-    """GIF of a recorded run (run(..., record=True)), camera on the cell."""
-    from PIL import Image
-    m, d = S.load()
-    r = mujoco.Renderer(m, size[1], size[0])
-    cam = mujoco.MjvCamera()
-    cam.lookat[:] = (0.0, 0.1, 1.1)
-    cam.distance, cam.azimuth, cam.elevation = 3.0, 125, -25
-    frames = []
-    for q in log["qpos"]:
-        d.qpos[:] = q
-        mujoco.mj_forward(m, d)
-        r.update_scene(d, cam)
-        frames.append(Image.fromarray(r.render()))
-    r.close()
-    frames[0].save(path, save_all=True, append_images=frames[1:], duration=int(1000 / fps), loop=0)
-    return path

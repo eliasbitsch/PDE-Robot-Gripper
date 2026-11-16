@@ -68,7 +68,7 @@ def _(GP, L, mo, mu, safety, t_tr):
 @app.cell
 def _(V, estop, force, mo, mu, t_tr):
     with mo.status.spinner(title="MuJoCo: running the cycle ..."):
-        runs = {"set force": V.run("set force", force.value, mu=mu.value, t_transfer=t_tr.value, record=True)}
+        runs = {"set force": V.run("set force", force.value, mu=mu.value, t_transfer=t_tr.value)}
         if estop.value:
             runs["set force + e-stop"] = V.run("e-stop", force.value, estop=True, mu=mu.value, t_transfer=t_tr.value)
     return (runs,)
@@ -118,24 +118,88 @@ def _(np, plt, runs):
 
 @app.cell
 def _(mo):
-    anim = mo.ui.run_button(label="Render animation of the cycle")
-    anim
-    return (anim,)
+    slow = mo.ui.slider(0.05, 1.0, step=0.05, value=0.25, label="playback speed", show_value=True)
+    vid_case = mo.ui.dropdown(["set force", "set force + e-stop"], value="set force + e-stop", label="case")
+    anim = mo.ui.run_button(label="Render slow-motion video")
+    mo.vstack([mo.md("""Four cameras: cell, both jaws (housing see-through), pad close-up with the contact forces
+    (yellow points, arrows split into normal and friction), back view on the lug side. Parts the part must not touch
+    turn red when their clearance goes negative."""), mo.hstack([vid_case, slow, anim], justify="start", gap=2)])
+    return anim, slow, vid_case
 
 
 @app.cell
-def _(HERE, V, anim, mo, os, runs):
-    mo.stop(not anim.value, mo.md("_Press the button for a GIF of the cycle (about 20 s)._"))
-    with mo.status.spinner(title="rendering ..."):
-        _gif = V.animate(runs["set force"][1], os.path.join(HERE, "out", "cycle.gif"))
-    mo.image(src=_gif, width=720)
+def _(HERE, V, anim, estop, force, mo, mu, os, slow, t_tr, vid_case):
+    mo.stop(not anim.value, mo.md("_Press the button: about 1 min per 10 s of video._"))
+    with mo.status.spinner(title="simulating and rendering four views ..."):
+        _v, _r = V.video(vid_case.value, force.value, os.path.join(HERE, "out", "cycle_notebook.mp4"), slowmo=slow.value,
+                         estop="e-stop" in vid_case.value, mu=mu.value, t_transfer=t_tr.value)
+    mo.vstack([mo.video(src=_v["path"], controls=True, width=1000),
+               mo.md(f"min clearance over the cycle: **{_v['min_clearance_mm']:.1f} mm** ({_v['min_clearance_pair'][0]} / {_v['min_clearance_pair'][1]})")])
     return
 
 
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 3. FEM of the jaw train (slide + holder + mock jaw)
+    ## 3. Closing time with the motor curve
+
+    Requirement: close 8 mm per jaw and build up the grip force within 0.3 s. Stepper ST4118S on GP42 1:7.07, curve from
+    the datasheet's electrical values at 24 V, 70 % of it usable in closed loop. Rotor, gearbox and brake act at the jaws
+    like a mass of several kg: this decides the impact on the part, not the torque.
+    """)
+    return
+
+
+@app.cell
+def _(GP, mo):
+    cl_prof = mo.ui.dropdown(["two-stage", "direct"], value="two-stage", label="profile")
+    cl_fast = mo.ui.slider(0.06, 0.3, step=0.01, value=0.12, label="fast phase [s]", show_value=True)
+    cl_vt = mo.ui.slider(2.0, 50.0, step=1.0, value=10.0, label="approach speed last mm [mm/s]", show_value=True)
+    cl_force = mo.ui.slider(10.0, round(GP.F_JAW_MAX, 1), step=0.5, value=round(GP.F_GRIP_OILY, 1),
+                            label="current limit = grip force per jaw [N]", show_value=True)
+    mo.vstack([mo.hstack([cl_prof, cl_fast], justify="start", gap=2), mo.hstack([cl_vt, cl_force], justify="start", gap=2)])
+    return cl_fast, cl_force, cl_prof, cl_vt
+
+
+@app.cell
+def _(cl_fast, cl_force, cl_prof, cl_vt, mo, np, plt):
+    import closing_time as C
+    import drive as DRV
+    C.V_TOUCH = cl_vt.value / 1000
+    with mo.status.spinner(title="MuJoCo: closing ..."):
+        _r, _lg = C.run(cl_prof.value, cl_fast.value, force=cl_force.value)
+    _tq = C.profile_torque_check(cl_fast.value, (C.D_OPEN - C.D_GRIP) if cl_prof.value == "direct" else (C.D_OPEN - C.D_GRIP - 0.001))
+    _mt = DRV.min_time(C.D_OPEN - C.D_GRIP)
+    _fig = C.plot({cl_prof.value: _lg}, None, fig=True)
+    _f2, _a2 = plt.subplots(figsize=(5, 3.2))
+    _rpm = np.linspace(0, 1600, 200)
+    _a2.plot(_rpm, [DRV.torque_avail(_w * 2 * np.pi / 60) for _w in _rpm], label="pull-out torque (model, 24 V)")
+    _a2.plot(_rpm, [0.7 * DRV.torque_avail(_w * 2 * np.pi / 60) for _w in _rpm], ls="--", label="usable (70 %)")
+    _a2.plot([_tq["rpm"]], [_tq["torque_need"]], "o", color="#C2410C", label="this profile, peak")
+    _a2.set_xlabel("motor speed [rpm]")
+    _a2.set_ylabel("torque [N·m]")
+    _a2.grid(alpha=0.3)
+    _a2.legend(frameon=False, fontsize=8)
+    _f2.tight_layout()
+    mo.vstack([
+        mo.md(f"""
+| | value |
+|---|---|
+| contact after | {_r['t_contact'] * 1000:.0f} ms at {_r['v_contact'] * 1000:.0f} mm/s |
+| grip force within 5 % after | **{_r['t_grip'] * 1000:.0f} ms** ({'meets' if _r['meets'] else '**misses**'} 0.3 s) |
+| peak pad force (impact) | {_r['f_peak']:.1f} N = {_r['overshoot']:.2f} x set force (FEM LC2 covers {C.GP.F_JAW_MAX:.1f} N) |
+| impact estimate, undamped NBR pad | {C.impact_estimate(_r['v_contact'])[0]:.0f} N |
+| part pushed on the belt | {_r['part_push_mm']:.2f} mm |
+| motor at peak | {_tq['rpm']:.0f} rpm, needs {_tq['torque_need']:.3f} of {_tq['torque_avail']:.3f} N·m |
+| fastest possible (motor curve, 8 mm to standstill) | {_mt['t'] * 1000:.0f} ms |
+| reflected drive inertia at the jaws | {DRV.M_REFLECTED:.2f} kg (jaws {2 * DRV.M_JAW:.2f} kg) |
+"""),
+        mo.hstack([_fig, _f2], justify="start")])
+    return
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ## 4. FEM of the jaw train (slide + holder + mock jaw)
 
     Last results below. **Run FEM** recomputes all five load cases (about 5 min at 3 mm).
     """)
