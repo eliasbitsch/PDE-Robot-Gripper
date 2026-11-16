@@ -86,7 +86,7 @@ def build():
         body = [visual(n, m) for n, m in groups[side]]
         c, h = box_of(f"Pad_{tag}")
         body.append(f'<geom name="pad_{tag}" type="box" pos="{v(c, MM)}" size="{v(h, MM)}" rgba="0.1 0.1 0.1 1" '
-                    f'contype="2" conaffinity="2" group="2"/>')
+                    f'contype="2" conaffinity="0" group="2"/>  <!-- touches the part only through the explicit pair -->')
         pad_geoms.append(f"pad_{tag}")
         slide_xml[side] = f'''
             <body name="slide_{tag}">
@@ -143,17 +143,23 @@ def build():
     <body name="part" pos="{gx * MM} 0 {part_z * MM}">                <!-- placed from the gripper pose by sim.py -->
       <freejoint name="part"/>
       <inertial pos="{v(part_c, MM)}" mass="{GP.B_MASSE}" diaginertia="{GP.B_MASSE * (0.1 ** 2 + 0.08 ** 2) / 12:.6g} {GP.B_MASSE * (0.095 ** 2 + 0.08 ** 2) / 12:.6g} {GP.B_MASSE * (0.095 ** 2 + 0.1 ** 2) / 12:.6g}"/>
-      <geom name="part" type="mesh" mesh="part_b" rgba="0.93 0.9 0.8 1" contype="1" conaffinity="3" friction="0.6"/>
+      <geom type="mesh" mesh="part_b" rgba="0.93 0.9 0.8 1" contype="0" conaffinity="0" group="1"/>
+      <!-- contact shape: the convex hull would span the lug and touch the left pad, so two boxes (GP part comment):
+           body x -35..35 with the flat grip faces, lug x -60..-35 up to z -10 -->
+      <geom name="part" type="box" pos="0 0 0" size="0.035 0.05 0.04" contype="1" conaffinity="1" friction="0.6" group="3"/>
+      <geom name="part_lug" type="box" pos="-0.0475 0 -0.025" size="0.0125 0.05 0.015" contype="1" conaffinity="1" friction="0.6" group="3"/>
     </body>
   </worldbody>
   <contact>
     <pair geom1="pad_L" geom2="part" friction="{MU_PAD} {MU_PAD} 0.005 0.0001 0.0001" solref="0.002 1" solimp="0.95 0.99 0.0005"/>
     <pair geom1="pad_R" geom2="part" friction="{MU_PAD} {MU_PAD} 0.005 0.0001 0.0001" solref="0.002 1" solimp="0.95 0.99 0.0005"/>
   </contact>
-  <equality><joint joint1="jaw_R" joint2="jaw_L" polycoef="0 1 0 0 0"/></equality>
+  <!-- pinion + two racks: the drive acts on both jaws equally (tendon, 0.5 each), the stiff equality keeps them in step -->
+  <tendon><fixed name="jaws"><joint joint="jaw_L" coef="0.5"/><joint joint="jaw_R" coef="0.5"/></fixed></tendon>
+  <equality><joint joint1="jaw_R" joint2="jaw_L" polycoef="0 1 0 0 0" solref="0.0005 1" solimp="0.99 0.999 0.0001"/></equality>
   <actuator>
     {chr(10).join(f'    <position name="A{i}" joint="A{i}" kp="20000" kv="400" ctrlrange="{np.radians(CP.ROBOT["lim"][i - 1][0]):.4f} {np.radians(CP.ROBOT["lim"][i - 1][1]):.4f}"/>' for i in range(1, 7))}
-    <position name="jaw" joint="jaw_L" kp="200000" kv="500" forcerange="-{GP.F_GRIP_OILY:.3f} {GP.F_GRIP_OILY:.3f}"/>
+    <position name="jaw" tendon="jaws" kp="200000" kv="500" forcerange="-{2 * GP.F_GRIP_OILY:.3f} {2 * GP.F_GRIP_OILY:.3f}"/>   <!-- drives both jaws: 2 x force per jaw -->
   </actuator>
   <sensor>
     <framepos name="part_pos" objtype="body" objname="part"/>
