@@ -84,4 +84,4 @@ has to be laid over it.
 back view on the lug side), contact points and forces split into normal and friction, and a clearance check between
 the part and the jaws, pad plates, holders, cover and housing, and between gripper / robot and belt, carrier and
 pedestal (convex hulls, so conservative). Colliding parts turn red; the HUD shows pad forces, friction use and
-part movement. [`figures/videos/closing_*.mp4`](figures/videos) at 0.05 ×, [`figures/videos/cycle_estop.mp4`](figures/videos/cycle_estop.mp4) at 0.25 ×; in the notebook with your own values.
+part movement. [`figures/closing_direct_120ms.mp4`](figures/closing_direct_120ms.mp4), [`figures/closing_two-stage_120ms.mp4`](figures/closing_two-stage_120ms.mp4) at 0.05 ×, [`figures/cycle_estop.mp4`](figures/cycle_estop.mp4) at 0.25 ×; in the notebook with your own values.
