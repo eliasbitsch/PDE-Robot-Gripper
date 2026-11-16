@@ -52,7 +52,8 @@ BC = [
 ]
 
 # Acceptance criteria
-DEFLECTION_MAX = 0.05            # mm at the pad centre for LC2: pads stay parallel within about 0.1 deg
+TILT_MAX = 0.1                   # deg pad tilt for LC2: the pads must stay flat on the part (governing criterion)
+DEFLECTION_MAX = 0.05            # mm at the pad centre for LC2, reported only: most of it is the slide bending
 CYCLES_PER_YEAR = 3.0e6          # 5 s cycle, 2 shifts; LC1 is the pulsating load (0 -> F)
 
 
@@ -70,5 +71,5 @@ if __name__ == "__main__":
         m = MATERIALS[mat]
         print(f"{part:11s} {mat}: allowed von Mises {m['Rp02'] / 2:.0f} MPa (S 2), "
               f"fatigue amplitude for LC1 <= {m['fatigue'] / 2:.0f} MPa")
-    print(f"\ndeflection at the pad centre, LC2: <= {DEFLECTION_MAX} mm")
+    print(f"\npad tilt, LC2: <= {TILT_MAX} deg (deflection at the pad centre reported, target {DEFLECTION_MAX} mm)")
     print(f"brake limit per jaw: {F_BRAKE:.0f} N, emergency stop assumed {A_STOP} m/s^2 (update from V2)")
