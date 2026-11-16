@@ -141,7 +141,7 @@ def drive():
     """Housing, hood and cover hidden: motor -> bevel pair -> pinion -> racks -> jaws."""
     s = Scene(with_part=False, see_through=False, hide=("Housing", "Hood", "Cover", "Screw_ISO10642-M3x10_Cover",
                                                         "Screw_ISO4762-M4x12_Hood", "Adapter", "Screw_ISO10642",
-                                                        "Window", "Cable", "Screw_ISO10642-M3x6_Window"))
+                                                        "Window", "Cable", "Screw_ISO10642-M3x8_Window"))
     s.camera((-45, -5, -8), (-1, -1.3, 0.8), 300)
     n = 4 * FPS
 
@@ -182,7 +182,7 @@ def stills():
     for name, kw, cam in [("drive_train.png", {"with_part": False, "see_through": False,
                                                "hide": ("Housing", "Hood", "Cover", "Screw_ISO10642-M3x10_Cover",
                                                         "Screw_ISO4762-M4x12_Hood", "Adapter", "Screw_ISO10642",
-                                                        "Window", "Cable", "Screw_ISO10642-M3x6_Window")},
+                                                        "Window", "Cable", "Screw_ISO10642-M3x8_Window")},
                            ((-45, -5, -8), (-1, -1.3, 0.8), 300))]:
         s = Scene(size=(1200, 900), **kw)
         s.camera(*cam)

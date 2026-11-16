@@ -30,13 +30,13 @@ STEP_TEXT = [
     "housing as the base",
     "rail against the reference edge, 5 x M3x8",
     "drive bracket with gearbox (4 x M4x12), motor, brake, encoder and bevel pinion; bracket 4 x M3x10 from the top",
-    "pinion shaft with two 608 bearings, bevel wheel with M4x4 set screw (before the hood: the wheel sits under it)",
+    "pinion shaft with two 608 bearings (upper one fixed by DIN 471/472), shim, bevel wheel with key and M4x4 set screw",
     "hood over the drive, 4 x M4x12 from below, heads flush",
     "carriages, slides (4 x M3x8 each), racks (2 x M3x10 in slots, align, dowel 3x14)",
     "jaw holders on dowels, 2 x M4x25 each",
     "bottom cover, 4 x M3x10 countersunk",
     "jaws onto the dowels until the plunger snaps in; pad plates 2 x M3x8 + washer",
-    "window plate with cable gland, 4 x M3x6 countersunk",
+    "window plate with cable gland, 4 x M3x8 countersunk",
     "adapter on the robot; gripper onto it with 4 x M4x16 countersunk from the top",
 ]
 
@@ -45,10 +45,11 @@ STEP_TEXT = [
 def explode_rules(s):
     return [
         ("Screw_ISO10642-M4x16_Adapter", 10, (0, 0, 230)), ("Adapter_ISO9409", 10, (0, 0, 190)),
-        ("Screw_ISO10642-M3x6_Window", 9, (0, 80, 0)), ("Cable_Gland", 9, (0, 65, 0)), ("Window_Plate", 9, (0, 50, 0)),
+        ("Screw_ISO10642-M3x8_Window", 9, (0, 80, 0)), ("Cable_Gland", 9, (0, 65, 0)), ("Window_Plate", 9, (0, 50, 0)),
         ("Screw_ISO4762-M4x12_Hood", 4, (0, 0, -60)), ("Hood", 4, (0, 0, 140)),
         ("Screw_ISO4762-M4x12_Gearbox", 2, (-40, 0, 60)), ("Screw_ISO4762-M3x10_Bracket", 2, (0, 0, 95)), ("Bracket", 2, (0, 0, 70)),
         ("Bevel_Pinion", 2, (0, 0, 85)), ("Setscrew_ISO4029-M4x4_Wheel", 3, (-25, 0, 40)), ("Bevel_Wheel", 3, (0, 0, 40)),
+        ("Key_", 3, (20, 0, 45)), ("Shim_", 3, (0, 0, 32)), ("Circlip_DIN472", 3, (0, 0, 28)), ("Circlip_DIN471", 3, (0, 0, -45)),
         ("Bearing_608_upper", 3, (0, 0, 25)), ("Bearing_608_lower", 3, (0, 0, -30)), ("Pinion_Shaft", 3, (0, 0, -60)),
         ("Screw_ISO4762-M3x8_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),
         ("PadPlate_", 8, (-10 * s, 0, -235)), ("Pad_", 8, (-10 * s, 0, -235)), ("Jaw_", 8, (12 * s, 0, -200)),

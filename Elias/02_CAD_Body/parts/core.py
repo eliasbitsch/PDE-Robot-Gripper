@@ -91,12 +91,13 @@ def housing_body():
     for x, y in cover_screws():
         s = s.fuse(cylz(4.5, P.POCKET_Z, P.POCKET_Z + 12, x, y))                                 # cover screw bosses
     xp = P.PINION_X
-    s = s.fuse(cylz(P.BOSS_D / 2, P.PLATE_T - 0.1, P.BEARING_UPPER_Z + P.BEARING[2], xp, 0))   # bearing boss
+    s = s.fuse(cylz(P.BOSS_D / 2, P.PLATE_T - 0.1, P.BOSS_TOP, xp, 0))                       # bearing boss
     tools = [cylz(P.BEARING[1] / 2, -1, P.BEARING_LOWER_Z + P.BEARING[2], xp, 0),              # lower 608 seat
-             cylz(P.BEARING[0] / 2 + 1, -1, P.BEARING_UPPER_Z + 0.1, xp, 0),
-             cylz(P.BEARING[1] / 2, P.BEARING_UPPER_Z, P.BEARING_UPPER_Z + P.BEARING[2] + 1, xp, 0)]
+             cylz(P.SHOULDER_D / 2, -1, P.BEARING_UPPER_Z + 0.1, xp, 0),                       # shoulders touch the outer rings only
+             cylz(P.BEARING[1] / 2, P.BEARING_UPPER_Z, P.BOSS_TOP + 1, xp, 0),
+             cylz(11.5, P.BEARING_UPPER_Z + P.BEARING[2] + 0.1, P.BEARING_UPPER_Z + P.BEARING[2] + 1.2, xp, 0)]   # DIN 472 22 groove
     from parts import drive as D
-    tools += [cylz(1.25, 1.5, P.PLATE_T + 1, x, y) for x, y in D.bracket_screws()]          # M3 blind from the top
+    tools += [cylz(1.6, 2.5, P.PLATE_T + 1, x, y) for x, y in D.bracket_screws()]          # HELICOIL M3 x 1.5 d (STI 3.2), floor keeps 1.5 mm to the pocket edge
     tools += [cylz(2.25, -1, P.PLATE_T + 1, x, y) for x, y in D.hood_screws()]                   # hood M4 from below
     tools += [cylz(3.75, -1, P.GEAR_SCREW_CBORE, x, y) for x, y in D.hood_screws()]
     tools += [cylz(1.25, P.RAIL_BASE_Z - 1, 5, x, P.RAIL_Y) for x in rail_hole_x()]   # rail M3 tapped
@@ -216,7 +217,10 @@ def jaw(side):
     s = box(xj0, xj1, -w, w, P.JAW_Z_BOTTOM, P.JAW_Z_TOP)
     x_plate = xj0 + side * P.PAD_PLATE_T
     s = s.cut(box(xj0 - side, x_plate, -w + 1, w - 1, P.PAD_Z[0], P.PAD_Z[1]))
-    tools = [cylx(P.DOWEL_D / 2, xj1 - side * 6.5, xj1 + side, y, P.DOWEL_Z) for y in (-P.DOWEL_Y, P.DOWEL_Y)]
+    # one round hole and one slot along the dowel line: two round holes would over-constrain the jaw
+    tools = [cylx(P.DOWEL_D / 2, xj1 - side * 6.5, xj1 + side, -P.DOWEL_Y, P.DOWEL_Z)]
+    tools += [cylx(P.DOWEL_D / 2, xj1 - side * 6.5, xj1 + side, P.DOWEL_Y + dy, P.DOWEL_Z) for dy in (-0.5, 0.5)]
+    tools.append(box(*sorted((xj1 - side * 6.5, xj1 + side)), P.DOWEL_Y - 0.5, P.DOWEL_Y + 0.5, P.DOWEL_Z - P.DOWEL_D / 2, P.DOWEL_Z + P.DOWEL_D / 2))
     tools.append(cylx(P.PLUNGER_PIN_D / 2 + 0.1, xj1 - side * 6, xj1 + side, 0, P.PLUNGER_Z))
     tools += [cylx(1.7, x_plate - side, xj1 + side, y, z) for y, z in pad_screws(side)]   # M3 clearance
     s = cut_all(s, tools)

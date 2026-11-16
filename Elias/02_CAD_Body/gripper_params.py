@@ -118,6 +118,11 @@ BEVEL_Z, BEVEL_B, BEVEL_HUB_D, BEVEL_HUB_L = 20, 5.0, 16.0, 6.0   # Maedler beve
 BEARING = (8.0, 22.0, 7.0)          # DIN 625 608-2Z
 BEARING_LOWER_Z, BEARING_UPPER_Z = 0.0, 9.5
 BOSS_D = 32.0
+BOSS_TOP = BEARING_UPPER_Z + BEARING[2] + 2.0   # 2 mm above the upper bearing for the DIN 472 groove
+SHOULDER_D = 15.0                   # housing shoulder under the outer rings only (608 inner ring OD ~12, outer ring ID ~18.6)
+SHIM_T = 0.5                        # DIN 988 8x14 under the bevel wheel hub, 0.1-0.5 picked at assembly to set the mesh
+COLLAR_D = 10.5                     # shaft collar under the lower inner ring (loose bearing, inner ring k6 on the shaft)
+KEY_B, KEY_H, KEY_T1, KEY_T2, KEY_L = 2.0, 2.0, 1.2, 1.0, 8.0   # DIN 6885 A 2x2x8 for d = 6...8
 SHAFT_TOP = 27.0
 BEVEL_WHEEL_DZ = -0.25              # 0.25 mm lower than nominal: interference-free mesh with a little backlash (fitted)
 GEAR_SHAFT_L = 22.6                 # GP42 output shaft beyond the flange (STEP)

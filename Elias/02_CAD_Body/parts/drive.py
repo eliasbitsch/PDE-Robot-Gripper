@@ -35,17 +35,56 @@ def pinion_shaft(gear_shape):
     s = gear_shape.copy()
     s.translate(V(XP, 0, P.PINION_Z0 - s.BoundBox.ZMin))
     s = s.fuse(cylz(P.BEARING[0] / 2, P.PINION_Z0 + P.PINION_B - 0.1, P.SHAFT_TOP, XP, 0))
+    s = s.fuse(cylz(P.COLLAR_D / 2, P.PINION_Z0 + P.PINION_B - 0.1, P.BEARING_LOWER_Z, XP, 0))   # collar under the lower inner ring
+    z471 = P.BEARING_UPPER_Z - 0.85
+    s = s.cut(cylz(P.BEARING[0] / 2 + 1, z471 - 0.05, z471 + 0.85, XP, 0).cut(cylz(3.8, z471 - 1, z471 + 2, XP, 0)))  # DIN 471 groove
+    k0, k1 = key_z()
+    s = s.cut(box(XP + P.BEARING[0] / 2 - P.KEY_T1, XP + P.BEARING[0] / 2 + 1, -P.KEY_B / 2, P.KEY_B / 2, k0, k1))   # keyway
     return s.removeSplitter()
+
+
+def hub_z0():
+    return P.BEARING_UPPER_Z + P.BEARING[2] + P.SHIM_T
+
+
+def key_z():
+    return hub_z0() + 0.5, hub_z0() + 0.5 + P.KEY_L
+
+
+def key():
+    """DIN 6885 A 2x2x8 in the shaft (t1 = 1.2) and the wheel hub (t2 = 1.0)."""
+    k0, k1 = key_z()
+    x0 = XP + P.BEARING[0] / 2 - P.KEY_T1 + 0.05
+    return box(x0, x0 + P.KEY_H, -P.KEY_B / 2, P.KEY_B / 2, k0, k1)
+
+
+def shim():
+    """DIN 988 8 x 14 x SHIM_T between the upper inner ring and the wheel hub."""
+    z0 = P.BEARING_UPPER_Z + P.BEARING[2]
+    return cylz(7.0, z0, z0 + P.SHIM_T, XP, 0).cut(cylz(P.BEARING[0] / 2 + 0.05, z0 - 1, z0 + 1, XP, 0))
+
+
+def circlip_shaft():
+    """DIN 471 8 x 0.8 under the upper inner ring (fixed bearing)."""
+    z1 = P.BEARING_UPPER_Z - 0.05
+    return cylz(5.9, z1 - 0.8, z1, XP, 0).cut(cylz(3.85, z1 - 2, z1 + 1, XP, 0))
+
+
+def circlip_bore():
+    """DIN 472 22 x 1 above the upper outer ring (fixed bearing)."""
+    z0 = P.BEARING_UPPER_Z + P.BEARING[2] + 0.15
+    return cylz(11.45, z0, z0 + 1.0, XP, 0).cut(cylz(9.4, z0 - 1, z0 + 2, XP, 0))
 
 
 def wheel(bev):
     """Bevel wheel on the pinion shaft: large end down, apex on the drive axis."""
     s = bev.copy()
     s.translate(V(XP, 0, ZA - P.BEVEL_Z * P.MODUL / 2 + P.BEVEL_WHEEL_DZ))
-    hub_z0 = P.BEARING_UPPER_Z + P.BEARING[2]
-    s = s.fuse(cylz(P.BEVEL_HUB_D / 2, hub_z0, ZA - P.BEVEL_Z * P.MODUL / 2 + 0.1, XP, 0))
-    s = s.cut(cylz(P.BEARING[0] / 2, hub_z0 - 1, ZA + 1, XP, 0))
-    s = s.cut(cylx(1.65, XP - P.BEVEL_HUB_D / 2 - 1, XP - P.BEARING[0] / 2 + 0.5, 0, hub_z0 + 3))   # M4 set screw
+    z_hub = hub_z0()
+    s = s.fuse(cylz(P.BEVEL_HUB_D / 2, z_hub, ZA - P.BEVEL_Z * P.MODUL / 2 + 0.1, XP, 0))
+    s = s.cut(cylz(P.BEARING[0] / 2, z_hub - 1, ZA + 1, XP, 0))
+    s = s.cut(box(XP + P.BEARING[0] / 2 - 1, XP + P.BEARING[0] / 2 + P.KEY_T2, -P.KEY_B / 2, P.KEY_B / 2, z_hub - 1, ZA + 1))   # keyway
+    s = s.cut(cylx(1.65, XP - P.BEVEL_HUB_D / 2 - 1, XP - P.BEARING[0] / 2 + 0.5, 0, z_hub + 3))   # M4 set screw, axial only
     return s.removeSplitter()
 
 
@@ -112,14 +151,16 @@ def hood():
                           P.PLATE_T - 1, top - P.HOOD_TOP_T, P.HOOD_R - P.HOOD_WALL))
     for x, y in hood_screws():
         s = s.fuse(cylz(4.5, P.PLATE_T, P.PLATE_T + 13.5, x, y))   # 2.5 mm above the blind thread
+    for x, z in window_screws():                                   # 2 mm bosses: M3 gets 5 mm thread instead of 3
+        s = s.fuse(Part.makeCylinder(3.5, 2.5, V(x, hy - P.HOOD_WALL - 2.0, z), V(0, 1, 0)))
     s = s.removeSplitter()
     seat = top + P.HOOD_SEAT
     tools = [cylz(P.LID_HOLE_D / 2, top - P.HOOD_TOP_T - 1, seat + 1)]
     r = P.ADAPTER_SCREW_PCD / 2
-    tools += [cylz(1.65, seat - 6.5, seat + 1, r * math.cos(math.radians(a)), r * math.sin(math.radians(a))) for a in (45, 135, 225, 315)]
+    tools += [cylz(2.1, seat - 6.5, seat + 1, r * math.cos(math.radians(a)), r * math.sin(math.radians(a))) for a in (45, 135, 225, 315)]   # HELICOIL M4 x 1.5 d (STI drill 4.2)
     tools += [cylz(1.65, P.PLATE_T - 1, P.PLATE_T + 11, x, y) for x, y in hood_screws()]          # M4 tapped from below
     tools.append(box(WIN_X[0], WIN_X[1], hy - P.HOOD_WALL - 1, hy + 1, WIN_Z[0], WIN_Z[1]))
-    tools += [Part.makeCylinder(1.25, P.HOOD_WALL + 1, V(x, hy - P.HOOD_WALL - 0.5, z), V(0, 1, 0)) for x, z in window_screws()]
+    tools += [Part.makeCylinder(1.25, P.HOOD_WALL + 3, V(x, hy - P.HOOD_WALL - 2.5, z), V(0, 1, 0)) for x, z in window_screws()]
     return cut_all(s, tools).removeSplitter()
 
 

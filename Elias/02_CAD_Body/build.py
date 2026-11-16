@@ -69,12 +69,16 @@ def build_static(gear_pin, gear_racks, bev):
         "Bevel_Pinion": (D.bevel_pinion(bev), "steel", "rotx"),
         "Bearing_608_lower": (D.bearing(xp, 0, P.BEARING_LOWER_Z), "steel", 0),
         "Bearing_608_upper": (D.bearing(xp, 0, P.BEARING_UPPER_Z), "steel", 0),
-        "Setscrew_ISO4029-M4x4_Wheel": (F.iso4029_x(4, 4, xp - P.BEVEL_HUB_D / 2, 0, P.BEARING_UPPER_Z + P.BEARING[2] + 3, 1), "steel", "rot"),
+        "Setscrew_ISO4029-M4x4_Wheel": (F.iso4029_x(4, 4, xp - P.BEVEL_HUB_D / 2, 0, D.hub_z0() + 3, 1), "steel", "rot"),
+        "Key_DIN6885-A2x2x8": (D.key(), "steel", "rot"),
+        "Shim_DIN988-8x14": (D.shim(), "steel", "rot"),
+        "Circlip_DIN471-8": (D.circlip_shaft(), "steel", "rot"),
+        "Circlip_DIN472-22": (D.circlip_bore(), "steel", 0),
         "Window_Plate": (D.window_plate(), "EN AW-6082", 0),
         "Cable_Gland_Lapp_SKINTOP_M16": (D.gland(), "vendor", 0),
     }
     for i, (x, z) in enumerate(D.window_screws(), 1):
-        parts[f"Screw_ISO10642-M3x6_Window{i}"] = (F.oriented(F.iso10642(3, 6, 0, 0, 0, up=True), V(x, P.HOOD_Y + P.WINDOW_PLATE_T, z), V(0, -1, 0)), "steel", 0)
+        parts[f"Screw_ISO10642-M3x8_Window{i}"] = (F.oriented(F.iso10642(3, 8, 0, 0, 0, up=True), V(x, P.HOOD_Y + P.WINDOW_PLATE_T, z), V(0, -1, 0)), "steel", 0)
     for i, (x, y) in enumerate(D.bracket_screws(), 1):
         parts[f"Screw_ISO4762-M3x10_Bracket{i}"] = (F.iso4762(3, 10, x, y, P.PLATE_T + 6, up=False), "steel", 0)
     for i, (y, dz) in enumerate(D.gearbox_screws(), 1):
@@ -284,7 +288,18 @@ BOM_INFO = {
     "Brake": ("Spring-applied brake BRAKE-BWA-0,35-5, 24 V", "Nanotec", "-"),
     "Cable_Gland_Lapp_SKINTOP_M16": ("Cable gland SKINTOP STR-M 16x1.5", "Lapp", "PA"),
     "Plunger_GN617-5-A": ("Indexing plunger GN 617-5-A", "Ganter", "steel"),
+    "Key_DIN6885-A2x2x8": ("Parallel key DIN 6885 A 2 x 2 x 8 (bevel wheel)", "standard part", "C45+C"),
+    "Shim_DIN988-8x14": ("Shim ring DIN 988 8 x 14 x 0.1 / 0.2 / 0.5 (set the bevel mesh)", "standard part", "spring steel"),
+    "Circlip_DIN471-8": ("Retaining ring DIN 471 8 x 0.8 (fixed bearing, shaft)", "standard part", "spring steel"),
+    "Circlip_DIN472-22": ("Retaining ring DIN 472 22 x 1 (fixed bearing, bore)", "standard part", "spring steel"),
 }
+
+# Bought parts without geometry in the model: (designation, standard / supplier, material, quantity)
+EXTRA_BOM = [
+    ("Wire thread insert HELICOIL plus M4 x 1.5 d, hood seat for the adapter screws", "Boellhoff", "1.4301", 4),
+    ("Wire thread insert HELICOIL plus M3 x 1.5 d, top plate for the drive bracket screws", "Boellhoff", "1.4301", 4),
+    ("Brush seal strip along the two holder slots in the cover (oily parts)", "e.g. Mink LKB, cut to length", "PA / steel", 2),
+]
 
 
 def bom(parts, masses):
@@ -308,6 +323,8 @@ def bom(parts, masses):
     lines = ["Pos;Qty;Designation;Standard / supplier;Material;Mass each [g]"]
     for i, (k, (q, m)) in enumerate(sorted(rows.items(), key=order), 1):
         lines.append(f"{i};{q};{k[0]};{k[1]};{k[2]};{1000 * m / q:.0f}")
+    for j, (d, s, mat, q) in enumerate(EXTRA_BOM, len(lines)):
+        lines.append(f"{j};{q};{d};{s};{mat};-")
     return lines
 
 

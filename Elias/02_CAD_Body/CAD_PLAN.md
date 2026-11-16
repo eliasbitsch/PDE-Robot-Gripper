@@ -154,9 +154,11 @@ Rules the build checks or the layout follows:
   flush with the housing on the +y side and with the Ø76 robot adapter; 1.5 mm chamfer on the top edges
 - visible screw heads are countersunk (ISO 10642) or sit in counterbores, nothing stands proud of the outer faces
 
-**Fastener variants** (as in the model): ISO 4762 M3×8 (rail, carriages, pad plates), M3×10 (bracket, racks),
-M4×12 (gearbox, hood), M4×25 (jaw holders); ISO 10642 M3×6 (window plate), M3×10 (cover), M4×16 (adapter);
-ISO 4029 M4×4; ISO 7089 3; ISO 8734 3×14 and 4×12. Brake and encoder are fixed with the screws Nanotec specifies
+**Fastener variants** (as in the model): ISO 4762 M3×8 (rail, carriages, pad plates), M3×10 (racks, bracket into HELICOIL plus M3 × 1.5 d),
+M4×12 (gearbox, hood), M4×25 (jaw holders); ISO 10642 M3×8 (window plate), M3×10 (cover), M4×16 (adapter, into
+HELICOIL plus M4 × 1.5 d inserts in the hood seat); ISO 4029 M4×4; ISO 7089 3; ISO 8734 3×14 and 4×12;
+DIN 6885 A 2×2×8; DIN 471 8; DIN 472 22; DIN 988 8×14.
+Thread engagement in aluminium is at least 1.5 × d with an insert or 2 × d without (window plate 1.7 × d on 2 mm bosses). Brake and encoder are fixed with the screws Nanotec specifies
 for them (3 × M3 brake to motor, 2 × M2.5 encoder to brake). The Rexroth hole pattern fixes M3 at rail and carriages.
 
 **Assembly order** (every screw reachable with a straight hex key at its step; same text as the FreeCAD demo and
@@ -164,17 +166,60 @@ the assembly GIF, kept in `parts/demo_seq.py`):
 
 1. Housing upside down: rail against the reference edge, 5 × M3×8 (Rexroth asks for all holes)
 2. Drive bracket with the gearbox (4 × M4×12), motor, brake, encoder and bevel pinion onto the top plate;
-   bracket 4 × M3×10 from the top
-3. Pinion shaft with the two 608 bearings from below, bevel wheel on top with the M4×4 set screw, mesh set.
-   This comes before the hood because the wheel sits under it.
+   bracket 4 × M3×10 from the top into HELICOIL inserts
+3. Pinion shaft with the two 608 bearings from below: the lower one is the floating bearing (inner ring on the
+   shaft collar, outer ring slides in the bore), the upper one the fixed bearing (DIN 471 on the shaft, DIN 472 in the
+   bore). Shim DIN 988 on the upper inner ring, bevel wheel with key DIN 6885 and the M4×4 set screw (axial only).
+   Set the mesh with the shim thickness (0.1 / 0.2 / 0.5) until the flank backlash is right. Before the hood:
+   the wheel sits under it.
 4. Hood over the drive, 4 × M4×12 from below through the top plate, heads flush
 5. Carriages onto the rail, slides onto the carriages (4 × M3×8 each), racks onto the slides
    (2 × M3×10 each in slots, jaws aligned symmetric, then drilled and pinned with a dowel 3×14)
 6. Jaw holders with pressed-in dowels onto the slides, 2 × M4×25 each
 7. Bottom cover, 4 × M3×10 countersunk
 8. Jaws onto the dowels until the plunger snaps in; pad plates 2 × M3×8 + washer each
-9. Window plate with cable gland, 4 × M3×6 countersunk; one hybrid cable (motor, encoder, brake)
+9. Window plate with cable gland, 4 × M3×8 countersunk; one hybrid cable (motor, encoder, brake)
 10. Adapter onto the robot (ISO screws, robot side), gripper onto the adapter with 4 × M4×16 countersunk
     from the top (heads lie outside the robot flange)
 
-Jaw change in the cell: pull the plunger knob, pull the jaw off the dowels, push the new one on.
+Jaw change in the cell: pull the plunger knob, pull the jaw off the dowels, push the new one on. The jaw has one
+round hole and one slot along the dowel line, so two dowels locate it without over-constraining it.
+
+**Sealing.** Parts may be oily. A brush seal strip along each holder slot in the cover keeps chips and oil off rail and
+racks (bought, cut to length, in the BOM; not modelled because it touches the moving holder).
+
+## 9. Fits and tolerances (for the drawings, E3)
+
+General tolerances ISO 2768-mK. Fits:
+
+| Place | Fit | Why |
+|---|---|---|
+| 608 outer rings in the housing (lower and upper) | Ø22 H7 | point load on the outer ring; the lower (floating) ring must slide axially |
+| 608 inner rings on the pinion shaft | Ø8 k5 | circumferential load on the inner ring |
+| Housing shoulders | Ø15, touch the outer rings only | the rotating inner ring must not rub on the housing |
+| Retaining ring grooves | DIN 471 / 472 groove dimensions | standard |
+| Bevel wheel and bevel pinion bores | Ø8 H7 / shafts h6 (gearbox shaft as supplied) | slide-on fit, torque by the key |
+| Keyway shaft / hub | width 2 P9 / 2 JS9 | DIN 6885 tight fit in the shaft, normal fit in the hub |
+| Dowels in the jaw holder | Ø4 H7 / m6 | pressed in |
+| Dowel holes in the jaw | Ø4 F7 round hole, 4 F7 × 5 slot along the dowel line | quick change without jamming |
+| Plunger pin hole in the jaw | Ø5.2 (pin Ø5) | locking only, not locating |
+| Rack dowel | Ø3 H7 / m6, drilled and reamed at assembly | after aligning the jaws |
+| Rail reference edge | parallelism 0.01 to the rail axis over 110 mm, flatness of the land 0.01 | Rexroth mounting tolerances for size 9 |
+| Pinion / rack centre distance | ±0.02 via the slots, set at assembly | backlash |
+| Robot adapter spigot | ISO 9409-1-40 centring Ø25 H7 / the robot flange | as prescribed by the standard |
+
+## 10. Design review (16 Nov 2026)
+
+Checked against the usual design rules (statically determined location and bearing arrangement, shaft-hub joints
+for the load, thread engagement by material, sealing, fits). Found and fixed in the model:
+
+1. Jaw located by two round dowels in two round holes: over-constrained. Now one round hole and one slot.
+2. Bevel wheel held by a set screw on a round shaft: unreliable under 1.27 N·m alternating torque. Now key DIN 6885;
+   the set screw only holds it axially. Key pressure about 66 MPa (l_eff = 6 mm), fine for C45.
+3. Pinion shaft without axial location and housing shoulders touching the rotating inner rings. Now fixed / floating
+   bearing with DIN 471 and DIN 472, shaft collar under the lower inner ring, shoulders at Ø15.
+4. Bevel mesh without adjustment. Now a DIN 988 shim under the wheel hub.
+5. Short thread engagement in aluminium: window plate (1 × d), bracket (1.3 × d), adapter (1.5 × d, carries the whole
+   gripper). Now 2 mm bosses (1.7 × d), HELICOIL inserts for bracket and adapter (1.5 × d with insert; a 2 × d thread would come within 1 mm of the pocket edge).
+6. Holder slots in the cover open to oil and chips: brush seal strips (BOM).
+7. Fits and tolerances missing: section 9.
