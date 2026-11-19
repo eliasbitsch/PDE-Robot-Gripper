@@ -115,7 +115,12 @@ BACKLASH_SHIFT = 0.05               # racks 0.05 mm further out -> about 0.036 m
 PINION_X = -56.0
 DRIVE_Z = 32.5                      # drive axis height: NEMA 17 (42.3 square) clears the top plate
 PINION_Z0 = -11.0                   # pinion teeth z -11..-1, 1 mm above the rack bosses on the slides
-BEVEL_Z, BEVEL_B, BEVEL_HUB_D, BEVEL_HUB_L = 20, 5.0, 16.0, 6.0   # Maedler bevel gears m = 1, i = 1
+# KHK SMSG1-20R / SMSG1-20L: ground spiral miter gears, S45C teeth induction hardened 50-60 HRC, allowable torque
+# 0.97 N*m (surface) / 1.17 N*m (bending). C45 straight bevels carried only 0.70 N*m (V2 § 5, flank at the limit).
+# Reworked: bore 6 -> 8 H7 (+ key 2 on the wheel), hub faced from mounting distance 20 to 16 (tooth area untouched).
+# Modelled with straight teeth as a stand-in, same pitch diameter, face width and hub.
+BEVEL_Z, BEVEL_B, BEVEL_HUB_D, BEVEL_HUB_L = 20, 5.0, 16.0, 6.0
+BEVEL_T_ALLOW = 0.97                # N*m, KHK surface durability (600 rpm, 1e7 cycles): caps the grip force at 48 N
 BEARING = (8.0, 22.0, 7.0)          # DIN 625 608-2Z
 BEARING_LOWER_Z, BEARING_UPPER_Z = 0.0, 9.5
 BOSS_D = 32.0
