@@ -126,6 +126,12 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
      gripped" (closed end stop reached). A NanoJ program on the CL4-E runs the current-limited close move.
    - Cable: one shielded robot-rated hybrid cable (motor 4 + encoder 6 + brake 2 cores, about 8-9 mm), fits the
      existing SKINTOP M16 (clamping range 4.5-10 mm).
+   - **Power failure (19 Nov 2026):** the brake alone does not keep the part. Without current the elastic preload opens
+     the jaws within ≈ 2 ms (detent ≈ 1.9 N per jaw, the part needs 14.8 N), long before a spring-applied brake engages
+     (`04_Simulation/power_fail.py`). Hence: 24 V buffer module **PULS UF20.241** (≥ 200 ms at 20 A, > 1 s at the ≈ 2 A
+     of controller + motor + brake) in front of the CL4-E; on undervoltage the NanoJ program closes the brake, waits
+     the brake engagement time plus margin, then disables the motor current. The gripper 24 V is a separate,
+     non-e-stop-switched supply (the e-stop stops the robot, it must not open the jaws).
    - Still to check: NME2 output level against the CL4-E encoder input, NanoJ sequence, V2 motor sizing unchanged
      (ST4118S stays).
    Candidates (15 Nov 2026): **PD2-C4118L1804-E-08** (CANopen; -E-01 USB/IO), 0.50 N·m holding, 1.8 A, 12-48 V,

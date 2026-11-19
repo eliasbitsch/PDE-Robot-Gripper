@@ -510,9 +510,12 @@ def _(F_max, F_req, F_set, P, mo, r_p):
     |---|---|---|---|
     {_rows}
 
-    Spring-applied = fail-safe: no current, brake closed. Note for the report: between loss of current and
-    brake engagement (a few ms) the elastic preload in pads and jaws could relax slightly; the stepper's
-    detent torque bridges that gap.
+    Spring-applied = fail-safe: no current, brake closed - **but only if the preload is still there when it closes.**
+    The detent torque (6 mN·m) holds just ≈ 1.9 N per jaw, the part needs 14.8 N per jaw against its own weight.
+    MuJoCo (E4, `power_fail.py`): without current the elastic preload of pads, jaws and slides pushes the jaws open
+    within ≈ 2 ms and the part drops, whatever the brake does afterwards. Remedy (D11): a 24 V buffer module
+    (PULS UF20.241, ≥ 200 ms at 20 A) keeps the controller and motor powered; on undervoltage the controller closes
+    the brake, waits its engagement time, then switches the motor off. The gripper supply is not cut by the e-stop.
     """)
     return
 

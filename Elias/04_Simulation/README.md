@@ -11,6 +11,7 @@ workpiece carrier. The model is generated from the sources, nothing is drawn by 
 | `validate_grip.py` | grip validation over the real path, `python validate_grip.py` |
 | `drive.py` | motor curve (ST4118S at 24 V from R, L, holding torque), reflected drive inertia, fastest move |
 | `closing_time.py` | closing time and impact on the part, `python closing_time.py` |
+| `power_fail.py` | power loss with the part in the jaws: detent only until the brake engages |
 | `viz.py` | slow-motion video with four cameras, contact points and forces, clearance check (convex hulls) |
 | `validation_notebook.py` | everything live: `marimo edit validation_notebook.py` |
 
@@ -89,3 +90,20 @@ back view on the lug side), contact points and forces split into normal and fric
 the part and the jaws, pad plates, holders, cover and housing, and between gripper / robot and belt, carrier and
 pedestal (convex hulls, so conservative). Colliding parts turn red; the HUD shows pad forces, friction use and
 part movement. [`figures/closing_direct_120ms.mp4`](figures/closing_direct_120ms.mp4), [`figures/closing_two-stage_120ms.mp4`](figures/closing_two-stage_120ms.mp4) at 0.05 ×, [`figures/cycle_estop.mp4`](figures/cycle_estop.mp4) at 0.25 ×; in the notebook with your own values.
+
+## Power failure (`power_fail.py`, `out/power_fail.json`, `figures/power_fail.png`)
+
+The robot holds the part above the belt at the setpoint (44.5 N per jaw), then the drive loses power: only the
+stepper's detent torque is left (6 mN·m → 1.9 N per jaw), until the spring-applied brake locks the drive.
+
+| brake engages after | pad force left | part |
+|---|---|---|
+| 0 ms (drive holds until the brake is closed) | 44.5 N | held |
+| 2, 5, 10, 20, 50 ms | 0 N | **dropped** (58 mm, onto the belt) |
+
+The part needs 14.8 N per jaw against its weight; the elastic preload of pads, jaws and slides opens the jaws within
+about 2 ms. No spring-applied brake is that fast, so the brake alone does not hold the part: the controller must keep
+the motor powered until the brake has closed. Remedy in D11 (`02_CAD_Body/CAD_PLAN.md`): 24 V buffer module (PULS
+UF20.241) and a brake-first shutdown in the NanoJ program. Gearbox friction is left out (conservative).
+
+![power failure](figures/power_fail.png)
