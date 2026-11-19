@@ -77,7 +77,7 @@ def profile_torque_check(t_fast, travel, usable=0.7):
     return dict(v_max=vmax, rpm=w * 60 / (2 * math.pi), torque_need=t_need, torque_avail=usable * DRV.torque_avail(w))
 
 
-def run(name, t_fast, force=GP.F_GRIP_OILY, rec=None):
+def run(name, t_fast, force=GP.F_GRIP_SET, rec=None):
     m, d = S.load()
     q0, _ = S.q_pick()
     S.set_robot(m, d, q0, jaw=D_OPEN)
@@ -171,7 +171,7 @@ def plot(logs, path, fig=None):
         ax[1].plot(t, 0.5 * (np.array(lg["fL"]) + np.array(lg["fR"])), label=name)
     ax[0].axhline(GP.D_GRIP, color="0.5", lw=0.8, ls=":")
     ax[0].set_ylabel("jaw opening d [mm]")
-    ax[1].axhline(GP.F_GRIP_OILY, color="0.5", lw=0.8, ls=":")
+    ax[1].axhline(GP.F_GRIP_SET, color="0.5", lw=0.8, ls=":")
     ax[1].set_ylabel("pad normal force per jaw [N]")
     for a in ax:
         a.axvline(T_REQ * 1000, color="#C2410C", ls="--", lw=1)

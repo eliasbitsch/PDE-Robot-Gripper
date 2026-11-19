@@ -26,15 +26,15 @@ R_PINION = P.PINION_D / 2 / 1000                # m
 F_BRAKE = P.T_PINION_BRAKE / (2 * R_PINION)     # N per jaw before the brake slips
 
 M_PART = P.B_MASSE
-F_HOLD_Z = M_PART * (P.G + P.A_BAHN) / P.N_BACKEN     # friction each jaw carries: weight + path acceleration
+F_HOLD_Z = M_PART * (P.G + P.A_PATH_REAL) / P.N_BACKEN     # friction each jaw carries: weight + real path acceleration
 F_STOP_Z = M_PART * (P.G + A_STOP) / P.N_BACKEN
 F_STOP_Y = M_PART * A_STOP / P.N_BACKEN
 
 # (name, Fx, Fy, Fz, safety factor required against Rp0.2, what it stands for)
 LOAD_CASES = [
-    ("LC1 nominal grip", P.F_GRIP_OILY, 0.0, 0.0, 2.0, "required grip force, oily part, mu 0.2, S 2"),
-    ("LC2 full current", P.F_JAW_MAX, 0.0, 0.0, 2.0, "motor at full current, end stop or part"),
-    ("LC3 transport", P.F_GRIP_OILY, M_PART * P.A_BAHN / P.N_BACKEN, -F_HOLD_Z, 2.0,
+    ("LC1 setpoint grip", P.F_GRIP_SET, 0.0, 0.0, 2.0, "operating grip force (real path, mu 0.2, S 2)"),
+    ("LC2 full current", P.F_JAW_MAX, 0.0, 0.0, 2.0, "motor at full current (current limit set wrong), end stop or part"),
+    ("LC3 transport", P.F_GRIP_SET, M_PART * P.A_PATH_REAL / P.N_BACKEN, -F_HOLD_Z, 2.0,
      "LC1 plus the part's weight and path acceleration carried by friction"),
     ("LC4 emergency stop", P.F_JAW_MAX, F_STOP_Y, -F_STOP_Z, 1.5,
      "LC2 plus the part decelerating at A_STOP (ABB stop data, axis 1)"),
@@ -59,7 +59,7 @@ BC = [
 # Acceptance criteria
 TILT_MAX = 0.1                   # deg pad tilt for LC2: the pads must stay flat on the part (governing criterion)
 DEFLECTION_MAX = 0.05            # mm at the pad centre for LC2, reported only: most of it is the slide bending
-CYCLES_PER_YEAR = 3.0e6          # 5 s cycle, 2 shifts; LC1 is the pulsating load (0 -> F)
+CYCLES_PER_YEAR = 3.0e6          # 5 s cycle, 2 shifts; LC1 (setpoint) is the pulsating load (0 -> F)
 
 
 def table():

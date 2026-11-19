@@ -37,7 +37,7 @@ def _(mo):
 @app.cell
 def _(GP, mo):
     mu = mo.ui.slider(0.1, 0.6, step=0.05, value=GP.MU_OILY, label="friction µ (pad on part)", show_value=True)
-    force = mo.ui.slider(10.0, round(GP.F_JAW_MAX, 1), step=0.5, value=round(GP.F_GRIP_OILY, 1),
+    force = mo.ui.slider(10.0, round(GP.F_JAW_LIMIT, 1), step=0.5, value=round(GP.F_GRIP_SET, 1),
                          label="grip force per jaw [N]", show_value=True)
     t_tr = mo.ui.slider(1.2, 4.0, step=0.1, value=GP.T_EINWEG, label="transfer time [s]", show_value=True)
     safety = mo.ui.slider(1.0, 3.0, step=0.25, value=GP.S_SICHERHEIT, label="safety factor S (hand calc.)", show_value=True)
@@ -155,7 +155,7 @@ def _(GP, mo):
     cl_prof = mo.ui.dropdown(["two-stage", "direct"], value="two-stage", label="profile")
     cl_fast = mo.ui.slider(0.06, 0.3, step=0.01, value=0.12, label="fast phase [s]", show_value=True)
     cl_vt = mo.ui.slider(2.0, 50.0, step=1.0, value=10.0, label="approach speed last mm [mm/s]", show_value=True)
-    cl_force = mo.ui.slider(10.0, round(GP.F_JAW_MAX, 1), step=0.5, value=round(GP.F_GRIP_OILY, 1),
+    cl_force = mo.ui.slider(10.0, round(GP.F_JAW_LIMIT, 1), step=0.5, value=round(GP.F_GRIP_SET, 1),
                             label="current limit = grip force per jaw [N]", show_value=True)
     mo.vstack([mo.hstack([cl_prof, cl_fast], justify="start", gap=2), mo.hstack([cl_vt, cl_force], justify="start", gap=2)])
     return cl_fast, cl_force, cl_prof, cl_vt

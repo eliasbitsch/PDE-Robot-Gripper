@@ -420,8 +420,9 @@ def main():
     print(f"centre of mass from the flange face: x {cog.x:.1f}, y {cog.y:.1f}, z {cog.z - info['flange_z']:.1f} mm; "
           f"TCP (grip centre) z {P.PART_OFFSET[2] + 17.5 - info['flange_z']:.1f} mm")
     report["cog_from_flange_mm"] = [cog.x, cog.y, cog.z - info["flange_z"]]
-    print(f"grip force: needed {P.F_GRIP_OILY:.1f} N per jaw (oily, mu {P.MU_OILY}), available {P.F_JAW_MAX:.1f} N "
-          f"(x{P.F_JAW_MAX / P.F_GRIP_OILY:.2f}), brake {P.T_PINION_BRAKE:.2f} N*m at the pinion")
+    print(f"grip force per jaw: required {P.F_GRIP_OILY:.1f} N (hand calc.), setpoint {P.F_GRIP_SET:.1f} N (real path), "
+          f"current limit {P.F_JAW_LIMIT:.1f} N (bevel), available {P.F_JAW_AVAIL:.1f} N, strength case {P.F_JAW_MAX:.1f} N; "
+          f"brake {P.T_PINION_BRAKE:.2f} N*m at the pinion")
     print(f"flange face z = {info['flange_z']:.1f}, cover underside z = {P.POCKET_Z - P.COVER_T:.1f}, "
           f"build height {info['flange_z'] - (P.POCKET_Z - P.COVER_T):.1f} mm above the jaws")
 

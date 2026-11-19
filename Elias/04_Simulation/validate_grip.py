@@ -3,8 +3,9 @@
 python validate_grip.py  ->  out/grip_results.json, figures/grip_slip.png
 
 Cases (force = jaw force limit of the current-limited drive, per jaw):
-  nominal      F = F_GRIP_OILY (S = 2 in the hand calculation): the part must not slip
+  required     F = F_GRIP_OILY (S = 2 in the hand calculation, 2.05 m/s2): the part must not slip
   limit        F = F_GRIP_OILY / S: no safety left, slip expected to start
+  setpoint     F = F_GRIP_SET (S = 2 with the real 4.96 m/s2), the force the controller is set to
   e-stop       F nominal, category 0 stop in the middle of the transfer with the ABB axis decelerations; the brake locks the jaws
 Path: pick on the buffer belt, lift, transfer to the workpiece carrier in T_EINWEG with a trapezoidal profile
 (A_BAHN, V_BAHN from cad/params.py), lower. The robot follows the joint path through stiff position control.
@@ -179,8 +180,8 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
 
 def main():
     os.makedirs(os.path.join(HERE, "figures"), exist_ok=True)
-    cases = [("nominal", GP.F_GRIP_OILY, False), ("limit (no safety)", GP.F_GRIP_OILY / GP.S_SICHERHEIT, False),
-             ("full current", GP.F_JAW_MAX, False), ("e-stop", GP.F_GRIP_OILY, True), ("e-stop full current", GP.F_JAW_MAX, True)]
+    cases = [("required", GP.F_GRIP_OILY, False), ("limit (no safety)", GP.F_GRIP_OILY / GP.S_SICHERHEIT, False),
+             ("setpoint", GP.F_GRIP_SET, False), ("e-stop at required", GP.F_GRIP_OILY, True), ("e-stop at setpoint", GP.F_GRIP_SET, True)]
     out, logs = [], {}
     for name, f, es in cases:
         r, lg = run(name, f, es)

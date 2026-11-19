@@ -29,10 +29,14 @@ GEAR_I, GEAR_ETA, GEAR_L = 7.07, 0.90, 38.0     # GP42-S1-7-SR (same housing as 
 BRAKE_T = 0.35                                  # BRAKE-BWA-0,35-5, 24 V
 T_PINION_STATIC = MOTOR_T_HOLD * GEAR_I * GEAR_ETA
 T_PINION_BRAKE = BRAKE_T * GEAR_I
-F_JAW_MAX = T_PINION_STATIC / (2 * PINION_D / 2 / 1000)   # N per jaw at full current, FEM worst case
+F_JAW_MAX = T_PINION_STATIC / (2 * PINION_D / 2 / 1000)   # N per jaw at full current, gearbox loss only: FEM upper bound
+ETA_BEVEL, ETA_RP = 0.98, 0.97                  # V2 § 10
+F_JAW_AVAIL = F_JAW_MAX * ETA_BEVEL * ETA_RP    # N per jaw the motor really delivers at full current (all losses)
 # Part may be dirty or oily (feedback 10 Nov): design with a lubricated friction coefficient, source to cite in V2.
 MU_OILY = 0.2
-F_GRIP_OILY = S_SICHERHEIT * B_MASSE * (G + A_BAHN) / (N_BACKEN * MU_OILY)
+F_GRIP_OILY = S_SICHERHEIT * B_MASSE * (G + A_BAHN) / (N_BACKEN * MU_OILY)   # required by the hand calculation (2.05 m/s2)
+A_PATH_REAL = 4.96                  # m/s2, TCP peak on the real MoveJ path (MuJoCo, E4): axis 1 turns ~160 deg
+F_GRIP_SET = S_SICHERHEIT * B_MASSE * (G + A_PATH_REAL) / (N_BACKEN * MU_OILY)   # operating setpoint, also covers the e-stop (V2)
 
 # Ganter GN 617-5-A indexing plunger (steel, knob, no lock nut), ganternorm.com dimension table
 PLUNGER_PIN_D, PLUNGER_THREAD, PLUNGER_KNOB_D = 5.0, "M10x1", 21.0
@@ -121,6 +125,8 @@ PINION_Z0 = -11.0                   # pinion teeth z -11..-1, 1 mm above the rac
 # Modelled with straight teeth as a stand-in, same pitch diameter, face width and hub.
 BEVEL_Z, BEVEL_B, BEVEL_HUB_D, BEVEL_HUB_L = 20, 5.0, 16.0, 6.0
 BEVEL_T_ALLOW = 0.97                # N*m, KHK surface durability (600 rpm, 1e7 cycles): caps the grip force at 48 N
+F_JAW_LIMIT = BEVEL_T_ALLOW / (2 * PINION_D / 2 / 1000)   # N per jaw: current limit in the controller, never above
+assert F_GRIP_SET <= F_JAW_LIMIT <= F_JAW_AVAIL, (F_GRIP_SET, F_JAW_LIMIT, F_JAW_AVAIL)
 BEARING = (8.0, 22.0, 7.0)          # DIN 625 608-2Z
 BEARING_LOWER_Z, BEARING_UPPER_Z = 0.0, 9.5
 BOSS_D = 32.0

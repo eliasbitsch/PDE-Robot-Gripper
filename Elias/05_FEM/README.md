@@ -46,9 +46,9 @@ so holder and slide see their real loads. When V3 arrives only `export_train.py`
 
 | Load case | Fx [N] | Fy [N] | Fz [N] | S req. | Meaning |
 |---|---|---|---|---|---|
-| LC1 nominal grip | 35.7 | 0.0 | 0.0 | 2.0 | required grip force, oily part, mu 0.2, S 2 |
+| LC1 setpoint grip | 44.5 | 0.0 | 0.0 | 2.0 | operating grip force (real path, mu 0.2, S 2) |
 | LC2 full current | 63.6 | 0.0 | 0.0 | 2.0 | motor at full current, end stop or part |
-| LC3 transport | 35.7 | 0.6 | -3.6 | 2.0 | LC1 plus the part's weight and path acceleration carried by friction |
+| LC3 transport | 44.5 | 1.5 | -4.4 | 2.0 | LC1 plus the part's weight and path acceleration carried by friction |
 | LC4 emergency stop | 63.6 | 3.6 | -6.6 | 1.5 | LC2 plus the part decelerating at 12.1 m/s² (ABB category 0 stop data, axis 1 at 1.0 m) |
 | LC5 brake limit | 123.7 | 0.0 | 0.0 | 1.2 | power off, jaw pushed until the brake slips (misuse / collision) |
 
@@ -70,9 +70,9 @@ was fixed in x too, which put the rack's job on the carriage.
 
 | Load case | u pad [µm] | tilt [°] | slide [MPa] / S | holder [MPa] / S | jaw V3 [MPa] / S |
 |---|---|---|---|---|---|
-| LC1 nominal grip | 33.2 | 0.051 | 8.6 / 29.0 | 9.9 / 25.2 | 12.2 / 37.8 |
+| LC1 setpoint grip | 41.4 | 0.064 | 10.7 / 23.3 | 12.4 / 20.2 | 15.2 / 30.3 |
 | LC2 full current | 59.2 | 0.091 | 15.4 / 16.3 | 17.7 / 14.1 | 21.7 / 21.2 |
-| LC3 transport | 33.5 | 0.052 | 8.7 / 28.7 | 10.1 / 24.7 | 12.4 / 37.2 |
+| LC3 transport | 41.8 | 0.064 | 10.8 / 23.2 | 12.8 / 19.5 | 15.4 / 29.9 |
 | LC4 emergency stop | 60.1 | 0.092 | 15.3 / 16.3 | 18.8 / 13.3 | 22.1 / 20.9 |
 | LC5 brake limit | 115.1 | 0.177 | 29.9 / 8.4 | 34.4 / 7.3 | 42.2 / 10.9 |
 

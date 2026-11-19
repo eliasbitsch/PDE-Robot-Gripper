@@ -25,7 +25,7 @@ KIN = json.load(open(os.path.join(CAD, "out", "kinematics.json")))
 MM = 0.001
 
 MU_PAD = GP.MU_OILY                       # NBR pad on oily PA 6, the value V2 has to justify
-GRIPPER_MASS, SLIDE_MASS = 2.30, 0.22     # kg, from the build (2.75 total incl. the moving groups)
+GRIPPER_MASS, SLIDE_MASS = 2.38, 0.27     # kg, from the build (2.915 total incl. the moving groups, rail size 12)
 GRIPPER_COM = (0.0, -4.2, 76.0 - 66.0)    # mm in the gripper frame (build: 66 mm below the flange face z = 76)
 ROBOT_LINK_MASS = [18.0, 9.0, 6.0, 3.0, 2.5, 0.8, 0.1]   # kg, rough split of the 65 kg arm; gravity compensated anyway
 COLORS = {"EN AW-6082": "0.72 0.75 0.78 1", "EN AW-7075": "0.76 0.25 0.05 1", "steel": "0.45 0.48 0.50 1",
@@ -160,7 +160,7 @@ def build():
   <equality><joint joint1="jaw_R" joint2="jaw_L" polycoef="0 1 0 0 0" solref="0.0005 1" solimp="0.99 0.999 0.0001"/></equality>
   <actuator>
     {chr(10).join(f'    <position name="A{i}" joint="A{i}" kp="20000" kv="400" ctrlrange="{np.radians(CP.ROBOT["lim"][i - 1][0]):.4f} {np.radians(CP.ROBOT["lim"][i - 1][1]):.4f}"/>' for i in range(1, 7))}
-    <position name="jaw" tendon="jaws" kp="200000" kv="500" forcerange="-{2 * GP.F_GRIP_OILY:.3f} {2 * GP.F_GRIP_OILY:.3f}"/>   <!-- drives both jaws: 2 x force per jaw -->
+    <position name="jaw" tendon="jaws" kp="200000" kv="500" forcerange="-{2 * GP.F_GRIP_SET:.3f} {2 * GP.F_GRIP_SET:.3f}"/>   <!-- drives both jaws: 2 x force per jaw -->
   </actuator>
   <sensor>
     <framepos name="part_pos" objtype="body" objname="part"/>

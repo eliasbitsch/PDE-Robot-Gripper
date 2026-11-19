@@ -33,11 +33,15 @@ the limit; median over the moving phases and 50 ms peak.
 
 | Case | Force per jaw | friction use median / peak | part movement in the jaws | |
 |---|---|---|---|---|
-| nominal | 35.7 N | 0.42 / 0.85 | 0.81 mm | held |
-| no safety (F / S) | 17.9 N | 0.83 / 1.00 | 1.96 mm | held only just, micro-slip |
-| full current | 63.6 N | 0.23 / 0.65 | 0.41 mm | held |
-| e-stop, ABB category 0 | 35.7 N | 0.41 / 0.64 | 0.45 mm | held |
-| e-stop, full current | 63.6 N | 0.23 / 0.65 | 0.25 mm | held |
+| required (hand calc., 2.05 m/s²) | 35.7 N | 0.42 / 0.85 | 0.81 mm | held |
+| no safety (F / S) | 17.9 N | 0.83 / 1.00 | 1.88 mm | held only just, micro-slip |
+| **setpoint** (real path 4.96 m/s²) | 44.5 N | 0.34 / 0.86 | 0.64 mm | held |
+| e-stop at required, ABB category 0 | 35.7 N | 0.41 / 0.67 | 0.45 mm | held |
+| e-stop at setpoint | 44.5 N | 0.33 / 0.79 | 0.36 mm | held |
+
+Grip forces per jaw (`gripper_params.py`): required 35.7 N (hand calculation), **setpoint 44.5 N** (real path),
+**current limit 48.5 N** (KHK bevel pair, 0.97 N·m), available 60.5 N (motor, all losses), 63.6 N strength case
+(current limit set wrong). Since 19 Nov: rail size 12, gripper 2.915 kg.
 
 - The hand calculation is confirmed: with S = 2 it expects 0.5 at its design acceleration; the simulation gives a
   median of 0.42 and scales with 1/F as it should (full current 0.23).
@@ -58,15 +62,15 @@ the limit; median over the moving phases and 50 ms peak.
 ## Closing time (`closing_time.py`, `out/closing_results.json`, `figures/closing.png`)
 
 Requirement from the hand calculation V2: close 8 mm per jaw and have the grip force within 0.3 s. The drive runs
-position controlled with the current limit as grip force (35.7 N per jaw). Motor curve from the datasheet's electrical
+position controlled with the current limit as grip force (setpoint 44.5 N per jaw). Motor curve from the datasheet's electrical
 values at 24 V (phasor sum of back-EMF and winding impedance), 70 % usable in closed loop; the Nanotec curve still
 has to be laid over it.
 
 | Profile | contact | grip force within 5 % | peak pad force | motor peak |
 |---|---|---|---|---|
-| direct, trapezoid 0.25 s | 177 ms at 50 mm/s | 193 ms | 76.7 N (1.9 ×) | 324 rpm, 0.018 of 0.136 N·m |
-| direct, trapezoid 0.12 s | 87 ms at 108 mm/s | 99 ms | 148.5 N (3.6 ×) | 675 rpm, 0.030 of 0.136 N·m |
-| two-stage: 0.12 s to 1 mm before the part, then 10 mm/s | 176 ms at 9 mm/s | 255 ms | 37.0 N (1.0 ×) | 591 rpm, 0.028 of 0.136 N·m |
+| direct, trapezoid 0.25 s | 177 ms at 51 mm/s | 195 ms | 73.0 N (1.4 ×) | 324 rpm, 0.018 of 0.136 N·m |
+| direct, trapezoid 0.12 s | 86 ms at 109 mm/s | 100 ms | 138.7 N (3.0 ×) | 675 rpm, 0.030 of 0.136 N·m |
+| two-stage: 0.12 s to 1 mm before the part, then 10 mm/s | 173 ms at 10 mm/s | 263 ms | 45.3 N (1.0 ×) | 591 rpm, 0.028 of 0.136 N·m |
 
 - Torque is not the limit: the motor could cover the 8 mm in 45 ms. The motor uses at most a quarter of its torque.
 - The limit is the impact. Rotor, gearbox and brake act like 3.2 kg on the jaws, seven times the jaws themselves
