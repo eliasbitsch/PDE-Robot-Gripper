@@ -66,18 +66,18 @@ the slide in y and z only (it runs along x on the rail), the grip force goes int
 (pin bore + the boss the rack sits on) held in x at the pitch line of the pinion mesh. Before, the carriage patch
 was fixed in x too, which put the rack's job on the carriage.
 
-**Results, 19 Nov 2026** (`fem_train.py`, 2 mm, 65k C3D10):
+**Results, 19 Nov 2026, ball rail size 12** (`fem_train.py`, 2 mm, 70k C3D10; size 9 before: LC2 tilt 0.094°):
 
 | Load case | u pad [µm] | tilt [°] | slide [MPa] / S | holder [MPa] / S | jaw V3 [MPa] / S |
 |---|---|---|---|---|---|
-| LC1 nominal grip | 35.1 | 0.053 | 8.3 / 30.3 | 9.4 / 26.5 | 12.2 / 37.8 |
-| LC2 full current | 62.6 | 0.094 | 14.7 / 17.0 | 16.8 / 14.9 | 21.7 / 21.2 |
-| LC3 transport | 35.3 | 0.053 | 8.3 / 30.0 | 9.6 / 26.0 | 12.4 / 37.2 |
-| LC4 emergency stop | 63.4 | 0.095 | 14.7 / 17.0 | 17.9 / 14.0 | 22.1 / 20.9 |
-| LC5 brake limit | 121.6 | 0.183 | 28.6 / 8.7 | 32.7 / 7.6 | 42.2 / 10.9 |
+| LC1 nominal grip | 33.2 | 0.051 | 8.6 / 29.0 | 9.9 / 25.2 | 12.2 / 37.8 |
+| LC2 full current | 59.2 | 0.091 | 15.4 / 16.3 | 17.7 / 14.1 | 21.7 / 21.2 |
+| LC3 transport | 33.5 | 0.052 | 8.7 / 28.7 | 10.1 / 24.7 | 12.4 / 37.2 |
+| LC4 emergency stop | 60.1 | 0.092 | 15.3 / 16.3 | 18.8 / 13.3 | 22.1 / 20.9 |
+| LC5 brake limit | 115.1 | 0.177 | 29.9 / 8.4 | 34.4 / 7.3 | 42.2 / 10.9 |
 
-- Strength is far from critical: S ≥ 7.6 everywhere, also at the brake limit.
-- Stiffness drives the design: LC2 tilt 0.094° against 0.1°, carriage still rigid. Its own tilting stiffness
+- Strength is far from critical: S ≥ 7.3 everywhere, also at the brake limit.
+- Stiffness drives the design: LC2 tilt 0.091° against 0.1°, carriage still rigid. Its own tilting stiffness
   (Rexroth catalogue) is the next thing to add.
 - Carriage reactions (LC2): M_y = 4.55 N·m, M_z = 0.64 N·m, no force: identical to V2 § 6 (F · 71.5 mm, F · 10 mm).
 

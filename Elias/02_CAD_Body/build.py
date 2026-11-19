@@ -301,8 +301,8 @@ BOM_INFO = {
     "Jaw": ("Jaw", "own part, milled", "EN AW-7075 T6"),
     "PadPlate": ("Pad plate, rubber-metal (steel 3 + NBR 70 Sh A 3)", "bought to drawing", "S235 / NBR"),
     "Pad": None,                                   # part of the pad plate
-    "Rail": ("Miniature ball rail size 9, L = 110, T1 = 15", "Bosch Rexroth R0445", "steel"),
-    "Carriage": ("Ball carriage SLS size 9", "Bosch Rexroth R0444 913 01", "steel"),
+    "Rail": (f"Miniature ball rail size 12, L = {P.RAIL_L:g}, T1 = {P.RAIL_T1:g}", "Bosch Rexroth R0445 203 31", "steel"),
+    "Carriage": ("Ball carriage SLS size 12, long, preload", "Bosch Rexroth R0444 213 01", "steel"),
     "Rack": ("Rack m = 1, 10 x 12, cut to 56.5", "Maedler", "C45"),
     "Gearbox": ("Planetary gearbox GP42-S1-7-SR", "Nanotec", "-"),
     "Motor": ("Stepper motor ST4118S1404-B, long B shaft through brake and encoder", "Nanotec", "-"),

@@ -10,16 +10,16 @@ from params import *  # noqa: E402,F401,F403
 RACK_W, RACK_H, RACK_PITCH_LINE = 10.0, 12.0, 11.0
 PINION_D, PINION_B = MODUL * Z_RITZEL, 10.0
 
-# Bosch Rexroth miniature ball rail size 9 (catalogue R999001206, 2023-08, p. 19/21)
-# carriage SLS long, R0444 913 01 (size 9/M3, accuracy H, preload); rail R0445 9..
-RAIL_W, RAIL_H, RAIL_PITCH = 9.0, 5.5, 20.0
+# Bosch Rexroth miniature ball rail size 12 (S0 >= 5 at the 44 N setpoint; size 9 gave 2.5 ... 3.7) (catalogue R999001206, 2023-08, p. 19/21)
+# carriage SLS long, R0444 213 01 (size 12, accuracy H, preload); rail R0445 203 31
+RAIL_W, RAIL_H, RAIL_PITCH = 12.0, 7.8, 25.0
 RAIL_HOLE_D, RAIL_CBORE_D, RAIL_SCREW = 3.5, 6.0, "M3"
-RAIL_CBORE_DEPTH = 3.2
-CARRIAGE_W, CARRIAGE_L, CARRIAGE_L_BODY = 20.0, 41.4, 31.3
-CARRIAGE_H, CARRIAGE_GAP = 10.0, 2.8          # rail base to carriage top, rail base to carriage underside
-CARRIAGE_HOLES_E1, CARRIAGE_HOLES_E2, CARRIAGE_THREAD = 16.0, 15.0, "M3x3"   # E1 along the rail
-CARRIAGE_C0, CARRIAGE_MT0, CARRIAGE_ML0 = 3150.0, 14.5, 14.0   # N, N*m, N*m
-CARRIAGE_MASS = 0.026                         # kg
+RAIL_CBORE_DEPTH = 4.0                       # M3 head sinks in, 4.2 mm thread in the plate
+CARRIAGE_W, CARRIAGE_L, CARRIAGE_L_BODY = 27.0, 47.5, 34.5
+CARRIAGE_H, CARRIAGE_GAP = 13.0, 3.3          # rail base to carriage top, rail base to carriage underside
+CARRIAGE_HOLES_E1, CARRIAGE_HOLES_E2, CARRIAGE_THREAD = 20.0, 20.0, "M3x3.5"   # E1 along the rail
+CARRIAGE_C0, CARRIAGE_MT0, CARRIAGE_ML0 = 5630.0, 33.5, 29.2   # N, N*m, N*m
+CARRIAGE_MASS = 0.051                         # kg
 
 # Drive, Nanotec
 MOTOR_FRAME = 42.3                              # NEMA 17 square
@@ -46,15 +46,15 @@ PLUNGER_SPRING = (7.0, 17.0)                     # N, start/end
 PAD_X0 = 33.0                       # closed end stop, 2 mm past the grip faces
 D_GRIP = GREIF_ABSTAND / 2 - PAD_X0  # 2.0
 D_OPEN = 10.0                       # open: 86 mm between pads; jaws end above the lug, faces are 70 apart
-CARR_X0 = 21.5                      # carriage centre at d = 0 (carriages 1.6 mm apart at the stop)
-RAIL_Y = -32.5                      # carriages clear of the racks, which run at the same height
-RAIL_L, RAIL_T1, RAIL_NB = 110.0, 15.0, 5   # L = (nB-1)*T + 2*T1, Rexroth allows custom T1
-RAIL_BASE_Z = -3.0                  # rail sits on a 3 mm land = reference shoulder
+CARR_X0 = 24.6                      # carriage centre at d = 0 (carriages 1.7 mm apart at the stop)
+RAIL_Y = -36.0                      # carriages 1.5 mm clear of the racks, which run at the same height
+RAIL_L, RAIL_T1, RAIL_NB = 125.0, 12.5, 5   # L = (nB-1)*T + 2*T1, Rexroth allows custom T1
+RAIL_BASE_Z = 0.0                   # rail straight on the plate (size 12 carriage is 3 mm higher); aligned to a straightedge
 
 PLATE_T = 7.0                       # top plate (lighter since 11 Nov; bearings sit in the boss above it)
 WALL = 7.0                          # M3 cover screws on the wall centre line
 HOUSING_X = 192.0                   # 164 + 2 x 14 (15 Nov): NME2 encoder behind the brake, kept symmetric
-HOUSING_Y = (-53.5, 38.0)           # +y face flush with the hood and the flange edge; -y carries rail and slides
+HOUSING_Y = (-60.5, 38.0)           # +y face flush with the hood and the flange edge; -y carries rail and slides
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
 COVER_T = 3.0
 

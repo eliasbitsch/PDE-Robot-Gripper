@@ -87,7 +87,8 @@ def housing_body():
     s = rounded_box(-hx, hx, y0, y1, P.POCKET_Z, P.PLATE_T, P.HOUSING_R)
     s = chamfer_z_edges(s, P.PLATE_T, P.EDGE_CHAMFER)
     s = s.cut(rounded_box(-hx + P.WALL, hx - P.WALL, y0 + P.WALL, y1 - P.WALL, P.POCKET_Z - 1, 0, 6.0))   # R6: standard d10 cutter
-    s = s.fuse(box(-P.RAIL_L / 2 - 2, P.RAIL_L / 2 + 2, P.RAIL_Y - P.RAIL_W / 2 - 5, P.RAIL_Y + P.RAIL_W / 2 + 5, P.RAIL_BASE_Z, 0.01))  # rail land
+    if P.RAIL_BASE_Z < 0:
+        s = s.fuse(box(-P.RAIL_L / 2 - 2, P.RAIL_L / 2 + 2, P.RAIL_Y - P.RAIL_W / 2 - 5, P.RAIL_Y + P.RAIL_W / 2 + 5, P.RAIL_BASE_Z, 0.01))  # rail land
     for x, y in cover_screws():
         s = s.fuse(cylz(4.5, P.POCKET_Z, P.POCKET_Z + 12, x, y))                                 # cover screw bosses
     xp = P.PINION_X
