@@ -4,8 +4,8 @@ Working area of Ovdiienko Viktoriia. See [PLAN.md](../PLAN.md), § 5.
 
 | Folder | Package | Result |
 |---|---|---|
-| `01_Concept` | V1 | Variant comparison (VDI 2225) incl. the Robotiq 2F-85 as commercial reference and vacuum as a reasoned rejection, dimensioned concept sketch |
-| `02_Sizing` | V2 | Gripping force, friction coefficient with a source, surface pressure on PA 6, four-bar via virtual work incl. worst transmission angle, screw and motor selection |
+| `01_Concept` | V1 | Variant comparison (VDI 2225): rack and pinion vs. four-bar and others, vacuum as a reasoned rejection, dimensioned concept sketch |
+| `02_Sizing` | V2 | Gripping force, friction coefficient with a source, surface pressure on PA 6, gear and dovetail-guide sizing, holding on power failure, motor selection |
 | `03_CAD_Jaws` | V3 | Jaws + soft pads, parametric in Onshape |
 | `04_Analytical` | V4 | Bending stress and deflection by hand - the reference the FEM has to meet |
 | `05_Print_Check` | V5 | Print the jaw, measure deflection under a defined load, hold it against Elias' FEM |
