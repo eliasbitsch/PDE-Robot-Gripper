@@ -120,54 +120,133 @@ def _(P, V4C, mo, np, plt, v4, v4_store):
 
 
 @app.cell
+def _(HERE, mo, os):
+    _f = lambda n: os.path.join(HERE, "figures", n)
+    mo.hstack([mo.vstack([mo.md("**V3 jaw, von Mises** (standard support, full current)"), mo.image(src=_f("jaw_v3_von_mises.png"), width=460)]),
+               mo.vstack([mo.md("**V3 jaw, deflection u_x**"), mo.image(src=_f("jaw_v3_deflection.png"), width=460)])],
+              justify="start", wrap=True)
+    return
+
+
+@app.cell
+def _(HERE, json, os):
+    def _load(rel):
+        _p = os.path.join(HERE, "..", rel)
+        return json.load(open(_p)) if os.path.exists(_p) else None
+    sim_grip = _load("04_Simulation/out/grip_results.json")
+    sim_close = _load("04_Simulation/out/closing_results.json")
+    sim_power = _load("04_Simulation/out/power_fail.json")
+    fem_train = _load("05_FEM/out/train_results.json")
+    SIMFIG = os.path.join(HERE, "..", "04_Simulation", "figures")
+    return SIMFIG, fem_train, sim_close, sim_grip, sim_power
+
+
+@app.cell
 def _(mo):
     mo.md(r"""
-    ## 2. V2 sizing against the simulation
+    ## 2. V2 sizing against the simulation, topic by topic
+
+    Each block: her number (from her notebook, live), our number (MuJoCo E4 / FEM E5, last stored run), the deviation,
+    and the picture or video that shows it. Section 3 collects all deviations in one table.
     """)
     return
 
 
 @app.cell
-def _(HERE, L, P, json, mo, os, v2):
-    _g = os.path.join(HERE, "..", "04_Simulation", "out", "grip_results.json")
-    _grip = {c["case"]: c for c in json.load(open(_g))["cases"]} if os.path.exists(_g) else {}
-    _t = os.path.join(HERE, "out", "train_results.json")
-    _train = json.load(open(_t)) if os.path.exists(_t) else None
-    _lc2 = next((c for c in _train["cases"] if c["case"].startswith("LC2")), None) if _train else None
-    _My_v = P.F_JAW_MAX * abs(P.PINION_Z0 + P.PINION_B / 2 - sum(P.PAD_Z) / 2)
-    _Mz_v = P.F_JAW_MAX * P.PINION_D / 2
-    _carr = _lc2.get("carriage") if _lc2 else None
-    _nom = _grip.get("nominal", {})
-    _es = _grip.get("e-stop", {})
-    mo.md(f"""
-| # | V2 (Viktoriia) | Simulation | verdict |
+def _(P, SIMFIG, mo, os, sim_grip, v2):
+    _c = {c["case"]: c for c in sim_grip["cases"]} if sim_grip else {}
+    _req, _set = _c.get("required", {}), _c.get("setpoint", {})
+    _nan = float("nan")
+    _u_hand = 1 / P.S_SICHERHEIT
+    _u_real = P.B_MASSE * (P.G + P.A_PATH_REAL) / (P.N_BACKEN * P.MU_OILY * P.F_GRIP_OILY)
+    _md = mo.md(f"""
+### 2.1 Grip force (V2 § 1) - MuJoCo over the real robot path
+
+| | V2 | simulation | deviation |
 |---|---|---|---|
-| 1 | grip force {v2['F_req']:.1f} N (µ 0.2, S 2, a = {P.A_BAHN:.2f} m/s²) | MuJoCo real MoveJ path: TCP up to **5.0 m/s²**, friction use median {_nom.get('util_median', float('nan')):.2f} / peak {_nom.get('util_max', float('nan')):.2f} | formula confirmed; path acceleration 2.05 → 5 m/s² would give ≈ 44 N |
-| 2 | e-stop {v2['a_stop']:.0f} m/s² (CRB 1300 data, lever 1.4 m), setpoint {v2['F_set']:.1f} N | IRB 1300 spec 3HAC070393 rev. M p. 91: **same stop data** (55.25° / 0.40 s); MuJoCo with the per-axis decelerations: {_es.get('a_tcp_max', float('nan')):.1f} m/s² at the TCP, part held at 35.7 N (peak {_es.get('util_max', float('nan')):.2f}) | her 17 m/s² is conservative (lever 1.4 m = full reach, our TCP is at ≈ 1.0 m) |
-| 3 | surface pressure with A = 805 mm² | her V3 pad has 737 mm² | update the area, still < 0.1 MPa |
-| 6 | carriage moments M_y = {_My_v / 1000:.2f} N·m, M_z = {_Mz_v / 1000:.2f} N·m (full current) | FEM train, rack as rigid body at the pitch line: M_y = **{(_carr['M'][1] / 1000) if _carr else float('nan'):.2f}** N·m, M_z = **{(_carr['M'][2] / 1000) if _carr else float('nan'):.2f}** N·m | identical (statics); FEM adds the pad tilt {(_lc2['tilt_deg'] if _lc2 else float('nan')):.3f}° ≤ {L.TILT_MAX}° |
-| 9 | brake holds {P.T_PINION_BRAKE / (2 * P.PINION_D / 2000):.0f} N per jaw | load case LC5 uses F_BRAKE = {L.F_BRAKE:.1f} N | same |
-| 10 | 0.23 N·m at 340 rpm (Nanotec curve) | pull-out cannot exceed the 0.20 N·m holding torque; model at 24 V: 0.19 N·m flat to ≈ 800 rpm; closing study: torque uses ≤ 25 %, **impact** limits the speed (3.2 kg reflected inertia) | check the curve value; add the closing impact / two-stage profile |
+| path acceleration | {P.A_BAHN:.2f} m/s² (straight line, cycle budget) | **{P.A_PATH_REAL:.2f} m/s²** (real MoveJ, axis 1 turns ≈ 160°) | {(P.A_PATH_REAL / P.A_BAHN - 1) * 100:+.0f} % |
+| friction use at {v2['F_req']:.1f} N, mean | {_u_hand:.2f} (= 1/S) | {_req.get('util_median', _nan):.2f} (median) | {(_req.get('util_median', _nan) / _u_hand - 1) * 100:+.0f} % |
+| friction use at {v2['F_req']:.1f} N, peak | {_u_real:.2f} (at {P.A_PATH_REAL} m/s²) | {_req.get('util_max', _nan):.2f} (50 ms peak) | {(_req.get('util_max', _nan) / _u_real - 1) * 100:+.0f} % (jerk of the trapezoid) |
+| setpoint | {v2['F_set']:.1f} N (her e-stop setpoint) | {P.F_GRIP_SET:.1f} N (S 2 at the real path): median {_set.get('util_median', _nan):.2f} / peak {_set.get('util_max', _nan):.2f}, held | {(v2['F_set'] / P.F_GRIP_SET - 1) * 100:+.1f} % |
+""")
+    mo.vstack([_md, mo.hstack([mo.image(src=os.path.join(SIMFIG, "grip_slip.png"), width=520),
+                               mo.video(src=os.path.join(SIMFIG, "cycle_estop.mp4"), controls=True, width=520)],
+                              justify="start", wrap=True)])
+    return
+
+
+@app.cell
+def _(L, mo, sim_grip, v2):
+    _c = {c["case"]: c for c in sim_grip["cases"]} if sim_grip else {}
+    _e = _c.get("e-stop at setpoint", {})
+    _nan = float("nan")
+    mo.md(f"""
+### 2.2 Emergency stop (V2 § 2)
+
+| | V2 | simulation | deviation |
+|---|---|---|---|
+| stop deceleration at the TCP | {v2['a_stop']:.1f} m/s² (lever 1.4 m, full reach) | {_e.get('a_tcp_max', _nan):.1f} m/s² (ABB per-axis decelerations, TCP ≤ 1.0 m from axis 1) | {(_e.get('a_tcp_max', _nan) / v2['a_stop'] - 1) * 100:+.0f} % → V2 conservative |
+| part at the setpoint | must not slip with S 1.5 | held, friction use peak {_e.get('util_max', _nan):.2f}, movement {_e.get('slip_max', _nan):.2f} mm | ✓ |
+| brake limit per jaw | {L.F_BRAKE:.1f} N | load case LC5 = {L.F_BRAKE:.1f} N | 0 % |
 """)
     return
 
 
 @app.cell
+def _(HERE, P, fem_train, mo, os, v2):
+    _nan = float("nan")
+    _lc2 = next((c for c in fem_train["cases"] if c["case"].startswith("LC2")), None) if fem_train else None
+    _My_v = P.F_JAW_MAX * abs(P.PINION_Z0 + P.PINION_B / 2 - sum(P.PAD_Z) / 2) / 1000
+    _Mz_v = P.F_JAW_MAX * P.PINION_D / 2 / 1000
+    _My_f = _lc2["carriage"]["M"][1] / 1000 if _lc2 else _nan
+    _Mz_f = _lc2["carriage"]["M"][2] / 1000 if _lc2 else _nan
+
+    def _s0(F, a_vert, a_side, c0, mt0, ml0):
+        _zp = sum(P.PAD_Z) / 2
+        _Fz, _Fy = P.B_MASSE * a_vert / 2, P.B_MASSE * a_side / 2
+        _My = F * abs(P.PINION_Z0 + P.PINION_B / 2 - _zp) / 1000
+        _Mz = F * P.PINION_D / 2000
+        _Mx = (_Fz * abs(P.RAIL_Y) + _Fy * abs(P.SLIDE_Z_TOP - _zp)) / 1000
+        return c0 / (abs(_Fy) + abs(_Fz) + c0 * (_Mx / mt0 + _My / ml0 + _Mz / ml0))
+    _rows = []
+    for _name, _c0, _mt0, _ml0 in (("size 9 SLS (before)", 3150.0, 14.5, 14.0),
+                                   ("size 12 SLS (now)", P.CARRIAGE_C0, P.CARRIAGE_MT0, P.CARRIAGE_ML0)):
+        _rows.append(f"| {_name} | {_s0(P.F_GRIP_SET, P.G + P.A_PATH_REAL, 0.0, _c0, _mt0, _ml0):.1f} | "
+                     f"{_s0(P.F_JAW_MAX, P.G, v2['a_stop'], _c0, _mt0, _ml0):.1f} |")
+    _md = mo.md(f"""
+### 2.3 Ball rail guide (V2 § 6)
+
+| | V2 | FEM (rack as rigid body at the pitch line) | deviation |
+|---|---|---|---|
+| carriage pitch moment M_y, full current | {_My_v:.2f} N·m | {_My_f:.2f} N·m | {(_My_f / _My_v - 1) * 100:+.1f} % |
+| carriage yaw moment M_z, full current | {_Mz_v:.2f} N·m | {_Mz_f:.2f} N·m | {(_Mz_f / _Mz_v - 1) * 100:+.1f} % |
+| pad tilt, full current | - | {(_lc2['tilt_deg'] if _lc2 else _nan):.3f}° (limit 0.1°) | - |
+
+Static safety S0 (Rexroth R999001206 p. 9: 3-5 all loads known, **5-8 normal design**, ≥ 12 overhead / high hazard):
+
+| carriage | setpoint {P.F_GRIP_SET:.1f} N | full current + e-stop side load |
+|---|---|---|
+""" + "\n".join(_rows))
+    mo.vstack([_md, mo.image(src=os.path.join(HERE, "figures", "train_lc2_von_mises.png"), width=620)])
+    return
+
+
+@app.cell
 def _(mo):
     mo.md(r"""
-    ## 3. Bevel pair flank (V2 § 5) - her critical finding
+    ### 2.4 Bevel pair flank (V2 § 5) - her critical finding
 
-    Same method as the Mädler catalogue ratings (DIN 3991, K_A 1.25, K_Hβ 1.5, S_H 1.0, endurance), so the result
-    is directly comparable to Mädler's torque tables. Pick the material:
+    Same method as the Mädler ratings (DIN 3991, K_A 1.25, K_Hβ 1.5, S_H 1.0). Since 19 Nov the drive uses the KHK
+    SMSG1-20 R/L (induction-hardened, ground); its catalogue torque is compared directly.
     """)
     return
 
 
 @app.cell
 def _(mo):
-    bev_mat = mo.ui.dropdown({"C45 normalised (590 MPa)": 590.0, "42CrMo4 hardened (1360 MPa)": 1360.0,
-                              "16MnCr5 case hardened (1630 MPa)": 1630.0}, value="C45 normalised (590 MPa)",
-                             label="bevel gear material, σHlim")
+    bev_mat = mo.ui.dropdown({"C45 normalised, V2 (590 MPa)": 590.0, "42CrMo4 hardened (1360 MPa)": 1360.0,
+                              "16MnCr5 case hardened (1630 MPa)": 1630.0}, value="C45 normalised, V2 (590 MPa)",
+                             label="DIN 3991 check with σHlim")
     bev_mat
     return (bev_mat,)
 
@@ -188,17 +267,88 @@ def _(P, bev_mat, math, mo, v2):
         _T = 2 * F * P.PINION_D / 2
         _Ft = 2 * _T / _dm
         return 189.8 * 2.495 * _Ze * 0.85 * math.sqrt(_Ft / (_b * _dv) * 2) * math.sqrt(1.25 * 1.5), _T
-
-    _rows = ["| load | torque | σH | S_H | |", "|---|---|---|---|---|"]
-    for _lbl, _F in (("regular", v2["F_req"]), ("setpoint (V2)", v2["F_set"]), ("full current", P.F_JAW_MAX)):
+    _rows = ["| load | torque | DIN 3991: σH / S_H | KHK SMSG1-20: torque / 0.97 N·m |", "|---|---|---|---|"]
+    for _lbl, _F in (("required", v2["F_req"]), ("setpoint", P.F_GRIP_SET), ("current limit", P.F_JAW_LIMIT), ("full current", P.F_JAW_MAX)):
         _s, _T = _sH(_F)
-        _S = bev_mat.value / _s
-        _rows.append(f"| {_lbl} ({_F:.1f} N) | {_T / 1000:.3f} N·m | {_s:.0f} MPa | {_S:.2f} | {'✓' if _S >= 1 else '✗'} |")
+        _ok_din = "✓" if bev_mat.value / _s >= 1 else "✗"
+        _ok_khk = "✓" if _T / 1000 <= P.BEVEL_T_ALLOW * 1.001 else "✗ (the current limit prevents it)"
+        _rows.append(f"| {_lbl} ({_F:.1f} N) | {_T / 1000:.3f} N·m | {_s:.0f} MPa / {bev_mat.value / _s:.2f} {_ok_din} | "
+                     f"{_T / 1000 / P.BEVEL_T_ALLOW:.2f} {_ok_khk} |")
     _s1, _T1 = _sH(P.F_JAW_MAX)
     _Tall = _T1 * (bev_mat.value / _s1) ** 2
-    mo.md("\n".join(_rows) + f"\n\nPermissible torque: **{_Tall / 1000:.2f} N·m** ({_Tall / P.PINION_D:.0f} N per jaw). "
-          "Mädler lists hardened spiral bevel sets 1:1 from m 0.6 with 0.97 N·m upwards (catalogue p. 326): "
-          "a drop-in candidate for the C45 pair; the mounting distance has to be checked in the CAD.")
+    mo.md("\n".join(_rows) + f"\n\nDIN 3991 permissible torque with this material: **{_Tall / 1000:.2f} N·m**; "
+          f"KHK catalogue: **{P.BEVEL_T_ALLOW} N·m** → current limit {P.F_JAW_LIMIT:.1f} N per jaw.")
+    return
+
+
+@app.cell
+def _(SIMFIG, mo, os, sim_power):
+    _c = sim_power["cases"] if sim_power else []
+    _rows = "\n".join(f"| {c['t_brake'] * 1000:.0f} ms | {c['fn_end']:.1f} N | {'held' if c['held'] else '**dropped**'} |" for c in _c)
+    _fd = sim_power["f_detent"] if sim_power else float("nan")
+    _fh = sim_power["f_hold"] if sim_power else float("nan")
+    _md = mo.md(f"""
+### 2.5 Holding on power failure (V2 § 9)
+
+V2 before the review: "the detent torque bridges the gap until the brake engages". Simulation: the detent holds
+{_fd:.1f} N per jaw, the part needs {_fh:.1f} N.
+
+| brake engages after | pad force left | part |
+|---|---|---|
+{_rows}
+
+Only a drive that stays powered until the brake has closed keeps the part: buffer module PULS UF20.241 and a
+brake-first shutdown (D11). V2 § 9 is corrected.
+""")
+    mo.vstack([_md, mo.image(src=os.path.join(SIMFIG, "power_fail.png"), width=760)])
+    return
+
+
+@app.cell
+def _(SIMFIG, mo, os, sim_close):
+    _nan = float("nan")
+    _c = {f"{c['profile']} {c['t_fast']:.2f}": c for c in sim_close["cases"]} if sim_close else {}
+    _two, _dir = _c.get("two-stage 0.12", {}), _c.get("direct 0.25", {})
+    _mr = sim_close["m_reflected"] if sim_close else _nan
+    _md = mo.md(f"""
+### 2.6 Motor and closing (V2 § 10)
+
+| | V2 | simulation | deviation |
+|---|---|---|---|
+| closing 8 mm | triangle profile in 0.3 s, peak ≈ 360 rpm, inertia torque negligible | two-stage: grip force after **{_two.get('t_grip', _nan) * 1000:.0f} ms**, peak {_two.get('f_peak', _nan):.1f} N | {(_two.get('t_grip', _nan) / 0.3 - 1) * 100:+.0f} % of the 0.3 s |
+| impact on the part | not considered | straight into the part (0.25 s): **{_dir.get('f_peak', _nan):.0f} N** peak; reflected drive inertia {_mr:.1f} kg | new finding |
+| available grip force | 60.5 N (all efficiencies) | `F_JAW_AVAIL` = 60.5 N in the parameters | 0 % |
+""")
+    mo.vstack([_md, mo.hstack([mo.image(src=os.path.join(SIMFIG, "closing.png"), width=600),
+                               mo.video(src=os.path.join(SIMFIG, "closing_two-stage_120ms.mp4"), controls=True, width=480)],
+                              justify="start", wrap=True)])
+    return
+
+
+@app.cell
+def _(P, V4C, an, fem_train, mo, sim_close, sim_grip, v2, v4_store):
+    _nan = float("nan")
+    _c = {c["case"]: c for c in sim_grip["cases"]} if sim_grip else {}
+    _lc2 = next((c for c in fem_train["cases"] if c["case"].startswith("LC2")), None) if fem_train else None
+    _close = {f"{c['profile']} {c['t_fast']:.2f}": c for c in sim_close["cases"]} if sim_close else {}
+    _My_v = P.F_JAW_MAX * abs(P.PINION_Z0 + P.PINION_B / 2 - sum(P.PAD_Z) / 2) / 1000
+    _My_f = _lc2["carriage"]["M"][1] / 1000 if _lc2 else _nan
+    _um = _c.get("required", {}).get("util_median", _nan)
+    _ae = _c.get("e-stop at setpoint", {}).get("a_tcp_max", _nan)
+    _tg = _close.get("two-stage 0.12", {}).get("t_grip", _nan)
+    _rows = [(r["quantity"], f"{r['analytic']:.2f}", f"{r['fem']:.2f}", r["dev"], "V4 / FEM") for r in (V4C.compare(v4_store, an) or [])]
+    _rows += [("friction use at the required force, median", "0.50", f"{_um:.2f}", (_um / 0.5 - 1) * 100, "V2 § 1 / MuJoCo"),
+              ("path acceleration [m/s²]", f"{P.A_BAHN:.2f}", f"{P.A_PATH_REAL:.2f}", (P.A_PATH_REAL / P.A_BAHN - 1) * 100, "V2 § 1 / MuJoCo"),
+              ("e-stop deceleration at the TCP [m/s²]", f"{v2['a_stop']:.1f}", f"{_ae:.1f}", (_ae / v2['a_stop'] - 1) * 100, "V2 § 2 / MuJoCo"),
+              ("carriage pitch moment [N·m]", f"{_My_v:.2f}", f"{_My_f:.2f}", (_My_f / _My_v - 1) * 100, "V2 § 6 / FEM"),
+              ("closing time with grip force [s]", "0.30", f"{_tg:.3f}", (_tg / 0.3 - 1) * 100, "V2 § 10 / MuJoCo")]
+    _t = ["| quantity | hand calculation | simulation | deviation | pair |", "|---|---|---|---|---|"]
+    for _q, _a, _f, _d, _src in _rows:
+        _t.append(f"| {_q} | {_a} | {_f} | {_d:+.1f} % | {_src} |")
+    mo.md("## 3. All deviations at a glance\n\n" + "\n".join(_t) +
+          "\n\nQualitative: power failure, V2 'held' against the simulation 'dropped without buffer' → corrected (2.5). "
+          "Within 5 %: stress and carriage moments. Above 5 %: model limits (beam theory on a short, stocky jaw) or V2 "
+          "assumptions the simulation replaced (path and stop acceleration, closing impact).")
     return
 
 
