@@ -226,7 +226,7 @@ def _(HERE, fem_go, json, lc, mo, os):
         _fem = json.load(open(_path))
     _rows = ["| Load case | u pad [µm] | tilt [°] | slide MPa / S | holder MPa / S | jaw MPa / S |", "|---|---|---|---|---|---|"]
     for _c in _fem["cases"]:
-        _cells = [f"{_c['parts'][_k]['vm_peak']:.1f} / {_c['parts'][_k]['safety']:.1f}" for _k in ("slide", "holder", "jaw (mock)")]
+        _cells = [f"{_c['parts'][_k]['vm_peak']:.1f} / {_c['parts'][_k]['safety']:.1f}" for _k in ("slide", "holder", "jaw")]
         _rows.append(f"| {_c['case']} | {_c['u_pad'] * 1000:.1f} | {_c.get('tilt_deg', float('nan')):.3f} | " + " | ".join(_cells) + " |")
     _png = os.path.join(HERE, "..", "05_FEM", "figures", "train_lc2_von_mises.png")
     mo.vstack([mo.md(f"{_fem['elements']} elements, element size {_fem['lc']} mm\n\n" + "\n".join(_rows)),

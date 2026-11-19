@@ -145,7 +145,29 @@ def solve(base):
         raise RuntimeError("CalculiX failed:\n" + log[-2000:])
 
 
-def read_frd(path):
+def cleanup(base):
+    """Solver files are 30-80 MB each and every result is kept in the JSON; KEEP_FILES=1 keeps them."""
+    if os.environ.get("KEEP_FILES"):
+        return
+    for ext in (".frd", ".inp", ".dat", ".12d", ".cvg", ".sta"):
+        try:
+            os.remove(os.path.join(OUT, base + ext))
+        except OSError:
+            pass
+
+
+def read_frd(path, tries=10):
+    """Retries: on Windows the .frd is sometimes not complete right after ccx exits (scanner / write cache)."""
+    import time
+    for _ in range(tries):
+        b = _read_frd(path)
+        if "DISP" in b and "STRESS" in b:
+            return b
+        time.sleep(1.0)
+    raise RuntimeError(f"no DISP/STRESS in {path}")
+
+
+def _read_frd(path):
     """Node results from the .frd file. Fixed-width: negative numbers run together, so no split()."""
     blocks, cur, ncomp = {}, None, 0
     for line in open(path, errors="replace"):
@@ -178,6 +200,7 @@ def run(lc=1.5, force=P.F_JAW_MAX, base="jaw", keep_mesh=False, clamp=False):
     write_inp(os.path.join(OUT, base + ".inp"), nodes, elems, fix_x, fix_yz, loads, clamp)
     solve(base)
     b = read_frd(os.path.join(OUT, base + ".frd"))
+    cleanup(base)
     U, S = b["DISP"], b["STRESS"]
     xyz = np.array([nodes[t] for t in U])
     ids = list(U)

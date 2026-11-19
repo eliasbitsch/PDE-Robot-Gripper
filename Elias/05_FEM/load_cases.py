@@ -47,7 +47,7 @@ MATERIALS = {
     "EN AW-6082 T6": {"E": 70000.0, "nu": 0.33, "Rp02": 250.0, "fatigue": 90.0},   # MPa; fatigue: R = -1, 1e7 cycles
     "EN AW-7075 T6": {"E": 71700.0, "nu": 0.33, "Rp02": 460.0, "fatigue": 150.0},
 }
-PARTS = {"slide": "EN AW-6082 T6", "holder": "EN AW-6082 T6", "jaw (mock)": "EN AW-7075 T6"}
+PARTS = {"slide": "EN AW-6082 T6", "holder": "EN AW-6082 T6", "jaw": "EN AW-7075 T6"}
 
 # Boundary conditions
 BC = [

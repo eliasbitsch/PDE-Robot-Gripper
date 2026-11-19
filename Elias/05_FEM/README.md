@@ -60,25 +60,49 @@ slide and holder (Rp0.2 250 MPa), EN AW-7075 T6 for the mock jaw (460 MPa).
 pads stay flat on the part (the deflection at the pad centre is reported but not governing); fatigue: LC1 is a
 pulsating load at about 3 million cycles a year, stress amplitude ≤ 45 MPa in 6082.
 
-**Results, 16 Nov 2026** (`fem_train.py`, element size 2 mm, 65.7k C3D10; 3 mm gives the same deflection within
-0.2 %, peak stresses +10 %, they sit at hole edges and grow slowly with refinement):
+**Model since 19 Nov 2026.** Jaw = Viktoriia's V3 (`v3_import.py` builds `train_v3.step` and `jaw_v3.step` from
+`Viktoriia/03_CAD_Jaws/jaw_R.step`, moved from the grip position to d = 0). Supports corrected: the carriage holds
+the slide in y and z only (it runs along x on the rail), the grip force goes into the rack, modelled as a rigid body
+(pin bore + the boss the rack sits on) held in x at the pitch line of the pinion mesh. Before, the carriage patch
+was fixed in x too, which put the rack's job on the carriage.
 
-| Load case | u pad [µm] | tilt [°] | slide [MPa] / S | holder [MPa] / S | mock jaw [MPa] / S |
+**Results, 19 Nov 2026** (`fem_train.py`, 2 mm, 65k C3D10):
+
+| Load case | u pad [µm] | tilt [°] | slide [MPa] / S | holder [MPa] / S | jaw V3 [MPa] / S |
 |---|---|---|---|---|---|
-| LC1 nominal grip | 36.2 | 0.050 | 8.9 / 28.0 | 9.3 / 26.9 | 9.8 / 46.9 |
-| LC2 full current | 64.5 | 0.089 | 15.9 / 15.7 | 16.5 / 15.1 | 17.5 / 26.3 |
-| LC3 transport | 36.4 | 0.050 | 9.0 / 27.8 | 9.4 / 26.7 | 10.0 / 46.2 |
-| LC4 emergency stop | 65.4 | 0.090 | 15.9 / 15.7 | 17.4 / 14.3 | 17.7 / 25.9 |
-| LC5 brake limit | 125.4 | 0.173 | 30.9 / 8.1 | 32.2 / 7.8 | 34.0 / 13.5 |
+| LC1 nominal grip | 35.1 | 0.053 | 8.3 / 30.3 | 9.4 / 26.5 | 12.2 / 37.8 |
+| LC2 full current | 62.6 | 0.094 | 14.7 / 17.0 | 16.8 / 14.9 | 21.7 / 21.2 |
+| LC3 transport | 35.3 | 0.053 | 8.3 / 30.0 | 9.6 / 26.0 | 12.4 / 37.2 |
+| LC4 emergency stop | 63.4 | 0.095 | 14.7 / 17.0 | 17.9 / 14.0 | 22.1 / 20.9 |
+| LC5 brake limit | 121.6 | 0.183 | 28.6 / 8.7 | 32.7 / 7.6 | 42.2 / 10.9 |
 
-- Strength is far from critical: S ≥ 7.8 in every part and load case, also at the brake limit.
-- Fatigue: LC1 amplitude in the holder about 4.7 MPa against 45 MPa allowed.
-- Stiffness is the design driver: the slide's overhang beyond the carriage bends under the 60 mm lever from the pad,
-  holder and jaw tilt almost as a rigid body. LC2 tilt 0.089° meets 0.1° with only 11 % margin, and the carriage is
-  taken as rigid here; its own tilting stiffness (Rexroth catalogue) will add to it. Next step: add the carriage
-  compliance as a spring, and if the margin goes, make the slide thicker or move the holder closer to the carriage.
+- Strength is far from critical: S ≥ 7.6 everywhere, also at the brake limit.
+- Stiffness drives the design: LC2 tilt 0.094° against 0.1°, carriage still rigid. Its own tilting stiffness
+  (Rexroth catalogue) is the next thing to add.
+- Carriage reactions (LC2): M_y = 4.55 N·m, M_z = 0.64 N·m, no force: identical to V2 § 6 (F · 71.5 mm, F · 10 mm).
 
-![LC2 von Mises](figures/train_lc2_von_mises.png)
+**Mesh convergence** (`convergence.py`, LC2, 4 ... 1.2 mm = 26k ... 162k elements, `figures/convergence_train.png`):
+strain energy, pad tilt and pad deflection change by 0.42 / 0.35 / 0.49 % in the last refinement (converged;
+Richardson: 2.012 N·mm, 0.0952°, 63.8 µm). Peak von Mises at hole and support edges keeps growing (singular), so it
+is reported but not used for a verdict; the safety factors above leave room for a factor of 7 on it.
 
-**To run** (on mains power, about 5 min at 3 mm): `fc.sh export_train.py`, then `python fem_train.py 2.0`,
-or interactively `marimo edit fem_train_notebook.py` (shows the last results at once).
+![convergence](figures/convergence_train.png)
+
+## V4 check: Viktoriia's beam theory against the FEM of her jaw V3 (`v4_check.py`)
+
+Her notebook is executed as it is; FEM of `jaw_v3.step` at full current, 2.5 / 1.6 / 1.0 mm (deflection changes
+0.3 % in the last step). Interactive with all plots: `marimo edit review_viktoriia_notebook.py`.
+
+| Quantity | V4 | FEM (60k el.) | deviation | ≤ 5 % |
+|---|---|---|---|---|
+| bending stress at z = -53.5 | 5.73 MPa | 5.71 MPa | +0.3 % | ✓ |
+| deflection, rigid beam (a+b) vs FEM rigid clamp | 11.58 µm | 15.44 µm | -25.0 % | ✗ |
+| deflection, beam + Weber (a+b+c) vs FEM rigid clamp | 14.43 µm | 15.44 µm | -6.6 % | ✗ (close) |
+| deflection, beam + Weber vs FEM standard support | 14.43 µm | 17.30 µm | -16.6 % | ✗ |
+
+The stress is confirmed. The deflection with Weber's elastic-clamp term misses 5 % by 1.6 points; V4 leaves out the
+two 6.5 x 1 counterbores and the M3 holes of the V3 jaw (checkbox off), both on the outer fibre in the loaded span.
+The standard support adds the holder contact compliance, which only the printed jaw (V5) can settle.
+
+**To run:** `python v3_import.py`, `python fem_train.py 2.0`, `python convergence.py`, `python v4_check.py`;
+solver files are deleted after reading (`KEEP_FILES=1` keeps them), the results live in `out/*.json`.
