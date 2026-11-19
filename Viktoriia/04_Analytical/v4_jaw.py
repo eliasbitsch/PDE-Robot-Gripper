@@ -59,9 +59,10 @@ def _(P, mo):
     s_end = z_clamp - P.JAW_Z_BOTTOM                    # 51
     s_F = 0.5 * (s_a + s_b)                             # 30.5 resultant
     holes = [(z_clamp - (z_top - 39.0), 3.4), (z_clamp - (z_top - 59.0), 3.4)]   # pad-plate screws, s and diameter
-    use_holes = mo.ui.checkbox(value=False, label="include the two Ø3.4 pad-plate screw holes in the stiffness")
+    CBORE_D, CBORE_T = 6.5, 1.0                         # V3: counterbore on the outer face at both screw holes
+    use_holes = mo.ui.checkbox(value=True, label="include the two Ø3.4 holes and Ø6.5 x 1 counterbores (V3) in the stiffness")
     use_holes
-    return (B, E, F_cases, G_mod, H, NU, POCKET_D, RIM, RP02, holes, s_F, s_a, s_b, s_end,
+    return (B, CBORE_D, CBORE_T, E, F_cases, G_mod, H, NU, POCKET_D, RIM, RP02, holes, s_F, s_a, s_b, s_end,
             use_holes, z_clamp)
 
 
@@ -81,14 +82,20 @@ def _(mo):
 
 
 @app.cell
-def _(B, H, POCKET_D, RIM, holes, mo, s_a, s_b, use_holes):
+def _(B, CBORE_D, CBORE_T, H, POCKET_D, RIM, holes, mo, s_a, s_b, use_holes):
+    def _chord(d, dia):
+        return 2 * max(0.0, (dia / 2) ** 2 - d ** 2) ** 0.5
+
     def section(s, with_holes=False):
-        """I [mm^4], A [mm^2], x_c [mm] (from the inner face) at distance s below the clamp."""
+        """I [mm^4], A [mm^2], x_c [mm] (from the inner face) at distance s below the clamp.
+        With holes: the hole chord is taken out of the web, the counterbore chord out of the outer 1 mm layer."""
         if s_a <= s <= s_b:
-            web_b = B
-            if with_holes and any(abs(s - sh) <= dh / 2 for sh, dh in holes):
-                web_b = B - [dh for sh, dh in holes if abs(s - sh) <= dh / 2][0]
-            parts = [(web_b, H - POCKET_D, POCKET_D + (H - POCKET_D) / 2),
+            d = min(abs(s - sh) for sh, _ in holes) if with_holes else 1e9
+            w_hole = _chord(d, holes[0][1])
+            w_cb = _chord(d, CBORE_D)
+            web_h = H - POCKET_D - CBORE_T
+            parts = [(B - w_hole, web_h, POCKET_D + web_h / 2),
+                     (B - max(w_hole, w_cb), CBORE_T, H - CBORE_T / 2),
                      (2 * RIM, POCKET_D, POCKET_D / 2)]
         else:
             parts = [(B, H, H / 2)]
@@ -270,9 +277,10 @@ def _(F_cases, deflection, plt, s_grid):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 6. Comparison with the FEM (E5, Elias, 11 Nov 2026, F = 63.6 N)
+    ## 6. Comparison with the FEM (E5, Elias, F = 63.6 N)
 
-    FEM values from `Elias/05_FEM/README.md` (gmsh C3D10, 158k elements, CalculiX, converged).
+    FEM of **this V3 jaw**, read from `Elias/05_FEM/v4_fem_results.json` (written by `v4_check.py`: gmsh C3D10,
+    finest mesh, CalculiX, converged); the old mock-jaw values of 11 Nov are the fallback if the file is missing.
     Two FEM support variants exist: **standard** (holder face fixed in x only, dowel holes in y/z) and **rigid clamp**.
     Like must be compared with like: the analytical *rigid* model belongs to neither exactly - the FEM "rigid clamp"
     still lets the jaw material inside the holder zone deform, which is exactly what term c) describes.
@@ -282,8 +290,10 @@ def _(mo):
 
 @app.cell
 def _(F_cases, deflection, mo, stresses):
+    import json as _json
     _F = F_cases["full current"]
-    FEM = {"sigma_check": 5.71, "w_std": 17.0, "w_rigid": 15.0}
+    _p = mo.notebook_dir() / ".." / ".." / "Elias" / "05_FEM" / "v4_fem_results.json"
+    FEM = _json.load(open(_p)) if _p.exists() else {"sigma_check": 5.71, "w_std": 17.0, "w_rigid": 15.0}
     _sig = stresses(_F)["FEM check z = -53.5 (s = 6.5)"]
     _d = deflection(_F)
     w_rigid_an = (_d["w_b"] + _d["w_s"]) * 1000

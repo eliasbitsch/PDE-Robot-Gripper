@@ -17,6 +17,7 @@ import fem_jaw as J  # noqa: E402
 V4 = os.path.join(HERE, "..", "..", "Viktoriia", "04_Analytical", "v4_jaw.py")
 J.STEP = os.path.join(HERE, "jaw_v3.step")
 PATH = os.path.join(J.OUT, "v4_check.json")
+SHARED = os.path.join(HERE, "v4_fem_results.json")   # committed: V4 reads its FEM reference values from here
 SIZES = [2.5, 1.6, 1.0]                             # 0.7 mm needs several GB of scratch, adds nothing
 TOL = 5.0                                           # % (lecture 17 Oct)
 
@@ -47,6 +48,10 @@ def run_size(lc, store=None):
                         vm_peak_at=r["vm_peak_at"])
     store[f"{lc:g}"] = row
     json.dump(store, open(PATH, "w"), indent=1)
+    fine = store[min(store, key=float)]
+    json.dump(dict(sigma_check=round(abs(fine["standard"]["szz"]), 3), w_rigid=round(fine["rigid"]["ux"], 2),
+                   w_std=round(fine["standard"]["ux"], 2), elements=fine["rigid"]["elements"],
+                   lc=float(min(store, key=float)), jaw="Viktoriia V3 (jaw_v3.step)"), open(SHARED, "w"), indent=1)
     return store
 
 

@@ -86,6 +86,7 @@ def _(P, S_s, mo, mu_s):
     | available at full motor current (Elias) | {F_max:.1f} N |
     | utilisation | {F_req/F_max*100:.0f} % |
     | same with µ = 0.1 (steel/steel catalogue value) | {F_req_mu01:.1f} N {'⚠ above motor limit' if F_req_mu01 > F_max else ''} |
+    | same with the real path acceleration 4.96 m/s² (MuJoCo, MoveJ with axis 1 turning ≈ 160°, E4) | {S * m * (g + 4.96) / (n_faces * mu):.1f} N |
     """)
     return F_max, F_req, S, a_path, g, m, mu, n_faces
 
@@ -117,13 +118,14 @@ def _(mo):
 
     $$a_\mathrm{res} = \sqrt{g^2 + a_\mathrm{stop}^2}, \qquad F_{G,\mathrm{stop}} = \frac{S_\mathrm{stop}\, m \, a_\mathrm{res}}{n\,\mu}$$
 
-    **Stop deceleration [verify].** ABB lists stopping distance and time for category 0 stops (max speed,
-    arm stretched, max load) in the product specification. The IRB 1300 sheet (3HAC070393) was not accessible;
-    the **CRB 1300-7/1.4** (same 1.4 m / 7 kg arm family, OmniCore) gives axis 1: 55.25° in 0.40 s,
-    axis 2: 33.39° in 0.37 s, axis 3: 35.66° in 0.27 s. Assuming constant deceleration,
+    **Stop deceleration.** ABB lists stopping distance and time for category 0 stops (max speed, arm stretched,
+    max load) in the product specification. IRB 1300-7/1.4 (3HAC070393-001 rev. M, p. 91; same values as the
+    CRB 1300-7/1.4 sheet): axis 1: 55.25° in 0.40 s, axis 2: 33.39° in 0.37 s, axis 3: 35.66° in 0.27 s. Assuming constant deceleration,
     $\alpha = 2\varphi / t^2$, times the lever arm to the TCP (1.4 m for axes 1 and 2, about 0.8 m for axis 3)
-    gives 12 ... 17 m/s². **Design value 17 m/s² (≈ 1.7 g).** Replace by the IRB 1300 table when available.
-    Note: ABB defines a *category 1* (controlled, on-path) stop as default for the IRB 1300 - that is gentler.
+    gives 12 ... 17 m/s². **Design value 17 m/s² (≈ 1.7 g)**, conservative: 1.4 m is the full reach, in our cell the
+    TCP is at most ≈ 1.0 m from axis 1 (12.3 m/s², the value used in the MuJoCo e-stop simulation, E4).
+    Note: the emergency stop button of the controller is configured for **category 0** on delivery
+    (3HAC070393, § 1.9.2, p. 71), so the uncontrolled stop with these decelerations is the right load case.
 
     The emergency stop is a rare, accidental load case, so it is checked with $S_\mathrm{stop}$ = 1 (must not slip)
     and 1.5 (recommended).
@@ -168,15 +170,15 @@ def _(mo):
     mo.md(r"""
     ## 3. Surface pressure pad / PA 6
 
-    The pad plate (steel 3 mm + NBR 70 Shore A 3 mm) sits in the 23 mm wide pocket over the 35 mm pad zone.
-    The contact area is the **pad**, not the 6200 mm² side face of the part.
+    The pad plate (steel 3 mm + NBR 70 Shore A 3 mm) sits in the 23 × 35 mm pocket; the NBR face is 0.5 mm smaller
+    all round (V3). The contact area is the **pad**, not the 6200 mm² side face of the part.
     """)
     return
 
 
 @app.cell
 def _(F_max, F_req, F_set, mo):
-    A_pad = 23.0 * 35.0                       # mm², pocket width x pad zone length (handover § 4)
+    A_pad = 21.8 * 33.8                       # mm², NBR contact face of the V3 pad (0.5 mm vulcanising edge on the 22.8 x 34.8 plate)
     E_nbr = 5.0                               # MPa, NBR 70 Shore A (same value as cad/params.py)
     t_nbr = 3.0                               # mm
     sigma_pa6 = 70.0                          # MPa, PA 6 yield 60-80 MPa (Röchling / Ensinger data sheets)
@@ -185,7 +187,7 @@ def _(F_max, F_req, F_set, mo):
         _p = _F / A_pad
         _rows += f"| {_lbl} | {_F:.1f} N | {_p:.3f} MPa | {sigma_pa6/_p:.0f} | {_p/E_nbr*t_nbr*1000:.0f} µm |\n"
     mo.md(f"""
-    Pad area $A$ = 23 × 35 = {A_pad:.0f} mm²
+    Pad area $A$ = 21.8 × 33.8 = {A_pad:.0f} mm² (V3 pad)
 
     | Load | F | p = F/A | safety vs. PA 6 yield ({sigma_pa6:.0f} MPa) | NBR compression |
     |---|---|---|---|---|
@@ -373,7 +375,9 @@ def _(mo):
 
     - pitch moment $M_y = F_G \cdot (z_\mathrm{mesh} - z_\mathrm{pad})$,
     - yaw moment $M_z = F_G \cdot \Delta y_\mathrm{rack}$,
-    - plus the share of the part load $F_z = m(g+a)/2$ at y = 0 → roll $M_x = F_z \cdot 32.5$ mm.
+    - plus the share of the part load $F_z = m(g+a)/2$ at y = 0 → roll $M_x = F_z \cdot 32.5$ mm,
+    - in the e-stop the sideways deceleration in the pad plane $F_y = m\,a_\mathrm{stop}/2$ at the pad, 64.5 mm below
+      the carriage → adds $F_y$ and roll $F_y \cdot 64.5$ mm.
 
     Combined equivalent static load (Rexroth catalogue R999001206):
     $F_\mathrm{comb} = |F_y| + |F_z| + C_0\frac{|M_x|}{M_{t0}} + C_0\frac{|M_y|}{M_{L0}} + C_0\frac{|M_z|}{M_{L0}}$,
@@ -383,7 +387,7 @@ def _(mo):
 
 
 @app.cell
-def _(F_max, F_req, F_set, P, a_path, a_res, g, m, mo):
+def _(F_max, F_req, F_set, P, a_path, a_stop, g, m, mo):
     z_pad = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1])         # -77.5
     z_mesh = P.PINION_Z0 + P.PINION_B / 2            # -6, middle of the pinion teeth
     dz_tilt = abs(z_mesh - z_pad)                    # 71.5 mm
@@ -391,28 +395,31 @@ def _(F_max, F_req, F_set, P, a_path, a_res, g, m, mo):
     dy_rail = abs(P.RAIL_Y)                           # 32.5 mm
     C0, MT0, ML0 = P.CARRIAGE_C0, P.CARRIAGE_MT0 * 1000, P.CARRIAGE_ML0 * 1000   # N, N·mm
 
-    def guide(F, a_vert):
-        Fz = m * a_vert / 2
-        My, Mz, Mx = F * dz_tilt, F * dy_rack, Fz * dy_rail
-        Fc = abs(Fz) + C0 * Mx / MT0 + C0 * My / ML0 + C0 * Mz / ML0
+    dz_carr = abs(P.SLIDE_Z_TOP - z_pad)              # 64.5 mm, pad centre to the carriage
+    def guide(F, a_vert, a_side=0.0):
+        """a_side: deceleration across the rail in the pad plane (e-stop), carried by the pads as Fy."""
+        Fz, Fy = m * a_vert / 2, m * a_side / 2
+        My, Mz, Mx = F * dz_tilt, F * dy_rack, Fz * dy_rail + Fy * dz_carr
+        Fc = abs(Fy) + abs(Fz) + C0 * Mx / MT0 + C0 * My / ML0 + C0 * Mz / ML0
         return My, Mz, Mx, Fc, C0 / Fc
 
     _rows = ""
-    for _lbl, _F, _a in (("regular", F_req, g + a_path), ("setpoint", F_set, g + a_path),
-                         ("full current + E-stop", F_max, a_res)):
-        _My, _Mz, _Mx, _Fc, _S0 = guide(_F, _a)
+    for _lbl, _F, _a, _as in (("regular", F_req, g + a_path, 0.0), ("setpoint", F_set, g + a_path, 0.0),
+                              ("full current + E-stop", F_max, g, a_stop)):
+        _My, _Mz, _Mx, _Fc, _S0 = guide(_F, _a, _as)
         _rows += f"| {_lbl} | {_F:.1f} N | {_My/1000:.2f} Nm | {_Mz/1000:.2f} Nm | {_Mx/1000:.2f} Nm | {_Fc:.0f} N | **{_S0:.2f}** |\n"
     mo.md(f"""
     Lever arms: Δz = {dz_tilt:.1f} mm (pad centre to mesh), Δy = {dy_rack:.0f} mm, rail offset {dy_rail:.1f} mm.
     Elias' note used the carriage centre z ≈ -8 (Δz = 69.5 mm); the mesh is the correct reaction point, 3 % more conservative.
+    FEM check (E5, rack as rigid body at the pitch line, full current): carriage M_y = 4.55 N·m, M_z = 0.64 N·m - identical.
 
     | Load case | F_G | M_y (pitch) | M_z (yaw) | M_x (roll) | F_comb | S0 |
     |---|---|---|---|---|---|---|
     {_rows}
 
-    The pitch moment from the 71.5 mm long jaw dominates (ML0 = 14 Nm). S0 is > 2.5 even in the worst case.
-    **[verify]** the minimum S0 Rexroth recommends for operation with shocks in catalogue R999001206 -
-    if it is above 2.6, the full-current case needs a current limit (or the long carriage version is enough).
+    The pitch moment from the 71.5 mm long jaw dominates (ML0 = 14 Nm). S0 ≈ 2.5 in the worst case (full current
+    plus the sideways e-stop load). **[verify]** the minimum S0 Rexroth recommends for operation with shocks in
+    catalogue R999001206 - if it is above 2.5, the full-current case needs a current limit.
     """)
     return
 
@@ -433,8 +440,10 @@ def _(mo):
 
 
 @app.cell
-def _(F_max, F_req, F_set, bevel_forces, math, mo):
-    z_A, z_B, z_bev = 3.5, 13.0, 24.0
+def _(F_max, F_req, F_set, P, bevel_forces, math, mo):
+    z_A = P.BEARING_LOWER_Z + P.BEARING[2] / 2          # 3.5, bearing centres from the CAD
+    z_B = P.BEARING_UPPER_Z + P.BEARING[2] / 2          # 13.0
+    z_bev = P.DRIVE_Z - 8.23                            # 24.3, mean contact of the bevel wheel
     C0_608, C_608 = 1370.0, 3450.0
     _rows = ""
     for _lbl, _F in (("regular", F_req), ("setpoint", F_set), ("full current", F_max)):
@@ -567,8 +576,13 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
 
     - Max grip force with **all** efficiencies at full current: **{F_avail:.1f} N** (Elias' 63.6 N counts only the gearbox).
     - Closing move: pinion turns {math.degrees(phi_p):.0f}°, motor {math.degrees(phi_m):.0f}°, peak **{rpm:.0f} rpm**,
-      acceleration {al_m:.0f} rad/s² → inertia torque **{T_acc:.2f} N·mm** - negligible. At ≈ 340 rpm the ST4118S
-      still delivers ≈ 0.23 Nm (Nanotec torque curve, 24 V), so speed is no limit.
+      acceleration {al_m:.0f} rad/s² → inertia torque **{T_acc:.2f} N·mm** - negligible. Speed is no limit either:
+      the pull-out torque cannot exceed the 0.20 Nm holding torque, and at 24 V it stays at ≈ 0.19 Nm up to ≈ 800 rpm
+      (model from R, L and holding torque, `Elias/04_Simulation/drive.py`; Nanotec curve to be laid over).
+    - Seen from the jaws, rotor + gearbox + brake act like **≈ 3.2 kg** (J·(i/r)², vs 0.47 kg of jaws): the current
+      limit cannot stop that before the pads hit. MuJoCo (E4): driving straight into the part at 50 mm/s gives a
+      pad force peak of ≈ 77 N; a **two-stage close** (fast to 1 mm before the part, then 10 mm/s) meets 0.3 s
+      (255 ms) without overshoot - that is the recommended motion profile.
     - The grip itself happens at standstill, so the holding torque is the relevant limit: margin
       **{T_hold/T_motor(F_req):.2f}** at the regular force and **{T_hold/T_motor(F_set):.2f}** at the recommended setpoint.
       Run the stepper in closed-loop mode (encoder) so a short overload cannot cost steps.
@@ -584,15 +598,15 @@ def _(F_max, F_req, F_set, mo):
     | # | Check | Result |
     |---|---|---|
     | 1 | Grip force, µ = 0.2, S = 2 | {F_req:.1f} N per jaw ✓ (µ = 0.1 would need twice that - above the motor) |
-    | 2 | Emergency stop (17 m/s², S = 1.5) | recommended setpoint **{F_set:.1f} N** ✓ |
+    | 2 | Emergency stop (17 m/s², S = 1.5; IRB 1300 stop data) | recommended setpoint **{F_set:.1f} N** ✓ - also covers the real path (4.96 m/s² → ≈ 44 N) |
     | 3 | Surface pressure | < 0.1 MPa ✓ not critical |
     | 4 | Rack and pinion, root + flank | ✓ large reserves |
     | 5 | **Bevel pair, flank** | **✗ at the limit (regular) / over (full current) → hardened bevels or bevel before the gearbox** |
-    | 6 | Ball rail, tilting | S0 > 2.6 ✓ (verify min. S0) |
+    | 6 | Ball rail, tilting | S0 ≥ 2.5 ✓ (verify min. S0); FEM gives the same carriage moments |
     | 7 | Bearings 608-2Z | s0 > 3.5 ✓ |
     | 8 | Gearbox shaft load | ≈ 50 % of 305 N ✓ |
     | 9 | Brake on power failure | holds ≈ 124 N per jaw ✓ |
-    | 10 | Motor | margin ≈ 1.7 (regular) / 1.4 (setpoint) ✓, max ≈ 60 N with all efficiencies |
+    | 10 | Motor | margin ≈ 1.7 (regular) / 1.4 (setpoint) ✓, max ≈ 60 N with all efficiencies; two-stage close against the impact |
 
     Envelope for all part checks: {F_max:.1f} N (full motor current).
     """)
