@@ -132,6 +132,21 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
      of controller + motor + brake) in front of the CL4-E; on undervoltage the NanoJ program closes the brake, waits
      the brake engagement time plus margin, then disables the motor current. The gripper 24 V is a separate,
      non-e-stop-switched supply (the e-stop stops the robot, it must not open the jaws).
+   - Shutdown on power loss (NanoJ): undervoltage detected -> motor keeps its current (preload stays) -> brake output off,
+     the spring closes the brake -> wait brake engagement time + margin (50-100 ms; not in the Nanotec sheet, measure or
+     ask) -> motor current off, the brake now holds the preload.
+   - **Cabinet BOM** (`parts/cabinet.py` -> `out/bom_cabinet.csv`, written by every build):
+
+     | Pos | Qty | Part | Type |
+     |---|---|---|---|
+     | 1 | 1 | Closed-loop stepper controller (encoder input, brake output, NanoJ) | Nanotec CL4-E-1-12 |
+     | 2 | 1 | Power supply 24 V DC, 5 A, DIN rail | Mean Well SDR-120-24 |
+     | 3 | 1 | Buffer module 24 V, >= 200 ms at 20 A | PULS UF20.241 |
+     | 4 | 1 | Circuit breaker C6 A, 230 V AC feed | e.g. ABB S201-C6 |
+     | 5 | 1 | Fuse terminal 24 V, 4 A slow (controller supply) | e.g. Phoenix Contact UT 4-HESI |
+     | 6 | 1 | Hybrid robot cable motor + brake + encoder, shielded, torsion-rated, 5 m | e.g. igus chainflex (to be selected) |
+     | 7 | 1 | Control cable 4 x 0.25 shielded, 3 m (OmniCore I/O <-> CL4-E) | standard |
+     | 8 | 10 | DIN rail terminal blocks 2.5 mm2 | e.g. Phoenix Contact PT 2.5 |
    - Still to check: NME2 output level against the CL4-E encoder input, NanoJ sequence, V2 motor sizing unchanged
      (ST4118S stays).
    Candidates (15 Nov 2026): **PD2-C4118L1804-E-08** (CANopen; -E-01 USB/IO), 0.50 N·m holding, 1.8 A, 12-48 V,

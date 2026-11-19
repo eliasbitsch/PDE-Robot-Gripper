@@ -467,6 +467,9 @@ def main():
     with open(os.path.join(OUT, "bom.csv"), "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     print(f"BOM: {len(lines) - 1} positions -> out/bom.csv")
+    from parts import cabinet
+    cabinet.write_csv(os.path.join(OUT, "bom_cabinet.csv"))
+    print(f"cabinet BOM: {len(cabinet.CABINET_BOM)} positions -> out/bom_cabinet.csv")
     report["mass_kg"] = mass
     report["mass_parts_kg"] = masses
     with open(os.path.join(OUT, "checks.json"), "w") as f:
