@@ -193,10 +193,14 @@ def mises(s):
 
 
 def run(lc=1.5, force=P.F_JAW_MAX, base="jaw", keep_mesh=False, clamp=False):
-    """clamp=True fixes the support face in all directions (rigid clamp, the hand-calculation assumption)."""
+    """clamp=True fixes the support face in all directions (rigid clamp); clamp="section" fixes the whole cross-section
+    at the holder edge z = -47 (exactly the built-in end of beam theory, the jaw above it carries no load)."""
     os.makedirs(OUT, exist_ok=True)
     nodes, elems, tris = mesh(lc)
     fix_x, fix_yz, loads, area = boundary(nodes, tris, force)
+    if clamp == "section":
+        fix_x = [t for t, c in nodes.items() if abs(c[2] - Z_HOLDER) < TOL]
+        fix_yz = fix_x
     write_inp(os.path.join(OUT, base + ".inp"), nodes, elems, fix_x, fix_yz, loads, clamp)
     solve(base)
     b = read_frd(os.path.join(OUT, base + ".frd"))

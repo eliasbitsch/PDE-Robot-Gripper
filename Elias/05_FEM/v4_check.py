@@ -42,7 +42,7 @@ def load():
 def run_size(lc, store=None):
     store = load() if store is None else store
     row = {}
-    for sup, clamp in (("standard", False), ("rigid", True)):
+    for sup, clamp in (("standard", False), ("rigid", True), ("section", "section")):
         r = J.run(lc, base=f"v4_{sup}_{lc:g}".replace(".", "_"), clamp=clamp)
         row[sup] = dict(elements=r["elements"], ux=r["ux_load"] * 1000, szz=r["szz_check"], vm_peak=r["vm_peak"],
                         vm_peak_at=r["vm_peak_at"])
@@ -63,10 +63,11 @@ def compare(store=None, an=None):
     fine = store[min(store, key=float)]
     dev = lambda a, f: (a - f) / f * 100
     rows = [("bending stress z = -53.5 [MPa]", an["sigma_check"], abs(fine["standard"]["szz"])),   # outer face is in compression
+            ("deflection, rigid beam (a+b) vs FEM clamped section at z = -47 [µm]", an["w_rigid"], fine["section"]["ux"]) if "section" in fine else None,
             ("deflection, rigid beam (a+b) vs FEM rigid clamp [µm]", an["w_rigid"], fine["rigid"]["ux"]),
             ("deflection, beam + Weber (a+b+c) vs FEM rigid clamp [µm]", an["w_elastic"], fine["rigid"]["ux"]),
             ("deflection, beam + Weber vs FEM standard support [µm]", an["w_elastic"], fine["standard"]["ux"])]
-    return [dict(quantity=q, analytic=a, fem=f, dev=dev(a, f), ok=abs(dev(a, f)) <= TOL) for q, a, f in rows]
+    return [dict(quantity=q, analytic=a, fem=f, dev=dev(a, f), ok=abs(dev(a, f)) <= TOL) for q, a, f in filter(None, rows)]
 
 
 if __name__ == "__main__":
