@@ -1,4 +1,5 @@
 """Demo sequence shared by the headless check and the FreeCAD play macro."""
+import gripper_params as P   # callers put 02_CAD_Body on sys.path
 
 LIFT = 60.0
 OPEN = 10.0                         # set from gripper_params.D_OPEN by the callers
@@ -45,13 +46,13 @@ STEP_TEXT = [
 def explode_rules(s):
     return [
         ("Screw_ISO10642-M4x16_Adapter", 10, (0, 0, 230)), ("Adapter_ISO9409", 10, (0, 0, 190)),
-        ("Screw_ISO10642-M3x8_Window", 9, (0, 80, 0)), ("Cable_Gland", 9, (0, 65, 0)), ("Window_Plate", 9, (0, 50, 0)),
+        ("Screw_ISO10642-M3x8_Window", 9, (0, 80 * P.CABLE_SIDE, 0)), ("Cable_Gland", 9, (0, 65 * P.CABLE_SIDE, 0)), ("Window_Plate", 9, (0, 50 * P.CABLE_SIDE, 0)),
         ("Screw_ISO4762-M4x12_Hood", 4, (0, 0, -60)), ("Hood", 4, (0, 0, 140)),
         ("Screw_ISO4762-M4x12_Gearbox", 2, (-40, 0, 60)), ("Screw_ISO4762-M3x10_Bracket", 2, (0, 0, 95)), ("Bracket", 2, (0, 0, 70)),
         ("Bevel_Pinion", 2, (0, 0, 85)), ("Setscrew_ISO4029-M4x4_Wheel", 3, (-25, 0, 40)), ("Bevel_Wheel", 3, (0, 0, 40)),
         ("Key_", 3, (20, 0, 45)), ("Shim_", 3, (0, 0, 32)), ("Circlip_DIN472", 3, (0, 0, 28)), ("Circlip_DIN471", 3, (0, 0, -45)),
         ("Bearing_608_upper", 3, (0, 0, 25)), ("Bearing_608_lower", 3, (0, 0, -30)), ("Pinion_Shaft", 3, (0, 0, -60)),
-        ("Screw_ISO4762-M3x8_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),
+        ("Screw_ISO4762-M3x6_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),
         ("PadPlate_", 8, (-10 * s, 0, -235)), ("Pad_", 8, (-10 * s, 0, -235)), ("Jaw_", 8, (12 * s, 0, -200)),
         ("Screw_ISO10642-M3x10_Cover", 7, (0, 0, -175)), ("Cover", 7, (0, 0, -140)),
         ("Plunger_", 6, (40 * s, 0, -120)), ("Dowel_ISO8734-4x12", 6, (-15 * s, 0, -120)),

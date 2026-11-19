@@ -20,7 +20,7 @@ MM = 0.001
 PANEL = (640, 400)
 ACCENT = (194, 65, 12)
 # gripper parts the part must never touch (only the pads may), and cell objects the gripper/robot must clear
-GRIPPER_KEEP_OUT = ("Jaw_", "PadPlate_", "Holder_", "Cover", "Housing", "Plunger_", "Screw_ISO4762-M3x8_Pad")
+GRIPPER_KEEP_OUT = ("Jaw_", "PadPlate_", "Holder_", "Cover", "Housing", "Plunger_", "Screw_ISO4762-M3x6_Pad")
 CELL_KEEP_OUT = ("belt", "carrier", "pedestal")
 SEE_THROUGH = ("Housing", "Cover", "Hood", "Rail", "Window_Plate", "Bracket", "Carriage_")
 

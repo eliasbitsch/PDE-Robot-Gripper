@@ -151,34 +151,35 @@ def hood():
                           P.PLATE_T - 1, top - P.HOOD_TOP_T, P.HOOD_R - P.HOOD_WALL))
     for x, y in hood_screws():
         s = s.fuse(cylz(4.5, P.PLATE_T, P.PLATE_T + 13.5, x, y))   # 2.5 mm above the blind thread
+    c = P.CABLE_SIDE
     for x, z in window_screws():                                   # 2 mm bosses: M3 gets 5 mm thread instead of 3
-        s = s.fuse(Part.makeCylinder(3.5, 2.5, V(x, hy - P.HOOD_WALL - 2.0, z), V(0, 1, 0)))
+        s = s.fuse(Part.makeCylinder(3.5, 2.5, V(x, c * (hy - P.HOOD_WALL - 2.0), z), V(0, c, 0)))
     s = s.removeSplitter()
     seat = top + P.HOOD_SEAT
     tools = [cylz(P.LID_HOLE_D / 2, top - P.HOOD_TOP_T - 1, seat + 1)]
     r = P.ADAPTER_SCREW_PCD / 2
     tools += [cylz(2.1, seat - 6.5, seat + 1, r * math.cos(math.radians(a)), r * math.sin(math.radians(a))) for a in (45, 135, 225, 315)]   # HELICOIL M4 x 1.5 d (STI drill 4.2)
     tools += [cylz(1.65, P.PLATE_T - 1, P.PLATE_T + 11, x, y) for x, y in hood_screws()]          # M4 tapped from below
-    tools.append(box(WIN_X[0], WIN_X[1], hy - P.HOOD_WALL - 1, hy + 1, WIN_Z[0], WIN_Z[1]))
-    tools += [Part.makeCylinder(1.25, P.HOOD_WALL + 3, V(x, hy - P.HOOD_WALL - 2.5, z), V(0, 1, 0)) for x, z in window_screws()]
+    tools.append(box(WIN_X[0], WIN_X[1], c * (hy - P.HOOD_WALL - 1), c * (hy + 1), WIN_Z[0], WIN_Z[1]))
+    tools += [Part.makeCylinder(1.25, P.HOOD_WALL + 3, V(x, c * (hy - P.HOOD_WALL - 2.5), z), V(0, c, 0)) for x, z in window_screws()]
     return cut_all(s, tools).removeSplitter()
 
 
 def window_plate():
-    hy = P.HOOD_Y
-    s = box(WIN_X[0] - 10, WIN_X[1] + 10, hy, hy + P.WINDOW_PLATE_T, WIN_Z[0] - 9, WIN_Z[1] + 9)
+    hy, c = P.HOOD_Y, P.CABLE_SIDE
+    s = box(WIN_X[0] - 10, WIN_X[1] + 10, c * hy, c * (hy + P.WINDOW_PLATE_T), WIN_Z[0] - 9, WIN_Z[1] + 9)
     xc, zc = sum(WIN_X) / 2, sum(WIN_Z) / 2
-    tools = [Part.makeCylinder(P.GLAND[1] / 2, 10, V(xc, hy - 1, zc), V(0, 1, 0))]
-    tools += [Part.makeCylinder(1.7, 10, V(x, hy - 1, z), V(0, 1, 0)) for x, z in window_screws()]
-    tools += [Part.makeCone(3.46, 1.95, 1.9, V(x, hy + P.WINDOW_PLATE_T + 0.01, z), V(0, -1, 0)) for x, z in window_screws()]   # ISO 10642 M3, flush
+    tools = [Part.makeCylinder(P.GLAND[1] / 2, 10, V(xc, c * (hy - 1), zc), V(0, c, 0))]
+    tools += [Part.makeCylinder(1.7, 10, V(x, c * (hy - 1), z), V(0, c, 0)) for x, z in window_screws()]
+    tools += [Part.makeCone(3.46, 1.95, 1.9, V(x, c * (hy + P.WINDOW_PLATE_T + 0.01), z), V(0, -c, 0)) for x, z in window_screws()]   # ISO 10642 M3, flush
     return cut_all(s, tools)
 
 
 def gland():
     _, m, dk, l_out = P.GLAND
-    hy = P.HOOD_Y + P.WINDOW_PLATE_T
+    hy, c = P.HOOD_Y + P.WINDOW_PLATE_T, P.CABLE_SIDE
     xc, zc = sum(WIN_X) / 2, sum(WIN_Z) / 2
-    s = Part.makeCylinder(m / 2, P.WINDOW_PLATE_T, V(xc, hy - P.WINDOW_PLATE_T, zc), V(0, 1, 0))   # screwed into an M16x1.5 thread in the plate
-    s = s.fuse(Part.makeCylinder(dk / 2, 6, V(xc, hy, zc), V(0, 1, 0)))
-    s = s.fuse(Part.makeCylinder(dk / 2 - 2, l_out - 6, V(xc, hy + 6, zc), V(0, 1, 0)))
-    return s.cut(Part.makeCylinder(4.0, 40, V(xc, hy - 15, zc), V(0, 1, 0)))
+    s = Part.makeCylinder(m / 2, P.WINDOW_PLATE_T, V(xc, c * (hy - P.WINDOW_PLATE_T), zc), V(0, c, 0))   # screwed into an M16x1.5 thread in the plate
+    s = s.fuse(Part.makeCylinder(dk / 2, 6, V(xc, c * hy, zc), V(0, c, 0)))
+    s = s.fuse(Part.makeCylinder(dk / 2 - 2, l_out - 6, V(xc, c * (hy + 6), zc), V(0, c, 0)))
+    return s.cut(Part.makeCylinder(4.0, 40, V(xc, c * (hy - 15), zc), V(0, c, 0)))

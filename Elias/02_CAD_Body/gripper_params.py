@@ -73,6 +73,7 @@ PINION_HUB_D, PINION_HUB_L, PINION_BORE = 16.0, 8.0, 8.0
 SETSCREW_Z = -16.0                  # ISO 4029 M4x4 in the hub, 90 deg from the key
 GLAND = ("Lapp SKINTOP STR-M 16x1.5", 16.0, 22.0, 18.0)  # thread, hex/body dia, length outside (approx.)
 WINDOW_PLATE_T = 3.0
+CABLE_SIDE = -1                     # cable window on the -y hood face above the housing step; +y stays one plain face
 
 PAD_T = 3.0                         # NBR 70 Shore A, vulcanised onto the pad plate (oil resistant)
 PAD_PLATE_T = 3.0                   # steel backing plate, sits in a pocket in the jaw, 2 x M3 from the back

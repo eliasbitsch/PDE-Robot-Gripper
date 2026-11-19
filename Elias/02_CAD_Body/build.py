@@ -24,6 +24,25 @@ VENDOR_MASS = {"Gearbox": 0.27, "Motor": 0.20, "Brake": 0.15, "Encoder": 0.03, "
 TOL = 0.05  # mm3, below this an overlap counts as touching
 
 
+V3_DIR = os.path.join(HERE, "..", "..", "Viktoriia", "03_CAD_Jaws")
+
+
+def jaw_v3(side):
+    """Viktoriia's jaw, pad plate and pad (V3, CadQuery STEP at the grip position d = D_GRIP) moved to d = 0;
+    falls back to the placeholder from parts.core when the STEP files are missing."""
+    tag = "L" if side < 0 else "R"
+    files = [os.path.join(V3_DIR, f"{n}_{tag}.step") for n in ("jaw", "pad_plate", "pad_NBR")]
+    if not all(os.path.exists(f) for f in files):
+        return (*C.jaw(side), False)
+    shapes = []
+    for f in files:
+        sh = Part.read(f)
+        sh = sh.Solids[0] if len(sh.Solids) == 1 else sh
+        sh.translate(V(-side * P.D_GRIP, 0, 0))
+        shapes.append(sh)
+    return (*shapes, True)
+
+
 def vendor(name, rot, base):
     s = Part.read(os.path.join(VENDOR, name))
     s.Placement = App.Placement(base, rot)
@@ -41,9 +60,9 @@ def brake(x, za):
 
 def encoder(x0, za):
     """Nanotec NME2 magnetic encoder on the brake's rear face (datasheet: 38 x 46, 16 high, closed cover);
-    round end around the shaft, connector end towards +Y like the motor leads."""
+    round end around the shaft, connector end towards the cable window like the motor leads."""
     s = Part.makeCylinder(19.0, 16.0, V(x0, 0, za), V(1, 0, 0))
-    return s.fuse(Part.makeBox(16.0, 27.0, 38.0, V(x0, 0, za - 19.0))).removeSplitter()
+    return s.fuse(Part.makeBox(16.0, 27.0, 38.0, V(x0, min(0, 27.0 * P.CABLE_SIDE), za - 19.0))).removeSplitter()
 
 
 def build_static(gear_pin, gear_racks, bev):
@@ -61,7 +80,7 @@ def build_static(gear_pin, gear_racks, bev):
         "Adapter_ISO9409": (C.iso_adapter(P.HOOD_TOP + P.HOOD_SEAT), "EN AW-6082", 0),
         "Bracket": (D.bracket(), "EN AW-6082", 0),
         "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 0, 1), 180), V(gb_t, 0, za)), "vendor", 0),
-        "Motor": (vendor("nanotec_st4118s1404b.step", App.Rotation(V(0, 1, 0), -90), V(motor_t, 0, za)), "vendor", 0),   # connector +Y into the window
+        "Motor": (vendor("nanotec_st4118s1404b.step", App.Rotation(V(1, 0, 0), 0 if P.CABLE_SIDE > 0 else 180).multiply(App.Rotation(V(0, 1, 0), -90)), V(motor_t, 0, za)), "vendor", 0),   # connector into the window
         "Brake": (brake(brake_t, za), "vendor", 0),
         "Encoder": (encoder(brake_t - 9.7 + 29.2, za), "vendor", 0),
         "Pinion_Shaft": (D.pinion_shaft(gear_pin), "steel", "rot"),
@@ -78,7 +97,7 @@ def build_static(gear_pin, gear_racks, bev):
         "Cable_Gland_Lapp_SKINTOP_M16": (D.gland(), "vendor", 0),
     }
     for i, (x, z) in enumerate(D.window_screws(), 1):
-        parts[f"Screw_ISO10642-M3x8_Window{i}"] = (F.oriented(F.iso10642(3, 8, 0, 0, 0, up=True), V(x, P.HOOD_Y + P.WINDOW_PLATE_T, z), V(0, -1, 0)), "steel", 0)
+        parts[f"Screw_ISO10642-M3x8_Window{i}"] = (F.oriented(F.iso10642(3, 8, 0, 0, 0, up=True), V(x, P.CABLE_SIDE * (P.HOOD_Y + P.WINDOW_PLATE_T), z), V(0, -P.CABLE_SIDE, 0)), "steel", 0)
     for i, (x, y) in enumerate(D.bracket_screws(), 1):
         parts[f"Screw_ISO4762-M3x10_Bracket{i}"] = (F.iso4762(3, 10, x, y, P.PLATE_T + 6, up=False), "steel", 0)
     for i, (y, dz) in enumerate(D.gearbox_screws(), 1):
@@ -90,14 +109,17 @@ def build_static(gear_pin, gear_racks, bev):
         parts[f"Slide_{tag}"] = (C.slide(side), "EN AW-6082", side)
         parts[f"Rack_{tag}"] = (C.rack(gear_racks[P.RACK_TEETH_SIDE[side]], side), "steel", side)
         parts[f"Holder_{tag}"] = (C.holder(side), "EN AW-6082", side)
-        jb, plate, rubber = C.jaw(side)
+        jb, plate, rubber, v3 = jaw_v3(side)
         parts[f"Jaw_{tag}"] = (jb, "EN AW-7075", side)
         parts[f"PadPlate_{tag}"] = (plate, "steel", side)
         parts[f"Pad_{tag}"] = (rubber, "NBR", side)
         _, _, xj1, _, _ = C.jaw_x(side)
         for i, (y, z) in enumerate(C.pad_screws(side), 1):
-            parts[f"Screw_ISO4762-M3x8_Pad{tag}{i}"] = (F.iso4762_x(3, 8, xj1 + side * 0.5, y, z, -side), "steel", side)  # tip at the rubber
-            parts[f"Washer_ISO7089-3_Pad{tag}{i}"] = (F.iso7089_x(3, xj1, y, z, side), "steel", side)
+            if v3:   # V3: M3x6 seated in the 1 mm counterbore, 2 mm of thread in the plate, ends 1 mm before the rubber
+                parts[f"Screw_ISO4762-M3x6_Pad{tag}{i}"] = (F.iso4762_x(3, 6, xj1 - side * 1.0, y, z, -side), "steel", side)
+            else:
+                parts[f"Screw_ISO4762-M3x8_Pad{tag}{i}"] = (F.iso4762_x(3, 8, xj1 + side * 0.5, y, z, -side), "steel", side)
+                parts[f"Washer_ISO7089-3_Pad{tag}{i}"] = (F.iso7089_x(3, xj1, y, z, side), "steel", side)
         parts[f"Plunger_GN617-5-A_{tag}"] = (C.plunger(side), "steel", side)
         for i, y in enumerate((-P.DOWEL_Y, P.DOWEL_Y), 1):
             parts[f"Dowel_ISO8734-4x12_{tag}{i}"] = (C.dowel(side, y), "steel", side)
