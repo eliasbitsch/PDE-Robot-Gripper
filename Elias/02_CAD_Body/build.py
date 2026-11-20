@@ -420,6 +420,22 @@ def main():
     print(f"centre of mass from the flange face: x {cog.x:.1f}, y {cog.y:.1f}, z {cog.z - info['flange_z']:.1f} mm; "
           f"TCP (grip centre) z {P.PART_OFFSET[2] + 17.5 - info['flange_z']:.1f} mm")
     report["cog_from_flange_mm"] = [cog.x, cog.y, cog.z - info["flange_z"]]
+    # inertia about the overall CoG: each part as a homogeneous solid scaled to its mass (vendor parts too)
+    J = [[0.0] * 3 for _ in range(3)]
+    for n, (sh, _, _) in parts.items():
+        sol = sh.Solids
+        vol = sum(so.Volume for so in sol)
+        if masses[n] <= 0 or vol <= 0:
+            continue
+        rho = masses[n] / vol
+        for so in sol:
+            mi, c, ms = so.MatrixOfInertia, so.CenterOfMass - cog, so.Volume * rho
+            d = [c.x, c.y, c.z]
+            for i in range(3):
+                for k in range(3):
+                    J[i][k] += rho * mi.A[4 * i + k] + ms * ((c.Length ** 2 if i == k else 0.0) - d[i] * d[k])
+    report["inertia_cog_kgm2"] = [[v * 1e-6 for v in row] for row in J]
+    print(f"inertia about the CoG [kg*m2]: Jxx {J[0][0] * 1e-6:.5f}, Jyy {J[1][1] * 1e-6:.5f}, Jzz {J[2][2] * 1e-6:.5f}")
     print(f"grip force per jaw: required {P.F_GRIP_OILY:.1f} N (hand calc.), setpoint {P.F_GRIP_SET:.1f} N (real path), "
           f"current limit {P.F_JAW_LIMIT:.1f} N (bevel), available {P.F_JAW_AVAIL:.1f} N, strength case {P.F_JAW_MAX:.1f} N; "
           f"brake {P.T_PINION_BRAKE:.2f} N*m at the pinion")

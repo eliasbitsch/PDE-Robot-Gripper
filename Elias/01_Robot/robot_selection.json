@@ -1,0 +1,174 @@
+{
+ "payload": {
+  "m_gripper": 2.914989126505188,
+  "m_part": 0.60249,
+  "mass": 3.517479126505188,
+  "Z": 0.08409905604809943,
+  "L": 0.005827018237525006,
+  "J_cog": [
+   [
+    0.01088264482362297,
+    7.637685017620883e-05,
+    -0.0011720255124860817
+   ],
+   [
+    7.637685017620883e-05,
+    0.01638043872573201,
+    0.0001412687183998388
+   ],
+   [
+    -0.0011720255124860817,
+    0.0001412687183998388,
+    0.010028077463730002
+   ]
+  ],
+  "cog_gripper_mm": [
+   2.2958056765205996,
+   -7.4181999099687514,
+   -66.75783193787954
+  ],
+  "cog_part_mm": [
+   -12.5,
+   1.9,
+   -167.99999999999997
+  ]
+ },
+ "checks": [
+  {
+   "check": "load diagram, Z of the CoG [m]",
+   "value": 0.08409905604809943,
+   "limit": 0.19371343930726653,
+   "use": 0.4341415667846476
+  },
+  {
+   "check": "load diagram, L of the CoG [m]",
+   "value": 0.005827018237525006,
+   "limit": 0.15402806358435991,
+   "use": 0.037830886800271926
+  },
+  {
+   "check": "inertia about axis 5 Ja5 [kg m2]",
+   "value": 0.12311635705616655,
+   "limit": 0.5,
+   "use": 0.2462327141123331
+  },
+  {
+   "check": "inertia about axis 6 Ja6 [kg m2]",
+   "value": 0.010147510447856934,
+   "limit": 0.2,
+   "use": 0.05073755223928467
+  },
+  {
+   "check": "wrist torque axis 4/5 [N m] (incl. path acc.)",
+   "value": 9.044997280915206,
+   "limit": 13.0,
+   "use": 0.695769021608862
+  },
+  {
+   "check": "wrist torque axis 6 [N m]",
+   "value": 0.30273204984922925,
+   "limit": 6.9,
+   "use": 0.0438742101230767
+  },
+  {
+   "check": "payload mass [kg]",
+   "value": 3.517479126505188,
+   "limit": 7.0,
+   "use": 0.5024970180721697
+  }
+ ],
+ "placement": {
+  "current": {
+   "x": -100.0,
+   "h": 500.0,
+   "margin": 20.556045219583467,
+   "stretch": 0.7513249104016091,
+   "ok": true,
+   "t_move": 0.9605057516892561,
+   "axis": 1,
+   "a5": [
+    63.5,
+    68.2,
+    85.6,
+    90.7
+   ]
+  },
+  "best": {
+   "x": -225.0,
+   "h": 200.0,
+   "margin": 12.460077610245406,
+   "stretch": 0.9245451477491259,
+   "ok": true,
+   "t_move": 0.9399850061772399,
+   "axis": 1,
+   "a5": [
+    92.9,
+    98.6,
+    111.8,
+    117.5
+   ]
+  },
+  "n_ok": 205,
+  "n": 240
+ },
+ "req_reach_mm": 1000.0,
+ "candidates": [
+  {
+   "name": "ABB IRB 1300-7/1.4",
+   "reach": 1400,
+   "payload": 7.0,
+   "a1": 249,
+   "ctrl": "OmniCore (current)",
+   "src": "3HAC070393-001 rev. M, local",
+   "reach_ok": true,
+   "payload_ok": true,
+   "v_tcp": 4.34586983746588
+  },
+  {
+   "name": "ABB IRB 1600-6/1.45",
+   "reach": 1450,
+   "payload": 6.0,
+   "a1": 150,
+   "ctrl": "IRC5 (previous)",
+   "src": "ABB data sheet [verify]",
+   "reach_ok": true,
+   "payload_ok": true,
+   "v_tcp": 2.6179938779914944
+  },
+  {
+   "name": "KUKA KR 10 R1420",
+   "reach": 1420,
+   "payload": 10.0,
+   "a1": 220,
+   "ctrl": "KR C5 micro",
+   "src": "KUKA data sheet [verify]",
+   "reach_ok": true,
+   "payload_ok": true,
+   "v_tcp": 3.839724354387525
+  },
+  {
+   "name": "FANUC M-10iD/12",
+   "reach": 1441,
+   "payload": 12.0,
+   "a1": 210,
+   "ctrl": "R-30iB Plus",
+   "src": "FANUC data sheet [verify]",
+   "reach_ok": true,
+   "payload_ok": true,
+   "v_tcp": 3.6651914291880923
+  },
+  {
+   "name": "Universal Robots UR10e",
+   "reach": 1300,
+   "payload": 12.5,
+   "a1": 120,
+   "ctrl": "cobot, TCP speed limited",
+   "src": "UR data sheet [verify]",
+   "reach_ok": true,
+   "payload_ok": true,
+   "v_tcp": 2.0943951023931953
+  }
+ ],
+ "t_way": 2.0,
+ "a_tcp_max": 66.0
+}

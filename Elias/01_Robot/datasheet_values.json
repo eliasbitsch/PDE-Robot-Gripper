@@ -1,0 +1,79 @@
+[
+ {
+  "id": "irb_load_diagram",
+  "file": "irb1300_product_spec.pdf",
+  "page": 47,
+  "value": "IRB 1300-7/1.4 load diagram: 7 kg up to Z = 0.10 m, 3 kg up to Z = 0.22 m",
+  "why": "payload check E1: gripper + part B must lie inside the curve for its mass"
+ },
+ {
+  "id": "irb_inertia",
+  "file": "irb1300_product_spec.pdf",
+  "page": 51,
+  "value": "Ja5 = m((Z + 0.09)^2 + L^2) + max(Jox, Joy) <= 0.5 kg m2, Ja6 = m L^2 + Joz <= 0.2 kg m2",
+  "why": "payload check E1: inertia of gripper + part about axes 5 and 6"
+ },
+ {
+  "id": "irb_wrist_torque",
+  "file": "irb1300_product_spec.pdf",
+  "page": 53,
+  "value": "max wrist torque axis 4/5 13 N m, axis 6 6.9 N m (at 7 kg)",
+  "why": "payload check E1: static torque of the offset CoG"
+ },
+ {
+  "id": "irb_tcp_acc",
+  "file": "irb1300_product_spec.pdf",
+  "page": 54,
+  "value": "max TCP acceleration 66 m/s2 (controlled), 82 m/s2 (e-stop) at nominal load",
+  "why": "upper bound; our path needs 4.96 m/s2, the e-stop 12.3 m/s2"
+ },
+ {
+  "id": "irb_axis_speed",
+  "file": "irb1300_product_spec.pdf",
+  "page": 66,
+  "value": "axis speeds 249 / 180 / 247 / 500 / 415 / 720 deg/s (OmniCore C30)",
+  "why": "cycle time E1: MoveJ time pick -> place from the largest axis travel"
+ },
+ {
+  "id": "irb_stop_cat0",
+  "file": "irb1300_product_spec.pdf",
+  "page": 71,
+  "value": "emergency stop configured as category 0 on delivery",
+  "why": "V2 / E4: the e-stop load case is the uncontrolled category 0 stop"
+ },
+ {
+  "id": "irb_stop_data",
+  "file": "irb1300_product_spec.pdf",
+  "page": 91,
+  "value": "category 0 stop: axis 1 55.25 deg in 0.40 s, axis 2 33.39 deg in 0.37 s, axis 3 35.66 deg in 0.27 s",
+  "why": "V2 § 2 and MuJoCo e-stop: axis decelerations -> 12.3 m/s2 at our TCP"
+ },
+ {
+  "id": "rexroth_s0",
+  "file": "rexroth_ksf_mini_R999001206.pdf",
+  "page": 9,
+  "value": "static load safety S0 5 - 8 for normal machine design",
+  "why": "rail size 9 gave S0 2.5 - 3.7 -> changed to size 12 (5.1 - 7.8)"
+ },
+ {
+  "id": "rexroth_size12",
+  "file": "rexroth_ksf_mini_R999001206.pdf",
+  "page": 19,
+  "value": "carriage SLS size 12: C0 5630 N, Mt0 33.5 N m, ML0 29.2 N m",
+  "why": "carriage check V2 § 6 / gripper_params CARRIAGE_*"
+ },
+ {
+  "id": "rexroth_rail12",
+  "file": "rexroth_ksf_mini_R999001206.pdf",
+  "page": 21,
+  "value": "rail size 12: 12 x 7.8 mm, pitch T = 25 mm",
+  "why": "CAD rail geometry (RAIL_W, RAIL_H, RAIL_PITCH)"
+ },
+ {
+  "id": "khk_smsg",
+  "file": "khk_smsg_p260.pdf",
+  "page": 1,
+  "value": "SMSG1-20R/L: allowable torque 1.17 N m (bending), 0.97 N m (surface), teeth induction hardened",
+  "why": "bevel pair after V2 § 5; 0.97 N m sets the current limit 48.5 N per jaw"
+ }
+]
