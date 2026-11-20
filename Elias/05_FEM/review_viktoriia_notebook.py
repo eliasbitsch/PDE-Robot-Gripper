@@ -352,5 +352,38 @@ def _(P, V4C, an, fem_train, mo, sim_close, sim_grip, v2, v4_store):
     return
 
 
+@app.cell
+def _(HERE, P, json, mo, os):
+    _vp = os.path.join(HERE, "jaw_variants.json")
+    _v = json.load(open(_vp)) if os.path.exists(_vp) else {}
+    _rows = "\n".join(f"| {k} | {r['fem']:.2f} | {r['beam']:.2f} | {r['dev']:+.1f} % |" for k, r in _v.items())
+    _v3 = _v.get("V3", {})
+    mo.md(f"""
+## 4. Iteration 2: Viktoriia's response (20 Nov) and the check it asked for
+
+Her notebook: `Viktoriia/06_Review/review_elias_response.py`.
+
+| # | Question | Her result | Our check |
+|---|---|---|---|
+| 1 | KHK SMSG1-20 with DIN 3991 | flank capacity 2.0 ... 3.0 N·m (σHlim 1000 MPa, spiral virtual gear); catalogue {P.BEVEL_T_ALLOW} N·m stays the limit | reproduced; current limit {P.F_JAW_LIMIT:.1f} N per jaw unchanged |
+| - | new: spiral bevel forces | axial/radial up to 0.81·F_t instead of 0.26·F_t (straight) | relevant for bearings and gearbox shaft, see 3 |
+| 2 | shear area of the rims only | refuted: the rims carry 11 % of the shear, κ of the U-section ≈ 5/6; she suggests a FEM run without the pocket | FEM below: she is right |
+| 3 | bearings 608-2Z, SKF | s0 = 4.0 at the current limit, 3.0 at 63.6 N (spiral forces), SKF asks ≥ 2; gearbox shaft ≤ 65 % of 305 N | reproduced |
+
+**FEM check she proposed** (cross-section clamped at z = -47, the beam's own boundary condition, F = {P.F_JAW_MAX:.1f} N, µm):
+
+| jaw | FEM | beam (V4 model) | deviation |
+|---|---|---|---|
+{_rows}
+| V3, rims assumed not to carry | {_v3.get('fem', float('nan')):.2f} | {_v3.get('beam_no_rims', float('nan')):.2f} | {_v3.get('dev_no_rims', float('nan')):+.1f} % |
+
+Without the pocket the beam meets the FEM within 5 %. With the pocket the FEM sits between "rims fully carrying"
+and "rims not carrying": the 1 mm rims work only about half. This is a 3D effect of the pocket that beam theory cannot
+see; it is not a shear problem. Result for the report: V4 is validated within 5 % on the plain bar, and for the
+pocketed jaw the two beam bounds bracket the FEM (±7.5 %). No model parameter is tuned to hit 5 %.
+""")
+    return
+
+
 if __name__ == "__main__":
     app.run()

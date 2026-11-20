@@ -36,6 +36,7 @@ E, NU, RP02 = 71700.0, 0.33, 460.0
 
 X_SUPPORT = P.PAD_X0 + P.PAD_T + P.JAW_T             # 44, face on the holder
 X_FLOOR = P.PAD_X0 + P.PAD_T + P.PAD_PLATE_T          # 39, pocket floor
+X_LOAD = X_FLOOR                                      # loaded face; jaw_variants.py sets 36 for a jaw without pocket
 Z_HOLDER = P.HOLDER_Z_LOW                             # -47, lower end of the holder contact
 Z_LOAD = (P.PAD_Z[0], P.PAD_Z[1])                     # -95 ... -60
 Z_CHECK = -53.5                                       # clean section between holder and pocket
@@ -94,7 +95,7 @@ def boundary(nodes, tris, force):
     weight, area = {}, 0.0
     for tri in tris:
         c = np.array([nodes[n] for n in tri if n in nodes])
-        if len(c) < 6 or not np.all(np.abs(c[:, 0] - X_FLOOR) < TOL):
+        if len(c) < 6 or not np.all(np.abs(c[:, 0] - X_LOAD) < TOL):
             continue
         if not (np.all(c[:, 2] > Z_LOAD[0] - TOL) and np.all(c[:, 2] < Z_LOAD[1] + TOL)):
             continue

@@ -104,5 +104,11 @@ The stress is confirmed. The deflection with Weber's elastic-clamp term misses 5
 two 6.5 x 1 counterbores and the M3 holes of the V3 jaw (checkbox off), both on the outer fibre in the loaded span.
 The standard support adds the holder contact compliance, which only the printed jaw (V5) can settle.
 
-**To run:** `python v3_import.py`, `python fem_train.py 2.0`, `python convergence.py`, `python v4_check.py`;
+**Where the last 5 % come from** (`jaw_variants.py`, suggested by Viktoriia, 20 Nov): same FEM (section clamped at
+z = -47) and beam model on three jaws. Plain bar 7.97 vs 8.33 µm (+4.6 %), pocket filled but holes kept 8.12 vs
+8.41 µm (+3.5 %), V3 with pocket 12.74 vs 11.78 µm (-7.5 %); with the 1 mm pocket rims taken as not carrying the beam
+gives 13.68 µm (+7.4 %). The rims work about half: a 3D effect of the pocket, not shear. V4 holds within 5 % on the
+plain bar; for the pocketed jaw the two beam bounds bracket the FEM.
+
+**To run:** `python v3_import.py`, `python fem_train.py 2.0`, `python convergence.py`, `python v4_check.py`, `python jaw_variants.py`;
 solver files are deleted after reading (`KEEP_FILES=1` keeps them), the results live in `out/*.json`.
