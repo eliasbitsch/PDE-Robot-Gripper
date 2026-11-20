@@ -30,7 +30,7 @@ All parts sit in the gripper frame at the grip position (d = 2 mm), so they repl
 | **Counterbore O6.5 x 1** on the outer face at both M3 holes | the BOM has ISO 4762 **M3x6** (pos. 25): through 5 mm of jaw that leaves only 1 mm of thread in the 3 mm plate; with the counterbore it is 2 mm, and the screw still ends 1 mm before the rubber |
 | Pad plate 22.8 x 34.8 mm, corners R1.5 | 0.1 mm clearance per side in the pocket, radius larger than the pocket's so it sits flat |
 | NBR 0.5 mm smaller than the plate all round | vulcanising edge; contact area 21.8 x 33.8 = 737 mm2 (V2 used 805 mm2 - pressure stays < 0.1 MPa) |
-| all outer edges 0.5 x 45 | deburring |
+| outer edges 0.5 x 45, top face edges only deburred | deburring; a chamfer on the top edge left 1.0 mm above the O4 dowel holes, without it 1.5 mm (Elias, 20 Nov) |
 
 The screws carry almost nothing: the grip force presses the plate into the pocket, and the pocket walls take the
 friction force by form fit.
@@ -44,8 +44,7 @@ friction force by form fit.
 
 ## Open
 
-- **Part B contour not checked against the real part** - `Bauteil_B.STEP` is FH data on Moodle and not in the repo.
-  The jaw keeps Elias' z extent (ends 4 mm above the lug on -X, pad on the flat faces z = -3 ... 32 of the part).
-  To do: load the part, check the open position d = 10 against the lug, and add a lead-in chamfer if the part can
-  sit +-5 mm off centre.
+- ~~Part B contour~~ checked by Elias (20 Nov) in the full CAD with part B: no interference closed / grip / open
+  and through the whole demo sequence. Lead-in chamfer not needed: 8 mm clearance per side when open is more than
+  the +-5 mm offset.
 - Drawing of the pad plate ("bought to drawing") - comes with E3 / the drawing set.
