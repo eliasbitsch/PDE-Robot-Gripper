@@ -98,12 +98,11 @@ def build():
 
     conveyor("Buffer_belt", X_PICK - 150, X_PICK + 150, -700, 700, H_PICK, 40, (0.15, 0.15, 0.15))
     for i, y in enumerate((-DY_CHAIN, DY_CHAIN)):
-        conveyor(f"Chain_{i + 1}", X_PLACE - 800, X_PLACE + 800, y - 60, y + 60, H_PLACE - 30, 30, (0.20, 0.20, 0.22))
+        conveyor(f"Chain_{i + 1}", CP.CHAIN_X[0], CP.CHAIN_X[1], y - CP.CHAIN_W / 2, y + CP.CHAIN_W / 2, H_PLACE - 30, 30, (0.20, 0.20, 0.22))
         add(doc, f"Carrier_{i + 1}", Part.makeBox(240, 160, 30, V(X_PLACE - 120, y - 80, H_PLACE - 30)), (0.25, 0.45, 0.70))
-    fence = [Part.makeBox(40, 2800, H_FENCE, V(X_PLACE - 750, -1400, 0)),
-             Part.makeBox(3400, 40, H_FENCE, V(X_PLACE - 750, 1400, 0)),
-             Part.makeBox(3400, 40, H_FENCE, V(X_PLACE - 750, -1440, 0))]
-    add(doc, "Fence", fence[0].fuse(fence[1]).fuse(fence[2]), (0.95, 0.80, 0.10), 75)
+    x0, x1, yf, tf = CP.X_FENCE[0], CP.X_FENCE[1], CP.Y_FENCE, CP.T_FENCE     # Abb. 1: 1200 wide, 2100 high
+    fence = [Part.makeBox(x1 - x0, tf, H_FENCE, V(x0, yf, 0)), Part.makeBox(x1 - x0, tf, H_FENCE, V(x0, -yf - tf, 0))]
+    add(doc, "Fence", fence[0].fuse(fence[1]), (0.95, 0.80, 0.10), 75)
     add(doc, "Floor", Part.makeBox(4200, 3600, 2, V(X_PLACE - 1000, -1800, -2)), (0.85, 0.86, 0.86))
     doc.recompute()
     os.makedirs(ROOT + "/06_Cell/out", exist_ok=True)

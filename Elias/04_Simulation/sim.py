@@ -38,6 +38,77 @@ def q_place(lift=0.0):
     return np.radians(q), bad
 
 
+# Transfer through the 1200 mm wide enclosure: a plain joint swing pick -> place takes the forearm 318 mm through
+# the fence (clearance.py). The arm is pulled in to a wrist radius VIA_R at height VIA_Z, axis 1 turns, then the arm
+# reaches out again; found by the via search in clearance.py (>= 100 mm to the fence, >= 90 mm to everything else).
+VIA_R, VIA_Z = 400.0, 1700.0
+
+
+def transfer_vias(lift=60.0):
+    """Joint waypoints pick (lifted) -> retracted at pick side -> retracted at place side -> place (lifted), rad."""
+    import math
+    q1, _ = q_pick(lift)
+    q2, _ = q_place(lift)
+    out = [q1]
+    for a in (math.atan2(-CP.BASE[1], CP.X_PICK - CP.BASE[0]), math.atan2(CP.DY_CHAIN - CP.BASE[1], CP.X_PLACE - CP.BASE[0])):
+        q, bad = CP.ik_tool_down((CP.BASE[0] + VIA_R * math.cos(a), CP.BASE[1] + VIA_R * math.sin(a), VIA_Z))
+        assert not bad, bad
+        out.append(np.radians(q))
+    return out + [q2]
+
+
+def transfer_path(lift=60.0):
+    """q(u), u in 0 ... 1: cubic spline through the vias, knots spaced by the time each segment needs at the
+    axis speeds, zero slope at both ends (the time law s(t) sets the speed)."""
+    from scipy.interpolate import CubicSpline
+    qs = np.array(transfer_vias(lift))
+    vmax = np.radians([249.0, 180.0, 247.0, 500.0, 415.0, 720.0])
+    seg = [np.max(np.abs(b - a) / vmax) for a, b in zip(qs[:-1], qs[1:])]
+    u = np.concatenate([[0.0], np.cumsum(seg)]) / sum(seg)
+    return CubicSpline(u, qs, bc_type="clamped")
+
+
+class TimeLaw:
+    """Fastest u(t) along a joint path q(u) with the TCP acceleration (tangential + centripetal) <= a_lim and every
+    axis below its speed: forward / backward pass on the squared path speed over the TCP arc length.
+    __call__(t) -> (u, du/dt), like trapezoid() for a straight segment."""
+
+    def __init__(self, path, a_lim, n=800, m=None, d=None, vmax_deg=(249, 180, 247, 500, 415, 720)):
+        if m is None:
+            m, d = load()
+        u = np.linspace(0.0, 1.0, n)
+        site = m.site("tcp").id
+        p = np.zeros((n, 3))
+        for i, ui in enumerate(u):
+            for k in range(6):
+                d.qpos[m.joint(f"A{k + 1}").qposadr[0]] = path(ui)[k]
+            mujoco.mj_kinematics(m, d)
+            p[i] = d.site_xpos[site]
+        ds = np.linalg.norm(np.diff(p, axis=0), axis=1)
+        sig = np.concatenate([[0.0], np.cumsum(ds)])
+        dsig = np.gradient(sig, u)
+        dp = np.gradient(p, sig, axis=0)
+        kappa = np.linalg.norm(np.gradient(dp, sig, axis=0), axis=1)
+        dq_dsig = np.abs(path(u, 1)) / np.maximum(dsig, 1e-9)[:, None]
+        v2 = np.minimum(a_lim / np.maximum(kappa, 1e-9), np.min((np.radians(vmax_deg) / np.maximum(dq_dsig, 1e-12)) ** 2, axis=1))
+        v2[0] = v2[-1] = 0.0
+        at = lambda i, w: np.sqrt(max(a_lim ** 2 - (kappa[i] * w) ** 2, 0.0))
+        for i in range(n - 1):
+            v2[i + 1] = min(v2[i + 1], v2[i] + 2 * at(i, v2[i]) * ds[i])
+        for i in range(n - 2, -1, -1):
+            v2[i] = min(v2[i], v2[i + 1] + 2 * at(i + 1, v2[i + 1]) * ds[i])
+        v = np.sqrt(np.maximum(v2, 0.0))
+        dt = 2 * ds / np.maximum(v[1:] + v[:-1], 1e-9)
+        self.t = np.concatenate([[0.0], np.cumsum(dt)])
+        self.T = float(self.t[-1])
+        self.u, self.du = u, v / np.maximum(dsig, 1e-9)
+        self.v_tcp_max, self.length = float(v.max()), float(sig[-1])
+
+    def __call__(self, t):
+        t = min(max(t, 0.0), self.T)
+        return float(np.interp(t, self.t, self.u)), float(np.interp(t, self.t, self.du))
+
+
 def set_robot(m, d, q, jaw=GP.D_OPEN * MM):
     for i in range(6):
         d.qpos[m.joint(f"A{i + 1}").qposadr[0]] = q[i]

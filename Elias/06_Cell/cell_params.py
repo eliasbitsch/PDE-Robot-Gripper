@@ -30,6 +30,12 @@ BASE = (-100.0, 0.0, 500.0)          # pedestal 500 mm, 100 mm towards the workp
 X_PICK, H_PICK = 900.0, 1000.0       # buffer belt
 X_PLACE, H_PLACE, DY_CHAIN = -900.0, 1300.0, 300.0   # workpiece carrier on two chains
 H_FENCE = 2100.0
+# Enclosure (Abb. 1): 1200 mm wide (y = -600 ... 600, inner faces), 2100 high, closed by the production line on the
+# place side and open towards the buffer belt; panels 40 mm (mesh panels on posts)
+Y_FENCE, T_FENCE = 600.0, 40.0
+X_FENCE = (X_PLACE - 250.0, X_PICK + 150.0)
+CHAIN_W, CARRIER = 120.0, (240.0, 160.0, 30.0)
+CHAIN_X = (X_PLACE - 800.0, X_PLACE + CARRIER[0] / 2)   # chains come out of the line and end under the carriers (Abb. 1)
 
 A2_X, A2_Z = ROBOT["a2"]
 L2, C4, L3X, L_FL = ROBOT["l2"], ROBOT["c"], ROBOT["l3"], ROBOT["l_fl"]

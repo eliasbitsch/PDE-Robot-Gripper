@@ -82,7 +82,7 @@ def _(GP, a_design, force, mo, mu, runs):
     for _name, (_r, _) in runs.items():
         _res = "held" if _r["held"] else ("**dropped**" if _r["dropped"] else "**slips**")
         _rows.append(f"| {_name} | {exp_util:.2f} | {_r['util_median']:.2f} | {_r['util_max']:.2f} | "
-                     f"{_r['a_tcp_max']:.1f} m/s² | {_r['slip_max']:.2f} mm | {_res} |")
+                     f"{_r['a_tcp_max']:.1f} m/s² | {_r['slip_max']:.2f} mm (beyond creep base {_r['slip_excess']:+.2f}) | {_res} |")
     mo.md(f"""
     ## 2. Simulation against the hand calculation
 

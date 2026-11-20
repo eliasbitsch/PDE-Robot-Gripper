@@ -64,10 +64,13 @@ def _(R, mo):
     mo.md(f"""
 ## 2. Cycle time
 
-MoveJ from pick (lifted) to place (lifted): the largest axis travel divided by its speed, × 1.5 for a trapezoid
-with 1/3 acceleration phases: **{_c['t_move']:.2f} s** (axis {_c['axis']} governs) against **{R['t_way']:.1f} s** per
-way in the 5 s cycle → factor {R['t_way'] / _c['t_move']:.1f}. The simulated path needs 4.96 m/s² at the TCP,
-the robot allows {R['a_tcp_max']:.0f} m/s².
+The enclosure is only 1200 mm wide (Abb. 1): a plain joint swing pick → place would take the forearm 318 mm
+through the fence (`04_Simulation/clearance.py`). The arm is pulled in to a wrist radius of {R['transfer']['via_r']:.0f} mm at
+{R['transfer']['via_z']:.0f} mm height, axis 1 turns, then the arm reaches out (≥ 57 mm to the fence). Along this path
+the fastest time law with the TCP acceleration ≤ 4.96 m/s² (what the grip force is sized for) takes
+**{R['transfer']['t_loaded']:.2f} s**; the empty way back {R['transfer']['t_empty']:.2f} s → **{R['transfer']['t_loaded'] + R['transfer']['t_empty']:.2f} s of
+{R['transfer']['t_budget']:.1f} s** travel budget in the 5 s cycle. (Plain MoveJ without the fence: {_c['t_move']:.2f} s.)
+The robot allows {R['a_tcp_max']:.0f} m/s² at the TCP.
 
 ## 3. Placement
 

@@ -186,7 +186,7 @@ def _(L, mo, sim_grip, v2):
 | | V2 | simulation | deviation |
 |---|---|---|---|
 | stop deceleration at the TCP | {v2['a_stop']:.1f} m/s² (lever 1.4 m, full reach) | {_e.get('a_tcp_max', _nan):.1f} m/s² (ABB per-axis decelerations, TCP ≤ 1.0 m from axis 1) | {(_e.get('a_tcp_max', _nan) / v2['a_stop'] - 1) * 100:+.0f} % → V2 conservative |
-| part at the setpoint | must not slip with S 1.5 | held, friction use peak {_e.get('util_max', _nan):.2f}, movement {_e.get('slip_max', _nan):.2f} mm | ✓ |
+| part at the setpoint | must not slip with S 1.5 | held, friction use peak {_e.get('util_max', _nan):.2f}, slip beyond the model's creep base {_e.get('slip_excess', _nan):+.2f} mm | ✓ |
 | brake limit per jaw | {L.F_BRAKE:.1f} N | load case LC5 = {L.F_BRAKE:.1f} N | 0 % |
 """)
     return

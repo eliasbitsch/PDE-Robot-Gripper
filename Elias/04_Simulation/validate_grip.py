@@ -26,9 +26,22 @@ import load_cases as L  # noqa: E402
 GP, MM = S.GP, S.MM
 LIFT = 60.0                                   # mm above pick and place
 T_CLOSE, T_SETTLE, T_LIFT = 0.25, 0.25, 0.4   # s
-T_TRANSFER = GP.T_EINWEG                      # 2.0 s
+T_TRANSFER = GP.T_EINWEG                      # 2.0 s budget per way; the loaded way now runs on S.TimeLaw (1.84 s)
 TA = GP.V_BAHN / GP.A_BAHN                    # accel phase of the trapezoid
-SLIP_OK = 2.0                                 # mm: soft contacts creep a little near the friction limit; above that it slips
+SLIP_OK = 0.5                                 # mm of slip beyond the model's creep base (see creep_base)
+F_REF = 100.0                                 # N per jaw: far above any friction limit, the part cannot slip
+_CREEP = {}
+
+
+def creep_base(estop=False, mu=None, t_transfer=None):
+    """Part movement in the gripper at F_REF on the same path. MuJoCo's soft contacts let the part creep along the
+    pads on the via path whatever the grip force (25, 44.5, 48.5 and 100 N all give 2.3-2.4 mm, finer time steps
+    more), so only the movement beyond this base is slip. Cached per path."""
+    key = (estop, mu, t_transfer)
+    if key not in _CREEP:
+        r, lg = run("reference", F_REF, estop, mu, t_transfer, creep_ref=0.0)
+        _CREEP[key] = (r["slip_max"], lg)
+    return _CREEP[key][0]
 
 
 def trapezoid(t, T, ta):
@@ -87,19 +100,25 @@ def set_force(m, f_jaw):
     m.actuator_forcerange[a] = (-2 * f_jaw, 2 * f_jaw)
 
 
-def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None):
+def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None, creep_ref=None):
     """One cycle. mu: pad friction (default MU_PAD), t_transfer: transfer time (default T_EINWEG, ramps T/3),
     rec: viz.Recorder for the slow-motion video."""
     m, d = S.load()
     m.opt.timestep = 0.0005
     mu = S.B.MU_PAD if mu is None else mu
     m.pair_friction[:, 0:2] = mu
-    T_TR = T_TRANSFER if t_transfer is None else t_transfer
-    TA_ = T_TR / 3.0
     q0, _ = S.q_pick()
     q1, _ = S.q_pick(LIFT)
     q2, _ = S.q_place(LIFT)
     q3, _ = S.q_place()
+    path = S.transfer_path(LIFT)                       # through the vias: a straight swing hits the fence
+    law = S.TimeLaw(path, GP.A_PATH_REAL)              # fastest with the TCP acceleration the grip force is sized for
+    T_TR = law.T if t_transfer is None else t_transfer
+    k_t = law.T / T_TR
+
+    def transfer(t):                                   # (u, du/dt), stretched to T_TR if a transfer time is given
+        u, du = law(t * k_t)
+        return u, du * k_t
     # jaws start just before the part: the closing stroke and its impact are closing_time.py's subject
     S.set_robot(m, d, q0, jaw=(GP.D_GRIP + 0.3) * MM)
     S.place_part_in_gripper(m, d)
@@ -131,14 +150,14 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
         elif t < t_low0 or (estop and t_halt is not None):
             if estop and t >= t_stop:
                 if s_stop is None:                             # e-stop: decelerate the path at A_STOP, brake the jaws
-                    s_stop, sd_stop = trapezoid(t_stop - t_tr0, T_TR, TA_)
+                    s_stop, sd_stop = transfer(t_stop - t_tr0)
                     # brake: the jaws stay where they are, up to the brake limit (2 x per jaw, see set_force)
                     # the brake locks the drive under load: the elastic preload (the grip force) stays
                     d.ctrl[ja] = d.ten_length[m.tendon("jaws").id] - 2 * force / m.actuator_gainprm[ja, 0]
                     m.actuator_forcerange[ja] = (-2 * L.F_BRAKE, 2 * L.F_BRAKE)
                     t_halt = t
                     # category 0: every axis brakes at its ABB deceleration; the path stops with the slowest one
-                    dq = np.abs(q2 - q1)
+                    dq = np.abs(path(s_stop, 1))                # joint rate per unit path parameter here
                     alpha = np.array([L.ALPHA_STOP.get(i + 1, L.ALPHA_STOP[3]) for i in range(6)])
                     sdd_stop = float(np.min(alpha[dq > 1e-6] / dq[dq > 1e-6]))
                 tau = t - t_halt
@@ -147,8 +166,8 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
                 tau = min(tau, tau_end)
                 s = s_stop + sd_stop * tau - 0.5 * sdd * tau * tau
             else:
-                s, _ = trapezoid(t - t_tr0, T_TR, TA_)
-            q = q1 + s * (q2 - q1)
+                s, _ = transfer(t - t_tr0)
+            q = path(min(max(s, 0.0), 1.0))
         else:
             s, _ = trapezoid(t - t_low0, T_LIFT, T_LIFT / 3)
             q = q2 + s * (q3 - q2)
@@ -203,10 +222,12 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
     u_cruise = float(np.median(util[win]))
     u_pad = float(np.convolve(np.nan_to_num(np.array(log["util_pad"])), np.ones(k) / k, mode="same")[win].max())
     dropped = bool(log["part_z"][-1] < S.CP.H_PLACE - 50)
-    res = dict(case=case, force=force, estop=estop, slip_max=float(slip[win].max()),
+    base = creep_base(estop, mu, t_transfer) if creep_ref is None else creep_ref
+    excess = float(slip[win].max()) - base
+    res = dict(case=case, force=force, estop=estop, slip_max=float(slip[win].max()), creep_base=base, slip_excess=excess,
                slip_end=float(slip[-1]), util_max=u_max, util_median=u_cruise, util_pad_max=u_pad,
                safety_eff=float(1.0 / u_max) if u_max > 0 else float("inf"),
-               held=bool(not dropped and slip[win].max() < SLIP_OK),
+               held=bool(not dropped and excess < SLIP_OK),
                a_tcp_max=float(a_mag[win].max()), dropped=dropped)
     return res, log
 
@@ -222,7 +243,7 @@ def main():
         logs[name] = lg
         print(f"{name:20s} F {f:5.1f} N  friction use median {r['util_median']:4.2f} peak {r['util_max']:4.2f} "
               f"(S_eff {r['safety_eff']:4.2f}) worst pad {r['util_pad_max']:4.2f}  "
-              f"slip max {r['slip_max']:7.2f} mm  "
+              f"slip max {r['slip_max']:7.2f} mm (beyond creep base {r['slip_excess']:+6.2f})  "
               f"a_tcp max {r['a_tcp_max']:5.2f} m/s2  {'held' if r['held'] else 'SLIPS'}{'  DROPPED' if r['dropped'] else ''}")
     json.dump(dict(mu=S.B.MU_PAD, a_bahn=GP.A_BAHN, a_stop=L.A_STOP, cases=out),
               open(os.path.join(S.B.OUT, "grip_results.json"), "w"), indent=1)
@@ -232,7 +253,9 @@ def main():
     fig, ax = plt.subplots(figsize=(8, 3.6))
     for name, lg in logs.items():
         ax.plot(lg["t"], lg["slip"], label=name)
-    ax.axhline(SLIP_OK, color="#C2410C", ls="--", lw=1, label=f"{SLIP_OK} mm")
+    base, ref = next(v for k, v in _CREEP.items() if not k[0])
+    ax.plot(ref["t"], ref["slip"], "k--", lw=1.2, label=f"{F_REF:.0f} N reference: model creep, no slip")
+    ax.axhline(base + SLIP_OK, color="#C2410C", ls=":", lw=1, label=f"creep base + {SLIP_OK} mm = slip limit")
     ax.set_xlabel("t [s]")
     ax.set_ylabel("part movement in the jaws [mm]")
     ax.set_yscale("symlog", linthresh=0.1)

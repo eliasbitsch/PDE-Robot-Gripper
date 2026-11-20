@@ -24,6 +24,10 @@ GSTL = os.path.join(CAD, "out", "stl")
 KIN = json.load(open(os.path.join(CAD, "out", "kinematics.json")))
 MM = 0.001
 
+# Pad shear spring: G (NBR 70 Shore A) ~ 1.5 MPa * 737 mm2 / 3 mm = 3.7e5 N/m per direction, taken 10 x softer
+# with armature so it stays stable at the 0.5 ms step; only the equal load sharing matters, not the micrometres.
+K_PAD_SHEAR, M_PAD_ARM = 3.7e4, 0.05
+C_PAD_SHEAR = 2 * (K_PAD_SHEAR * M_PAD_ARM) ** 0.5
 MU_PAD = GP.MU_OILY                       # NBR pad on oily PA 6, the value V2 has to justify
 GRIPPER_MASS, SLIDE_MASS = 2.38, 0.27     # kg, from the build (2.915 total incl. the moving groups, rail size 12)
 GRIPPER_COM = (0.0, -4.2, 76.0 - 66.0)    # mm in the gripper frame (build: 66 mm below the flange face z = 76)
@@ -86,8 +90,15 @@ def build():
         tag = "L" if side == -1 else "R"
         body = [visual(n, m) for n, m in groups[side]]
         c, h = box_of(f"Pad_{tag}")
-        body.append(f'<geom name="pad_{tag}" type="box" pos="{v(c, MM)}" size="{v(h, MM)}" rgba="0.1 0.1 0.1 1" '
-                    f'contype="2" conaffinity="0" group="2"/>  <!-- touches the part only through the explicit pair -->')
+        # NBR layer: the pad hangs on two tangential springs (y, z), so a rigid part loads both pads alike, as the
+        # rubber shear does in reality; contacts alone have no tangential memory and split the load arbitrarily
+        spring = f'stiffness="{K_PAD_SHEAR:.0f}" damping="{C_PAD_SHEAR:.0f}" armature="{M_PAD_ARM}"'
+        body.append(f'<body name="padbody_{tag}" pos="{v(c, MM)}">'
+                    f'<inertial pos="0 0 0" mass="0.005" diaginertia="1e-6 1e-6 1e-6"/>'
+                    f'<joint name="pad_{tag}_y" type="slide" axis="0 1 0" {spring}/>'
+                    f'<joint name="pad_{tag}_z" type="slide" axis="0 0 1" {spring}/>'
+                    f'<geom name="pad_{tag}" type="box" size="{v(h, MM)}" rgba="0.1 0.1 0.1 1" contype="2" '
+                    f'conaffinity="0" group="2"/></body>')
         pad_geoms.append(f"pad_{tag}")
         slide_xml[side] = f'''
             <body name="slide_{tag}">
@@ -136,6 +147,11 @@ def build():
     <geom name="floor" type="plane" size="4 4 0.1" rgba="0.85 0.86 0.86 1" contype="1" conaffinity="1"/>
     <geom name="pedestal" type="cylinder" pos="{CP.BASE[0] * MM} 0 {CP.BASE[2] / 2 * MM}" size="0.22 {CP.BASE[2] / 2 * MM}" rgba="0.3 0.32 0.35 1" contype="1" conaffinity="1"/>
     <geom name="belt" type="box" pos="{CP.X_PICK * MM} 0 {(CP.H_PICK - 20) * MM}" size="0.15 0.7 0.02" rgba="0.15 0.15 0.15 1" contype="1" conaffinity="1" friction="0.6"/>
+    <geom name="fence_left" type="box" pos="{(CP.X_FENCE[0] + CP.X_FENCE[1]) / 2 * MM} {(CP.Y_FENCE + CP.T_FENCE / 2) * MM} {CP.H_FENCE / 2 * MM}" size="{(CP.X_FENCE[1] - CP.X_FENCE[0]) / 2 * MM} {CP.T_FENCE / 2 * MM} {CP.H_FENCE / 2 * MM}" rgba="0.95 0.8 0.1 0.25" contype="0" conaffinity="0"/>
+    <geom name="fence_right" type="box" pos="{(CP.X_FENCE[0] + CP.X_FENCE[1]) / 2 * MM} {-(CP.Y_FENCE + CP.T_FENCE / 2) * MM} {CP.H_FENCE / 2 * MM}" size="{(CP.X_FENCE[1] - CP.X_FENCE[0]) / 2 * MM} {CP.T_FENCE / 2 * MM} {CP.H_FENCE / 2 * MM}" rgba="0.95 0.8 0.1 0.25" contype="0" conaffinity="0"/>
+    <geom name="chain_1" type="box" pos="{(CP.CHAIN_X[0] + CP.CHAIN_X[1]) / 2 * MM} {-CP.DY_CHAIN * MM} {(CP.H_PLACE - 45) * MM}" size="{(CP.CHAIN_X[1] - CP.CHAIN_X[0]) / 2 * MM} {CP.CHAIN_W / 2 * MM} 0.015" rgba="0.2 0.2 0.22 1" contype="0" conaffinity="0"/>
+    <geom name="chain_2" type="box" pos="{(CP.CHAIN_X[0] + CP.CHAIN_X[1]) / 2 * MM} {CP.DY_CHAIN * MM} {(CP.H_PLACE - 45) * MM}" size="{(CP.CHAIN_X[1] - CP.CHAIN_X[0]) / 2 * MM} {CP.CHAIN_W / 2 * MM} 0.015" rgba="0.2 0.2 0.22 1" contype="0" conaffinity="0"/>
+    <geom name="carrier_1" type="box" pos="{CP.X_PLACE * MM} {-CP.DY_CHAIN * MM} {(CP.H_PLACE - 15) * MM}" size="0.12 0.08 0.015" rgba="0.25 0.45 0.7 1" contype="0" conaffinity="0"/>
     <geom name="carrier" type="box" pos="{CP.X_PLACE * MM} {CP.DY_CHAIN * MM} {(CP.H_PLACE - 15) * MM}" size="0.12 0.08 0.015" rgba="0.25 0.45 0.7 1" contype="1" conaffinity="1" friction="0.6"/>
     <body name="robot" pos="{v(CP.BASE, MM)}">
       <geom type="mesh" mesh="link0" rgba="0.93 0.95 0.96 1" contype="4" conaffinity="0" group="1"/>

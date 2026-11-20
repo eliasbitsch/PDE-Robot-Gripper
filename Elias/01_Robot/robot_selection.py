@@ -123,6 +123,7 @@ def placement(xs=np.arange(-300, 101, 25), hs=np.arange(0, 801, 50)):
             grid[i, j] = marg if stretch <= STRETCH_MAX else -1
             rows.append(dict(x=float(x), h=float(h), margin=marg, stretch=stretch, ok=ok, t_move=t, axis=ax,
                              a5=[round(p["q"][4], 1) for p in wp.values()]))
+    CP.BASE = CP_BASE0                                       # waypoints() moved the base around
     return xs, hs, grid, rows
 
 
@@ -142,11 +143,19 @@ def main():
     if best:
         print(f"lowest feasible pedestal: x {best['x']:.0f}, h {best['h']:.0f}: margin {best['margin']:.1f} deg, "
               f"stretch {best['stretch'] * 100:.0f} %, MoveJ {best['t_move']:.2f} s")
+    import sim as S
+    path = S.transfer_path(LIFT)
+    t_loaded = S.TimeLaw(path, S.GP.A_PATH_REAL).T          # TCP acceleration the grip force is sized for
+    t_empty = S.TimeLaw(path, 15.0).T                       # empty way back: robot limits only (here 15 m/s2)
+    t_budget = 2 * T_WAY
+    print(f"transfer through the vias (fence): loaded {t_loaded:.2f} s at {S.GP.A_PATH_REAL} m/s2, empty {t_empty:.2f} s, "
+          f"together {t_loaded + t_empty:.2f} of {t_budget:.1f} s")
     req_reach = max(math.hypot(CP.X_PLACE - cur["x"], CP.DY_CHAIN), abs(CP.X_PICK - cur["x"]))
     cands = [dict(name=n, reach=r, payload=p, a1=a1, ctrl=c, src=s, reach_ok=r >= req_reach, payload_ok=p >= pl["mass"],
                   v_tcp=math.radians(a1) * req_reach / 1000) for n, r, p, a1, c, s in CANDIDATES]
     out = dict(payload=pl, checks=checks, placement=dict(current=cur, best=best, n_ok=len(ok), n=len(rows)),
-               req_reach_mm=req_reach, candidates=cands, t_way=T_WAY, a_tcp_max=A_TCP_MAX)
+               req_reach_mm=req_reach, candidates=cands, t_way=T_WAY, a_tcp_max=A_TCP_MAX,
+               transfer=dict(t_loaded=t_loaded, t_empty=t_empty, t_budget=t_budget, via_r=S.VIA_R, via_z=S.VIA_Z))
     json.dump(out, open(os.path.join(HERE, "robot_selection.json"), "w"), indent=1)
     plots(xs, hs, grid, cur, best, pl)
     return out
