@@ -132,3 +132,12 @@ the motor powered until the brake has closed. Remedy in D11 (`02_CAD_Body/CAD_PL
 UF20.241) and a brake-first shutdown in the NanoJ program. Gearbox friction is left out (conservative).
 
 ![power failure](figures/power_fail.png)
+
+## Looks of the cell (NVIDIA SimReady, CC-BY-4.0)
+
+Belt, fence, floor and operator terminal are NVIDIA SimReady assets (`06_Cell/simready`: `fetch.py` downloads
+them into the git-ignored `06_Cell/vendor/simready`, `usd2obj.py` converts them in Blender, `layout.py` scales and
+places them onto the exact cell geometry). They are visual only: the collision check and the physics use the plain
+boxes from `cell_params.py` (Abb. 1), which stay underneath. Without the downloaded assets the model falls back to
+the boxes. Assets: `conveyor_belt_a05`, `wire_machineGuard_a04`, `environment_floor_a01`,
+`digitalSystem_touchTerminal_standing_a01` © NVIDIA, https://huggingface.co/datasets/nvidia/simready-assets.

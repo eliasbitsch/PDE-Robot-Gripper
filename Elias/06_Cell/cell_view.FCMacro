@@ -96,7 +96,9 @@ def build():
             s = s.fuse(leg)
         add(doc, name + "_frame", s, frame)
 
-    conveyor("Buffer_belt", X_PICK - 150, X_PICK + 150, -700, 700, H_PICK, 40, (0.15, 0.15, 0.15))
+    conveyor("Buffer_belt", CP.BELT_X[0], CP.BELT_X[1], -CP.BELT_W / 2, CP.BELT_W / 2, H_PICK, 40, (0.15, 0.15, 0.15))
+    add(doc, "Production_line", Part.makeBox(CP.PLANT_X[1] - CP.PLANT_X[0], 2 * CP.Y_FENCE + 400, H_FENCE,
+                                             V(CP.PLANT_X[0], -CP.Y_FENCE - 200, 0)), (0.82, 0.84, 0.86))
     for i, y in enumerate((-DY_CHAIN, DY_CHAIN)):
         conveyor(f"Chain_{i + 1}", CP.CHAIN_X[0], CP.CHAIN_X[1], y - CP.CHAIN_W / 2, y + CP.CHAIN_W / 2, H_PLACE - 30, 30, (0.20, 0.20, 0.22))
         add(doc, f"Carrier_{i + 1}", Part.makeBox(240, 160, 30, V(X_PLACE - 120, y - 80, H_PLACE - 30)), (0.25, 0.45, 0.70))

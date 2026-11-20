@@ -13,7 +13,7 @@ import numpy as np
 import sim as S
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OBSTACLES = ("fence_left", "fence_right", "belt", "chain_1", "chain_2", "carrier", "carrier_1", "pedestal", "floor")
+OBSTACLES = ("fence_left", "fence_right", "plant", "belt", "chain_1", "chain_2", "carrier", "carrier_1", "pedestal", "floor")
 D_MAX = 0.5                                             # m, distances above this are reported as >= D_MAX
 
 

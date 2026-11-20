@@ -36,6 +36,8 @@ Y_FENCE, T_FENCE = 600.0, 40.0
 X_FENCE = (X_PLACE - 250.0, X_PICK + 150.0)
 CHAIN_W, CARRIER = 120.0, (240.0, 160.0, 30.0)
 CHAIN_X = (X_PLACE - 800.0, X_PLACE + CARRIER[0] / 2)   # chains come out of the line and end under the carriers (Abb. 1)
+BELT_X, BELT_W = (X_PICK - 150.0, X_PICK + 1250.0), 300.0   # buffer belt along x, pick at its inner end, leaves the cell
+PLANT_X = (X_FENCE[0] - 700.0, X_FENCE[0])                  # production line closing the enclosure on the place side
 
 A2_X, A2_Z = ROBOT["a2"]
 L2, C4, L3X, L_FL = ROBOT["l2"], ROBOT["c"], ROBOT["l3"], ROBOT["l_fl"]
