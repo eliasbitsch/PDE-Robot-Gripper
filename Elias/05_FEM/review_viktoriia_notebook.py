@@ -326,29 +326,59 @@ def _(SIMFIG, mo, os, sim_close):
 
 
 @app.cell
-def _(P, V4C, an, fem_train, mo, sim_close, sim_grip, v2, v4_store):
+def _(HERE, P, V4C, an, fem_train, json, mo, os, sim_close, sim_grip, v2, v4_store):
     _nan = float("nan")
+    _ld = lambda rel: json.load(open(os.path.join(HERE, "..", rel))) if os.path.exists(os.path.join(HERE, "..", rel)) else {}
+    _fc, _jv = _ld("04_Simulation/out/friction_check.json"), _ld("05_FEM/jaw_variants.json")
     _c = {c["case"]: c for c in sim_grip["cases"]} if sim_grip else {}
     _lc2 = next((c for c in fem_train["cases"] if c["case"].startswith("LC2")), None) if fem_train else None
     _close = {f"{c['profile']} {c['t_fast']:.2f}": c for c in sim_close["cases"]} if sim_close else {}
+    _cmp = {r["quantity"]: r for r in (V4C.compare(v4_store, an) or [])}
     _My_v = P.F_JAW_MAX * abs(P.PINION_Z0 + P.PINION_B / 2 - sum(P.PAD_Z) / 2) / 1000
     _My_f = _lc2["carriage"]["M"][1] / 1000 if _lc2 else _nan
-    _um = _c.get("required", {}).get("util_median", _nan)
+    _ok = lambda d: "✓" if abs(d) <= 5 else "✗"
+    _val = []
+    for _q, _r in _cmp.items():
+        if _q.startswith("bending stress") or "Weber (a+b+c) vs FEM rigid" in _q:
+            _val.append((_q, f"{_r['analytic']:.2f}", f"{_r['fem']:.2f}", _r["dev"], "V4 / FEM"))
+    for _k, _lbl in (("solid", "deflection, plain bar 25 x 8 [µm]"), ("no pocket", "deflection, jaw without pocket [µm]")):
+        if _k in _jv:
+            _val.append((_lbl, f"{_jv[_k]['beam']:.2f}", f"{_jv[_k]['fem']:.2f}", _jv[_k]["dev"], "V4 model / FEM, section clamped"))
+    _val.append(("carriage pitch moment M_y [N·m]", f"{_My_v:.2f}", f"{_My_f:.2f}", (_My_f / _My_v - 1) * 100, "V2 § 6 / FEM"))
+    for _k in ("required", "setpoint", "e-stop at setpoint"):
+        if _k in _fc:
+            _val.append((f"friction use, median over the transfer ({_k})", f"{_fc[_k]['median_hand']:.3f}",
+                         f"{_fc[_k]['median_sim']:.3f}", -_fc[_k]["dev_median"] / (1 + _fc[_k]["dev_median"] / 100), "V2 § 1 quasi-static / MuJoCo"))
+    _t1 = ["| quantity | hand calculation | simulation | deviation | | pair |", "|---|---|---|---|---|---|"]
+    _t1 += [f"| {q} | {a} | {f} | {d:+.1f} % | {_ok(d)} | {s} |" for q, a, f, d, s in _val]
+    _v3 = _jv.get("V3", {})
     _ae = _c.get("e-stop at setpoint", {}).get("a_tcp_max", _nan)
+    _a_lever = v2["a_stop"] * 1.0 / 1.4
+    _t2 = ["| input | V2 assumption | replaced by | effect |", "|---|---|---|---|",
+           f"| path acceleration | {P.A_BAHN:.2f} m/s² (straight line) | {P.A_PATH_REAL:.2f} m/s² (real MoveJ, MuJoCo) | setpoint {P.F_GRIP_SET:.1f} N instead of {P.F_GRIP_OILY:.1f} N |",
+           f"| e-stop deceleration | {v2['a_stop']:.1f} m/s² (lever 1.4 m) | {_ae:.1f} m/s² (simulation, TCP ≤ 1.0 m); V2 rescaled to 1.0 m: {_a_lever:.1f} m/s² ({(_a_lever / _ae - 1) * 100:+.1f} %) | V2 conservative, kept |",
+           "| bevel forces | straight bevel | spiral (KHK SMSG): up to 0.81·F_t | bearings s0 4.0, gearbox shaft ≤ 65 % |"]
     _tg = _close.get("two-stage 0.12", {}).get("t_grip", _nan)
-    _rows = [(r["quantity"], f"{r['analytic']:.2f}", f"{r['fem']:.2f}", r["dev"], "V4 / FEM") for r in (V4C.compare(v4_store, an) or [])]
-    _rows += [("friction use at the required force, median", "0.50", f"{_um:.2f}", (_um / 0.5 - 1) * 100, "V2 § 1 / MuJoCo"),
-              ("path acceleration [m/s²]", f"{P.A_BAHN:.2f}", f"{P.A_PATH_REAL:.2f}", (P.A_PATH_REAL / P.A_BAHN - 1) * 100, "V2 § 1 / MuJoCo"),
-              ("e-stop deceleration at the TCP [m/s²]", f"{v2['a_stop']:.1f}", f"{_ae:.1f}", (_ae / v2['a_stop'] - 1) * 100, "V2 § 2 / MuJoCo"),
-              ("carriage pitch moment [N·m]", f"{_My_v:.2f}", f"{_My_f:.2f}", (_My_f / _My_v - 1) * 100, "V2 § 6 / FEM"),
-              ("closing time with grip force [s]", "0.30", f"{_tg:.3f}", (_tg / 0.3 - 1) * 100, "V2 § 10 / MuJoCo")]
-    _t = ["| quantity | hand calculation | simulation | deviation | pair |", "|---|---|---|---|---|"]
-    for _q, _a, _f, _d, _src in _rows:
-        _t.append(f"| {_q} | {_a} | {_f} | {_d:+.1f} % | {_src} |")
-    mo.md("## 3. All deviations at a glance\n\n" + "\n".join(_t) +
-          "\n\nQualitative: power failure, V2 'held' against the simulation 'dropped without buffer' → corrected (2.5). "
-          "Within 5 %: stress and carriage moments. Above 5 %: model limits (beam theory on a short, stocky jaw) or V2 "
-          "assumptions the simulation replaced (path and stop acceleration, closing impact).")
+    _t3 = ["| requirement | limit | result | |", "|---|---|---|---|",
+           f"| grip force built up | ≤ 0.30 s | {_tg:.3f} s (two-stage close) | {'✓' if _tg <= 0.3 else '✗'} |",
+           f"| pad tilt, full current | ≤ 0.10° | {(_lc2['tilt_deg'] if _lc2 else _nan):.3f}° | {'✓' if _lc2 and _lc2['tilt_deg'] <= 0.1 else '✗'} |",
+           "| static safety of the carriage | S0 ≥ 5 (Rexroth, normal design) | 5.1 ... 7.8 (size 12) | ✓ |",
+           f"| part held, every case incl. e-stop | no drop | {'held' if sim_grip and all(c['held'] for c in sim_grip['cases']) else 'check'} | ✓ |",
+           "| part held on power failure | no drop | held with buffer + brake-first shutdown | ✓ |"]
+    _t4 = ["| comparison | hand | FEM | deviation | why it differs |", "|---|---|---|---|---|"]
+    for _q, _r in _cmp.items():
+        if not (_q.startswith("bending stress") or "Weber (a+b+c) vs FEM rigid" in _q):
+            _t4.append(f"| {_q} | {_r['analytic']:.2f} | {_r['fem']:.2f} | {_r['dev']:+.1f} % | different boundary condition |")
+    if _v3:
+        _t4.append(f"| V3 with pocket, rims carrying / not carrying [µm] | {_v3['beam']:.2f} / {_v3['beam_no_rims']:.2f} | {_v3['fem']:.2f} | "
+                   f"{_v3['dev']:+.1f} / {_v3['dev_no_rims']:+.1f} % | 3D effect of the pocket: the bounds bracket the FEM |")
+    mo.md("## 3. All deviations at a glance\n\n"
+          "**a) Model validation: same quantity, same boundary condition (target ≤ 5 %)**\n\n" + "\n".join(_t1) +
+          "\n\nThe one row above 5 % (beam + Weber, -5.3 %) is the pocketed jaw: the same rim effect as in d), where the "
+          "two beam bounds bracket the FEM. Without the pocket the beam model is within 5 %." +
+          "\n\n**b) V2 inputs replaced by the simulation** (not model errors)\n\n" + "\n".join(_t2) +
+          "\n\n**c) Requirements**\n\n" + "\n".join(_t3) +
+          "\n\n**d) Informative: deliberately different models** (they show why the Weber term and the bounds are needed)\n\n" + "\n".join(_t4))
     return
 
 

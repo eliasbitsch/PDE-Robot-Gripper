@@ -33,7 +33,7 @@ POCKET_R = 1.0                                       # corner radius: milled poc
 SCREW_Z = (Z_TOP - 39.0, Z_TOP - 59.0)               # -67.5, -87.5, y = 0
 SCREW_HOLE = 3.4                                     # M3 clearance, through
 CBORE_D, CBORE_DEPTH = 6.5, 1.0                      # seat for ISO 4762 M3x6 (BOM pos. 25): 2 mm thread engagement
-EDGE = 0.5                                           # break all outer edges
+EDGE = 0.5                                           # break the outer edges, except the top face (dowel wall >= 1.5)
 
 # ------------------------------------------------------------------ pad plate (bought to drawing)
 PLATE_T, NBR_T = P.PAD_PLATE_T, P.PAD_T              # steel 3 + NBR 70 Shore A 3 (vulcanised)
@@ -48,7 +48,7 @@ def jaw_left():
     body = (cq.Workplane("XY")
             .box(JAW_T, JAW_W, length)
             .translate((-(X_IN + JAW_T / 2), 0, (Z_TOP + Z_BOT) / 2))
-            .edges().chamfer(EDGE))
+            .edges("not >Z").chamfer(EDGE))                # top edges sharp (deburred): a chamfer there leaves 1.0 mm over the dowels
     # pad pocket on the inner face
     pocket = (cq.Workplane("XY")
               .box(POCKET_D, POCKET_W, POCKET_Z[1] - POCKET_Z[0])

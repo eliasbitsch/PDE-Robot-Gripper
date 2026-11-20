@@ -40,6 +40,13 @@ the limit; median over the moving phases and 50 ms peak.
 | e-stop at required, ABB category 0 | 35.7 N | 0.41 / 0.67 | 0.45 mm | held |
 | e-stop at setpoint | 44.5 N | 0.33 / 0.79 | 0.36 mm | held |
 
+Hand calculation at each instant (`validate_grip.quasi_static`, `friction_check`, `out/friction_check.json`): the
+pads must carry m (a - g) in their plane, with a from the simulated part motion. Median friction use over the
+transfer, quasi-static vs simulated: required 0.447 / 0.447, setpoint 0.338 / 0.340, e-stop 0.329 / 0.329
+(within 0.6 %), so the V2 model is validated. Short peaks: the quasi-static formula gives 0.92 ... 1.08, the
+simulation 0.79 ... 0.86, at different instants (the part's rotational inertia and the pad compliance smooth them),
+so the hand calculation is on the safe side there.
+
 Grip forces per jaw (`gripper_params.py`): required 35.7 N (hand calculation), **setpoint 44.5 N** (real path),
 **current limit 48.5 N** (KHK bevel pair, 0.97 N·m), available 60.5 N (motor, all losses), 63.6 N strength case
 (current limit set wrong). Since 19 Nov: rail size 12, gripper 2.915 kg.

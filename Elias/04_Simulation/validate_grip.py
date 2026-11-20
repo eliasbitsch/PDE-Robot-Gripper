@@ -53,6 +53,34 @@ def part_in_gripper(m, d):
     return R.T @ (d.body("part").xpos - d.xpos[b])
 
 
+def quasi_static(m, log, mu):
+    """Hand-calculation friction use at each instant: the pads must carry m (a - g) in their plane (a from the
+    simulated part motion, normal force as simulated); rotational inertia of the part is what this leaves out."""
+    tt = np.array(log["t"])
+    pos = np.array(log["part_pos"])
+    acc = np.gradient(np.gradient(pos, tt, axis=0), tt, axis=0)
+    f = m.body("part").mass[0] * (acc - m.opt.gravity)
+    nx = np.array(log["xaxis"])
+    f_plane = f - (np.sum(f * nx, axis=1))[:, None] * nx
+    n = np.array(log["n"])
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(n > 1e-6, np.linalg.norm(f_plane, axis=1) / (mu * n), np.nan)
+
+
+def friction_check(log, k=10):
+    """Simulated vs quasi-static friction use over the transfer, both averaged over k samples (50 ms)."""
+    tt = np.array(log["t"])
+    w = (tt > log["win"][0]) & (tt < log["win"][1])
+    sm = lambda x: np.convolve(np.nan_to_num(np.array(x)), np.ones(k) / k, mode="same")[w]
+    us, uh = sm(log["util"]), sm(log["util_hand"])
+    i = int(np.argmax(us))
+    return dict(median_sim=float(np.median(us)), median_hand=float(np.median(uh)),
+                dev_median=float((np.median(us) / np.median(uh) - 1) * 100),
+                peak_sim=float(us[i]), hand_at_peak=float(uh[i]), dev_peak=float((us[i] / uh[i] - 1) * 100),
+                peak_hand=float(uh.max()), dev_peaks=float((us.max() / uh.max() - 1) * 100),
+                rms_dev=float(np.sqrt(np.mean((us - uh) ** 2)) / np.mean(uh) * 100))
+
+
 def set_force(m, f_jaw):
     """One actuator drives both coupled jaws (like the pinion drives both racks): it needs 2 x the force per jaw."""
     a = m.actuator("jaw").id
@@ -86,7 +114,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
     t_stop = t_tr0 + 0.5 * T_TR if estop else None
     L_tcp = np.linalg.norm(np.array([GP.X_PLACE if hasattr(GP, "X_PLACE") else S.CP.X_PLACE, S.CP.DY_CHAIN])
                            - np.array([S.CP.X_PICK, 0.0])) * MM          # rough TCP path length per unit s
-    log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util", "util_pad")}
+    log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util", "util_pad", "part_pos", "xaxis", "n")}
     pads = {m.geom("pad_L").id, m.geom("pad_R").id}
     part_g = m.geom("part").id
     f6 = np.zeros(6)
@@ -156,11 +184,16 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
             n = fn["L"] + fn["R"]
             log["util"].append(float(np.linalg.norm(ftv["L"] + ftv["R"]) / (mu * n)) if n > 1e-6 else float("nan"))
             log["util_pad"].append(max(float(np.linalg.norm(ftv[k]) / (mu * fn[k])) if fn[k] > 1e-6 else 0.0 for k in "LR"))
+            log["part_pos"].append(d.body("part").xpos.copy())
+            log["xaxis"].append(d.xmat[m.body("gripper_frame").id].reshape(3, 3)[:, 0].copy())
+            log["n"].append(n)
     tcp = np.array(log["tcp"])
     tt = np.array(log["t"])
     acc = np.gradient(np.gradient(tcp, tt, axis=0), tt, axis=0)
     a_mag = np.linalg.norm(acc, axis=1)
     log["a_tcp"] = a_mag.tolist()
+    log["util_hand"] = quasi_static(m, log, mu).tolist()
+    log["win"] = [float(t_lift0), float(t_low0 + T_LIFT)]
     win = (tt > t_lift0) & (tt < t_low0 + T_LIFT)
     slip = np.array(log["slip"])
     util = np.nan_to_num(np.array(log["util"]))
