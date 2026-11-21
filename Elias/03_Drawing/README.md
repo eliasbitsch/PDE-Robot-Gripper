@@ -1,4 +1,4 @@
-# E3 - Assembly drawing, parts list and part drawing
+# E3 - Assembly drawing and parts list
 
 Texts on the sheets are German (submission); designations are translated in `de.py`, the model keeps English.
 
@@ -17,6 +17,3 @@ python drawing_sheet.py              # sheets -> assembly_drawing.pdf, previews 
 Section per ISO 128-44: own parts and bearings are cut and hatched; shafts, screws, pins, keys, circlips and the
 bought drive units (motor, gearbox, brake, encoder) stay uncut. Hidden edges are left out.
 
-`part_drawing_jaw.pdf`: part drawing of the gripper jaw (Viktoriia's V3, A3, 2:1): inner face, section A-A, outer face,
-full dimensions, fits (dowel holes 4 H7), datum A on the holder face with flatness and perpendicularity, surfaces.
-`fc.sh part_export.py` then `python part_drawing.py`.

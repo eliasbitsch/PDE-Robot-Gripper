@@ -105,7 +105,7 @@ def main():
             c = (sum((so.CenterOfMass * so.Volume for so in sol), V(0, 0, 0)) * (1 / sum(so.Volume for so in sol))
                  if sol and s.Volume > 1 else s.BoundBox.Center)
             anchors.setdefault(str(p), []).append([n, [c.x, c.y, c.z]])
-        res["views"][name] = dict(dir=[d.x, d.y, d.z], M=M, visible=polylines(r[0]) + polylines(r[1]) + polylines(r[3]),
+        res["views"][name] = dict(dir=[d.x, d.y, d.z], M=M, visible=polylines(r[0]) + polylines(r[3]),       # no tangent (smooth) edges
                                   hidden=polylines(r[5]) + polylines(r[6]) + polylines(r[8]), anchors=anchors)
         print(name, len(res["views"][name]["visible"]), "visible", len(res["views"][name]["hidden"]), "hidden", len(anchors), "positions")
     json.dump(res, open(os.path.join(OUT, "views.json"), "w"))

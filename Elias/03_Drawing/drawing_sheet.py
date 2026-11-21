@@ -199,42 +199,99 @@ def dim_v(sh, y0, y1, x, x_ref0, x_ref1, txt, outside=False):
         sh.text(x - 1.2, 0.5 * (y0 + y1), txt, 3.5, ha="right", va="center", rotation=90)
 
 
-def balloons(sh, view, o, positions, box):
-    """Balloons evenly spaced on the rectangle around the view, in the angular order of their anchors; the ring is
-    turned so that the leaders are shortest (no overlapping balloons, few crossings)."""
+def _spread(want, gap, lo, hi):
+    """Values sorted high to low, moved as little as possible so neighbours keep at least gap, inside [lo, hi]."""
+    y = list(want)
+    for i in range(1, len(y)):
+        y[i] = min(y[i], y[i - 1] - gap)
+    if y and y[-1] < lo:
+        y[-1] = lo
+        for i in range(len(y) - 2, -1, -1):
+            y[i] = max(y[i], y[i + 1] + gap)
+    return [min(v, hi) for v in y]
+
+
+def balloons(sh, view, o, positions, box, gap=10.0):
+    """Each balloon sits where the ray from the view centre through its anchor meets the rectangle around the view;
+    then the balloons are pushed apart along the rectangle (keeping their order) until they keep the spacing gap.
+    Nearly radial leaders in angular order do not cross."""
     an = V["views"][view]["anchors"]
     x0, y0, x1, y1 = box
     cx, cy = 0.5 * (x0 + x1), 0.5 * (y0 + y1)
+    hw, hh = x1 - x0, y1 - y0
+    per = 2 * (hw + hh)
+    segs = [((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0)), ((x0, y0), (x1, y0))]   # ccw from bottom right
+    lens = [hh, hw, hh, hw]
+
+    def at(t):
+        s_ = (t % 1.0) * per
+        for ((ax_, ay), (bx, by)), L in zip(segs, lens):
+            if s_ <= L:
+                r = s_ / L
+                return ax_ + r * (bx - ax_), ay + r * (by - ay)
+            s_ -= L
+        return segs[0][0]
+
+    def t_of_ray(a):
+        dx, dy = a[0] - cx, a[1] - cy
+        if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+            dx = 1e-3
+        k = min((hw / 2) / abs(dx) if dx else 1e9, (hh / 2) / abs(dy) if dy else 1e9)
+        px, py = cx + k * dx, cy + k * dy
+        acc = 0.0
+        for ((ax_, ay), (bx, by)), L in zip(segs, lens):
+            if abs((bx - ax_) * (py - ay) - (by - ay) * (px - ax_)) < 1e-6 * per * per and                     min(ax_, bx) - 1e-6 <= px <= max(ax_, bx) + 1e-6 and min(ay, by) - 1e-6 <= py <= max(ay, by) + 1e-6:
+                return (acc + math.hypot(px - ax_, py - ay)) / per
+            acc += L
+        return 0.0
     items = []
     for p in positions:
         cand = an.get(str(p))
         if cand:
             a = to2d(view, cand[0][1]) * SCALE + o
-            items.append((math.atan2(a[1] - cy, a[0] - cx), p, a))
+            items.append([t_of_ray(a), p, a])
     if not items:
         return
     items.sort()
-    n = len(items)
-    hw, hh = x1 - x0, y1 - y0
-    per = 2 * (hw + hh)
+    n, g = len(items), gap / per
+    want = [it[0] for it in items]
+    # open the circle at the largest gap, then the closest positions with spacing >= g keeping the order:
+    # q_i = t_i - i g must not decrease -> isotonic regression (pool adjacent violators) of want_i - i g
+    gaps = [((want[(i + 1) % n] - want[i]) % 1.0) for i in range(n)]
+    k = (max(range(n), key=lambda i: gaps[i]) + 1) % n
+    order = list(range(k, n)) + list(range(k))
+    w = [want[i] for i in order]
+    for i in range(1, n):
+        while w[i] < w[i - 1]:
+            w[i] += 1.0
+    blocks = []                                      # [sum, count]
+    for i, v in enumerate(w):
+        blocks.append([v - i * g, 1])
+        while len(blocks) > 1 and blocks[-2][0] / blocks[-2][1] > blocks[-1][0] / blocks[-1][1]:
+            s2, c2 = blocks.pop()
+            blocks[-1][0] += s2
+            blocks[-1][1] += c2
+    q = [b_[0] / b_[1] for b_ in blocks for _ in range(b_[1])]
+    tt = [q[i] + i * g for i in range(n)]
+    t = [0.0] * n
+    for pos, i in enumerate(order):
+        t[i] = tt[pos]
+    spots = [at(ti) for ti in t]
 
-    def on_rect(t):                                   # t in [0, 1): from the right middle, counter-clockwise
-        s = (t % 1.0) * per
-        for (ax_, ay), (bx, by), L in (((x1, cy), (x1, y1), hh / 2), ((x1, y1), (x0, y1), hw), ((x0, y1), (x0, y0), hh),
-                                       ((x0, y0), (x1, y0), hw), ((x1, y0), (x1, cy), hh / 2)):
-            if s <= L:
-                r = s / L
-                return ax_ + r * (bx - ax_), ay + r * (by - ay)
-            s -= L
-        return x1, cy
-    best = None
-    for k in range(120):
-        off = k / 120
-        pts = [on_rect(off + i / n) for i in range(n)]
-        L = sum(math.hypot(px - a[0], py - a[1]) for (px, py), (_, _, a) in zip(pts, items))
-        if best is None or L < best[0]:
-            best = (L, pts)
-    for (bx, by), (_, p, a) in zip(best[1], items):
+    def cross(p1, p2, p3, p4):
+        d = lambda a_, b_, c_: (b_[0] - a_[0]) * (c_[1] - a_[1]) - (b_[1] - a_[1]) * (c_[0] - a_[0])
+        return d(p1, p2, p3) * d(p1, p2, p4) < 0 and d(p3, p4, p1) * d(p3, p4, p2) < 0
+    for _ in range(6):                               # untangle: swap the balloon spots of crossing leaders
+        changed = False
+        for i in range(n):
+            for j in range(i + 1, n):
+                ai, aj = items[i][2], items[j][2]
+                if cross(ai, spots[i], aj, spots[j]) and not cross(ai, spots[j], aj, spots[i]):
+                    spots[i], spots[j] = spots[j], spots[i]
+                    changed = True
+        if not changed:
+            break
+    for (bx, by), (_, p, a) in zip(spots, items):
         sh.line([a[0], bx], [a[1], by], LW_THIN)
         sh.ax.add_patch(Circle((a[0], a[1]), 0.5, color="black"))
         sh.ax.add_patch(Circle((bx, by), 3.6, facecolor="white", edgecolor="black", lw=mm(LW_THIN), zorder=5))
@@ -251,8 +308,8 @@ def sheet1(pdf):
     for v, o in (("A-A", oA), ("left", oL), ("top", oT), ("iso", oI)):
         draw_view(sh, v, o)
     hatch_section(sh, oA)
-    boxA = (oA + SCALE * loA - [30, 28]).tolist() + (oA + SCALE * hiA + [30, 16]).tolist()
-    boxT = (oT + SCALE * loT - [16, 14]).tolist() + (oT + SCALE * hiT + [16, 12]).tolist()
+    boxA = (oA + SCALE * loA - [26, 24]).tolist() + (oA + SCALE * hiA + [26, 14]).tolist()
+    boxT = (oT + SCALE * loT - [18, 12]).tolist() + (oT + SCALE * hiT + [18, 8]).tolist()
     sh.text(*(oA + SCALE * np.array([0.5 * (loA[0] + hiA[0]), hiA[1]]) + [0, 22]), "A-A", 5, ha="center", weight="bold")
     sh.text(*(oL + SCALE * np.array([0.5 * (loL[0] + hiL[0]), hiL[1]]) + [0, 8]), "Ansicht von links", 3.5, ha="center")
     sh.text(*(oI + SCALE * np.array([0.5 * (loI[0] + hiI[0]), hiI[1]]) + [0, 6]), "Isometrische Ansicht", 3.5, ha="center")
@@ -278,8 +335,9 @@ def sheet1(pdf):
     pl, pr = pA(-(P.PAD_X0 + P.D_GRIP), (P.PAD_Z[0] + P.PAD_Z[1]) / 2), pA(P.PAD_X0 + P.D_GRIP, (P.PAD_Z[0] + P.PAD_Z[1]) / 2)
     sh.ax.annotate("", xy=(pl[0], pl[1]), xytext=(pr[0], pr[1]), arrowprops=dict(arrowstyle="<|-|>", lw=mm(LW_THIN),
                    color="black", mutation_scale=6, shrinkA=0, shrinkB=0))
-    sh.text(0.5 * (pl[0] + pr[0]), pl[1] + 1.0, f"{2 * (P.PAD_X0 + P.D_GRIP):.0f}", 3.5, ha="center")
-    sh.text(0.5 * (pl[0] + pr[0]), pl[1] - 4.5, "(66 ... 86)", 2.8, ha="center")
+    xt = pl[0] + 0.3 * (pr[0] - pl[0])               # off the centre line, where the leader of pos. 1 runs
+    sh.text(xt, pl[1] + 1.0, f"{2 * (P.PAD_X0 + P.D_GRIP):.0f}", 3.5, ha="center")
+    sh.text(xt, pl[1] - 4.5, "(66 ... 86)", 2.8, ha="center")
     # balloons: everything the section shows, the rest in the top view
     posA = sorted(int(p) for p in V["views"]["A-A"]["anchors"])
     rest = sorted(int(p) for p in V["views"]["top"]["anchors"] if int(p) not in posA)
