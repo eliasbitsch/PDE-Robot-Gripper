@@ -34,12 +34,14 @@ def pinion_shaft(gear_shape):
     """Pinion and shaft in one piece (own part), teeth below the plate, shaft up to the bevel wheel."""
     s = gear_shape.copy()
     s.translate(V(XP, 0, P.PINION_Z0 - s.BoundBox.ZMin))
-    s = s.fuse(cylz(P.BEARING[0] / 2, P.PINION_Z0 + P.PINION_B - 0.1, P.SHAFT_TOP, XP, 0))
+    top = P.SHAFT_TOP if P.DRIVE == "electric" else P.BOSS_TOP - 0.5        # pneumatic: only the synchronising pinion
+    s = s.fuse(cylz(P.BEARING[0] / 2, P.PINION_Z0 + P.PINION_B - 0.1, top, XP, 0))
     s = s.fuse(cylz(P.COLLAR_D / 2, P.PINION_Z0 + P.PINION_B - 0.1, P.BEARING_LOWER_Z, XP, 0))   # collar under the lower inner ring
     z471 = P.BEARING_UPPER_Z - 0.85
     s = s.cut(cylz(P.BEARING[0] / 2 + 1, z471 - 0.05, z471 + 0.85, XP, 0).cut(cylz(3.8, z471 - 1, z471 + 2, XP, 0)))  # DIN 471 groove
-    k0, k1 = key_z()
-    s = s.cut(box(XP + P.BEARING[0] / 2 - P.KEY_T1, XP + P.BEARING[0] / 2 + 1, -P.KEY_B / 2, P.KEY_B / 2, k0, k1))   # keyway
+    if P.DRIVE == "electric":
+        k0, k1 = key_z()
+        s = s.cut(box(XP + P.BEARING[0] / 2 - P.KEY_T1, XP + P.BEARING[0] / 2 + 1, -P.KEY_B / 2, P.KEY_B / 2, k0, k1))   # keyway
     return s.removeSplitter()
 
 

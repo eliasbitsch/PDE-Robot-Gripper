@@ -244,3 +244,30 @@ for the load, thread engagement by material, sealing, fits). Found and fixed in 
    gripper). Now 2 mm bosses (1.7 × d), HELICOIL inserts for bracket and adapter (1.5 × d with insert; a 2 × d thread would come within 1 mm of the pocket edge).
 6. Holder slots in the cover open to oil and chips: brush seal strips (BOM).
 7. Fits and tolerances missing: section 9.
+
+## Second version: pneumatic drive (21 Nov 2026, `GRIPPER_DRIVE=pneumatic`, output `out_pneumatic/`)
+
+Checkpoint of the electric version: tag `v1-electric`. Built from the same parameters with a switch (`DRIVE` in
+`gripper_params.py`); racks, slides, rail, jaws, pinion with its bearings and the FEM models stay the same.
+
+- Festo ADN-16-10-A-P-A compact cylinder in a flat riser on the top plate, driver plate on the rod with a pin
+  (ISO 8734 5 x 27) through a slot in the plate into the right rack; the pinion keeps the left jaw in step.
+- Double-acting: air closes with the force set on a pressure regulator (2.9 bar for 44.5 N per jaw, the counterpart
+  of the current limit), air opens (108.6 N at 6 bar against 90 N of spring). Spring-only closing was dropped: a
+  spring that alone gives 95 N over 10 mm stroke does not fit (block length) or needs a Ø25-32 cylinder.
+- Safety spring (d 1.8 x Dm 12 x L0 46, c ~ 5 N/mm) adds 50 N at the grip position and alone holds 25 N per jaw
+  when the air fails (22 N needed with S = 1.5 at standstill): fail-safe without check valves.
+- The riser top is the robot flange (ISO 9409-1-40-4-M6 machined in, M6 from the inside): no separate adapter.
+- Strength case if the regulator fails (full 6 bar): 70.2 N per jaw (electric 63.6 N).
+
+| | electric | pneumatic |
+|---|---|---|
+| mass | 2.92 kg | 2.08 kg (-29 %) |
+| flange face to grip centre (TCP) | 150.5 mm | 123.5 mm (-18 %) |
+| housing length | 192 mm | 160 mm |
+| height above the top plate | 76 mm (hood + adapter) | 49 mm (riser with flange) |
+| bounding box | 3.38 l | 2.80 l (-17 %) |
+
+Still to do for the pneumatic version: V2 cylinder and spring sizing (DIN EN 13906-1, block length, fatigue),
+cabinet BOM (valve, regulator, throttles, sensors), E1 payload, MuJoCo closing and air-loss cases, FEM strength
+case at 70 N, verify the ADN-16 drawing (body length, end-cap thread pattern).

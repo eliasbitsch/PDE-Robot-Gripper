@@ -17,10 +17,12 @@ from parts import demo_seq  # noqa: E402
 from parts import fasteners as F  # noqa: E402
 from parts import drive as D  # noqa: E402
 
-OUT = os.path.join(HERE, "out")
+OUT = os.path.join(HERE, "out" if P.DRIVE == "electric" else "out_pneumatic")
 VENDOR = os.path.join(HERE, "vendor")
 DENSITY = {"EN AW-6082": 2.70e-6, "EN AW-7075": 2.81e-6, "steel": 7.85e-6, "NBR": 1.20e-6}  # kg/mm3
-VENDOR_MASS = {"Gearbox": 0.27, "Motor": 0.20, "Brake": 0.15, "Encoder": 0.03, "Cable_Gland_Lapp_SKINTOP_M16": 0.01}  # kg, datasheets (encoder estimated)
+VENDOR_MASS = {"Gearbox": 0.27, "Motor": 0.20, "Brake": 0.15, "Encoder": 0.03, "Cable_Gland_Lapp_SKINTOP_M16": 0.01,
+               "Cylinder_ADN16": 0.089, "Fitting_QSM-M5-4_1": 0.004, "Fitting_QSM-M5-4_2": 0.004,
+               "Bulkhead_QSS-4_1": 0.006, "Bulkhead_QSS-4_2": 0.006}  # kg, datasheets (encoder estimated)
 TOL = 0.05  # mm3, below this an overlap counts as touching
 
 
@@ -76,34 +78,40 @@ def build_static(gear_pin, gear_racks, bev):
         "Housing": (C.housing_body(), "EN AW-6082", 0),
         "Cover": (C.cover(), "EN AW-6082", 0),
         "Rail": (C.rail(), "steel", 0),
-        "Hood": (D.hood(), "EN AW-6082", 0),
-        "Adapter_ISO9409": (C.iso_adapter(P.HOOD_TOP + P.HOOD_SEAT), "EN AW-6082", 0),
-        "Bracket": (D.bracket(), "EN AW-6082", 0),
-        "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 0, 1), 180), V(gb_t, 0, za)), "vendor", 0),
-        "Motor": (vendor("nanotec_st4118s1404b.step", App.Rotation(V(1, 0, 0), 0 if P.CABLE_SIDE > 0 else 180).multiply(App.Rotation(V(0, 1, 0), -90)), V(motor_t, 0, za)), "vendor", 0),   # connector into the window
-        "Brake": (brake(brake_t, za), "vendor", 0),
-        "Encoder": (encoder(brake_t - 9.7 + 29.2, za), "vendor", 0),
         "Pinion_Shaft": (D.pinion_shaft(gear_pin), "steel", "rot"),
-        "Bevel_Wheel": (D.wheel(bev), "steel", "rot"),
-        "Bevel_Pinion": (D.bevel_pinion(bev), "steel", "rotx"),
         "Bearing_608_lower": (D.bearing(xp, 0, P.BEARING_LOWER_Z), "steel", 0),
         "Bearing_608_upper": (D.bearing(xp, 0, P.BEARING_UPPER_Z), "steel", 0),
-        "Setscrew_ISO4029-M4x4_Wheel": (F.iso4029_x(4, 4, xp - P.BEVEL_HUB_D / 2, 0, D.hub_z0() + 3, 1), "steel", "rot"),
-        "Key_DIN6885-A2x2x8": (D.key(), "steel", "rot"),
-        "Shim_DIN988-8x14": (D.shim(), "steel", "rot"),
         "Circlip_DIN471-8": (D.circlip_shaft(), "steel", "rot"),
         "Circlip_DIN472-22": (D.circlip_bore(), "steel", 0),
-        "Window_Plate": (D.window_plate(), "EN AW-6082", 0),
-        "Cable_Gland_Lapp_SKINTOP_M16": (D.gland(), "vendor", 0),
     }
-    for i, (x, z) in enumerate(D.window_screws(), 1):
-        parts[f"Screw_ISO10642-M3x8_Window{i}"] = (F.oriented(F.iso10642(3, 8, 0, 0, 0, up=True), V(x, P.CABLE_SIDE * (P.HOOD_Y + P.WINDOW_PLATE_T), z), V(0, -P.CABLE_SIDE, 0)), "steel", 0)
-    for i, (x, y) in enumerate(D.bracket_screws(), 1):
-        parts[f"Screw_ISO4762-M3x10_Bracket{i}"] = (F.iso4762(3, 10, x, y, P.PLATE_T + 6, up=False), "steel", 0)
-    for i, (y, dz) in enumerate(D.gearbox_screws(), 1):
-        parts[f"Screw_ISO4762-M4x12_Gearbox{i}"] = (F.oriented(F.iso4762(4, 12, 0, 0, 0), V(xf - P.BRACKET_T + 4, y, za + dz), V(1, 0, 0)), "steel", 0)
-    for i, (x, y) in enumerate(D.hood_screws(), 1):
-        parts[f"Screw_ISO4762-M4x12_Hood{i}"] = (F.iso4762(4, 12, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
+    if P.DRIVE == "electric":
+        parts.update({
+            "Hood": (D.hood(), "EN AW-6082", 0),
+            "Bracket": (D.bracket(), "EN AW-6082", 0),
+            "Gearbox": (vendor("nanotec_gp42_s1_srs.step", App.Rotation(V(0, 0, 1), 180), V(gb_t, 0, za)), "vendor", 0),
+            "Motor": (vendor("nanotec_st4118s1404b.step", App.Rotation(V(1, 0, 0), 0 if P.CABLE_SIDE > 0 else 180).multiply(App.Rotation(V(0, 1, 0), -90)), V(motor_t, 0, za)), "vendor", 0),   # connector into the window
+            "Brake": (brake(brake_t, za), "vendor", 0),
+            "Encoder": (encoder(brake_t - 9.7 + 29.2, za), "vendor", 0),
+            "Bevel_Wheel": (D.wheel(bev), "steel", "rot"),
+            "Bevel_Pinion": (D.bevel_pinion(bev), "steel", "rotx"),
+            "Setscrew_ISO4029-M4x4_Wheel": (F.iso4029_x(4, 4, xp - P.BEVEL_HUB_D / 2, 0, D.hub_z0() + 3, 1), "steel", "rot"),
+            "Key_DIN6885-A2x2x8": (D.key(), "steel", "rot"),
+            "Shim_DIN988-8x14": (D.shim(), "steel", "rot"),
+            "Window_Plate": (D.window_plate(), "EN AW-6082", 0),
+            "Cable_Gland_Lapp_SKINTOP_M16": (D.gland(), "vendor", 0),
+        })
+        for i, (x, z) in enumerate(D.window_screws(), 1):
+            parts[f"Screw_ISO10642-M3x8_Window{i}"] = (F.oriented(F.iso10642(3, 8, 0, 0, 0, up=True), V(x, P.CABLE_SIDE * (P.HOOD_Y + P.WINDOW_PLATE_T), z), V(0, -P.CABLE_SIDE, 0)), "steel", 0)
+        for i, (x, y) in enumerate(D.bracket_screws(), 1):
+            parts[f"Screw_ISO4762-M3x10_Bracket{i}"] = (F.iso4762(3, 10, x, y, P.PLATE_T + 6, up=False), "steel", 0)
+        for i, (y, dz) in enumerate(D.gearbox_screws(), 1):
+            parts[f"Screw_ISO4762-M4x12_Gearbox{i}"] = (F.oriented(F.iso4762(4, 12, 0, 0, 0), V(xf - P.BRACKET_T + 4, y, za + dz), V(1, 0, 0)), "steel", 0)
+        for i, (x, y) in enumerate(D.hood_screws(), 1):
+            parts[f"Screw_ISO4762-M4x12_Hood{i}"] = (F.iso4762(4, 12, x, y, P.GEAR_SCREW_CBORE), "steel", 0)
+        z_ad = P.HOOD_TOP + P.HOOD_SEAT
+        parts["Adapter_ISO9409"] = (C.iso_adapter(z_ad), "EN AW-6082", 0)
+    else:
+        z_ad = pneumatic_parts(parts, gear_racks)
     for side, tag in ((-1, "L"), (1, "R")):
         parts[f"Carriage_{tag}"] = (C.carriage(side * P.CARR_X0), "steel", side)
         parts[f"Slide_{tag}"] = (C.slide(side), "EN AW-6082", side)
@@ -134,10 +142,41 @@ def build_static(gear_pin, gear_racks, bev):
         parts[f"Screw_ISO4762-M3x8_Rail{i}"] = (F.iso4762(3, 8, x, P.RAIL_Y, P.RAIL_BASE_Z - P.RAIL_H + P.RAIL_CBORE_DEPTH), "steel", 0)
     for i, (x, y) in enumerate(C.cover_screws(), 1):
         parts[f"Screw_ISO10642-M3x10_Cover{i}"] = (F.iso10642(3, 10, x, y, P.POCKET_Z - P.COVER_T, up=True), "steel", 0)
-    z_ad = P.HOOD_TOP + P.HOOD_SEAT
-    for i, (x, y) in enumerate(C.adapter_screws(), 1):
-        parts[f"Screw_ISO10642-M4x16_Adapter{i}"] = (F.iso10642(4, 16, x, y, z_ad + P.ADAPTER_T), "steel", 0)
+    if P.DRIVE == "electric":
+        for i, (x, y) in enumerate(C.adapter_screws(), 1):
+            parts[f"Screw_ISO10642-M4x16_Adapter{i}"] = (F.iso10642(4, 16, x, y, z_ad + P.ADAPTER_T), "steel", 0)
     return parts, {"flange_z": z_ad + P.ADAPTER_T}
+
+
+def pneumatic_parts(parts, gear_racks):
+    """Riser, cylinder, driver, safety spring and fittings of the pneumatic variant; returns the adapter seat z."""
+    from parts import pneumatic as PN
+    rb = gear_racks[P.RACK_TEETH_SIDE[1]].BoundBox
+    rack_top = P.RACK_Z0 + (rb.ZMax - rb.ZMin)
+    zp0, zp1 = PN.pin_z(rack_top)
+    pin_l = int(round(zp1 - zp0))
+    parts.update({
+        "Riser": (PN.riser(), "EN AW-6082", 0),
+        "Cylinder_ADN16": (PN.cylinder_body(), "vendor", 0),
+        "Cylinder_Rod": (PN.cylinder_rod(), "vendor", 1),
+        "Cylinder_Bracket": (PN.bracket(), "EN AW-6082", 0),
+        "Driver": (PN.driver(), "EN AW-6082", 1),
+        f"Dowel_ISO8734-5x{pin_l}_Driver": (PN.driver_pin(rack_top), "steel", 1),
+        "Safety_Spring": (PN.spring(), "steel", 0),
+        "Spring_Guide": (PN.spring_guide(), "steel", 1),
+    })
+    for i, s in enumerate(PN.port_fittings(), 1):
+        parts[f"Fitting_QSM-M5-4_{i}"] = (s, "vendor", 0)
+    for i, s in enumerate(PN.bulkhead_fittings(), 1):
+        parts[f"Bulkhead_QSS-4_{i}"] = (s, "vendor", 0)
+    zt = PN.riser_top()
+    for i, (x, y) in enumerate(PN.riser_screws(), 1):
+        parts[f"Screw_ISO4762-M4x45_Riser{i}"] = (F.iso4762(4, 45, x, y, PN.riser_screw_z(), up=False), "steel", 0)
+    for i, (x, y) in enumerate(PN.bracket_screws(), 1):
+        parts[f"Screw_ISO4762-M4x10_BracketFoot{i}"] = (F.iso4762(4, 10, x, y, P.PLATE_T + PN.FOOT_T, up=False), "steel", 0)
+    for i, (y, z) in enumerate(PN.cylinder_rear_screws(), 1):
+        parts[f"Screw_ISO4762-M4x12_Cylinder{i}"] = (F.iso4762_x(4, 12, PN.X_REAR - PN.BRACKET_T, y, z, 1), "steel", 0)
+    return zt - P.ADAPTER_T          # the riser top is the ISO flange itself: flange_z = zt
 
 
 def scene_parts():
@@ -194,6 +233,8 @@ def phase_pinion(parts):
     rr2 = rr.copy()
     rr2.translate(V(best_r[1], 0, 0))
     parts["Rack_R"] = (rr2, parts["Rack_R"][1], parts["Rack_R"][2])
+    if "Bevel_Wheel" not in parts:
+        return math.radians(theta), best[0], best_r[0], best_r[1]
     # bevel pair: turn the bevel pinion about its own axis until it meshes with the wheel at theta
     wh = parts["Bevel_Wheel"][0].copy()
     wh.rotate(V(P.PINION_X, 0, 0), V(0, 0, 1), theta)
@@ -211,6 +252,10 @@ def phase_pinion(parts):
 
 SKIP = {frozenset(p) for p in [("Gearbox", "Motor"), ("Motor", "Brake"), ("Gearbox", "Brake"), ("Gearbox", "Bevel_Pinion"), ("Brake", "Encoder")]}
 SKIP |= {frozenset(("Gearbox", f"Screw_ISO4762-M4x12_Gearbox{i}")) for i in range(1, 5)}  # thread depth in the vendor model unknown
+SKIP |= {frozenset(p) for p in [("Safety_Spring", "Driver"), ("Safety_Spring", "Spring_Guide"), ("Safety_Spring", "Riser"),
+                                ("Cylinder_Rod", "Driver"), ("Cylinder_Rod", "Cylinder_ADN16"), ("Spring_Guide", "Driver"),
+                                ("Fitting_QSM-M5-4_1", "Cylinder_ADN16"), ("Fitting_QSM-M5-4_2", "Cylinder_ADN16")]}
+SKIP |= {frozenset(("Cylinder_ADN16", f"Screw_ISO4762-M4x12_Cylinder{i}")) for i in range(1, 5)}   # end cap threads not modelled
 
 
 def wall_check(parts):
@@ -310,6 +355,15 @@ BOM_INFO = {
     "Brake": ("Spring-applied brake BRAKE-BWA-0,35-5, 24 V", "Nanotec", "-"),
     "Cable_Gland_Lapp_SKINTOP_M16": ("Cable gland SKINTOP STR-M 16x1.5", "Lapp", "PA"),
     "Plunger_GN617-5-A": ("Indexing plunger GN 617-5-A", "Ganter", "steel"),
+    "Riser": ("Riser (cylinder housing, robot flange ISO 9409-1-40-4-M6 machined into its top)", "own part, milled", "EN AW-6082 T6"),
+    "Cylinder_ADN16": ("Compact cylinder ADN-16-10-A-P-A, double-acting, with magnet for position sensing", "Festo 536220", "-"),
+    "Cylinder_Rod": None,
+    "Cylinder_Bracket": ("Cylinder bracket (angle)", "own part, milled", "EN AW-6082 T6"),
+    "Driver": ("Driver plate (rod M6, pin, guide)", "own part, milled", "EN AW-6082 T6"),
+    "Safety_Spring": ("Compression spring d 1.8 x Dm 12 x L0 46, 12.4 active coils, c ~ 5 N/mm (DIN EN 13906-1)", "to drawing, e.g. Gutekunst", "spring steel DH"),
+    "Spring_Guide": ("Spring guide pin d 9 h7, pressed into the driver", "own part, turned", "C45"),
+    "Fitting_QSM-M5-4": ("Push-in fitting QSM-M5-4 (cylinder ports)", "Festo", "-"),
+    "Bulkhead_QSS-4": ("Push-in bulkhead fitting QSS-4 (riser wall, tubes PUN-4 to the valve)", "Festo", "-"),
     "Key_DIN6885-A2x2x8": ("Parallel key DIN 6885 A 2 x 2 x 8 (bevel wheel)", "standard part", "C45+C"),
     "Shim_DIN988-8x14": ("Shim ring DIN 988 8 x 14 x 0.1 / 0.2 / 0.5 (set the bevel mesh)", "standard part", "spring steel"),
     "Circlip_DIN471-8": ("Retaining ring DIN 471 8 x 0.8 (fixed bearing, shaft)", "standard part", "spring steel"),
@@ -334,7 +388,7 @@ def bom(parts, masses):
             grade = {"4762": "steel 8.8", "10642": "steel 8.8", "4029": "steel 45H", "7089": "steel 200 HV"}.get(m.group(1)[3:], "steel")
             key = (f"ISO {m.group(1)[3:]} {m.group(2)}", "standard part", grade)
         else:
-            info = BOM_INFO.get(re.sub(r"_[LR]$", "", name), (name, "?", "?"))
+            info = BOM_INFO.get(re.sub(r"_([LR]|\d+)$", "", name), (name, "?", "?"))
             if info is None:
                 continue
             key = info
@@ -365,10 +419,14 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     doc = App.newDocument("Gripper")
     gear_pin, gear_racks = C.gears(doc)
-    bev = D.bevel_gears(doc)
+    bev = D.bevel_gears(doc) if P.DRIVE == "electric" else None
     parts, info = build_static(gear_pin, gear_racks, bev)
     theta0, ov_l, ov_r, dx_r = phase_pinion(parts)
     parts["Rack_R"] = (C.rack(gear_racks[P.RACK_TEETH_SIDE[1]], 1, shift=dx_r), "steel", 1)   # holes cut after the shift
+    if P.DRIVE == "pneumatic":
+        from parts import pneumatic as PN
+        rr = parts["Rack_R"][0]
+        parts["Rack_R"] = (rr.cut(PN.rack_pin_hole(rr.BoundBox.ZMax)), "steel", 1)        # driver pin, pressed in
     print(f"phase: pinion {math.degrees(theta0):.1f} deg, rack R shift {dx_r:.2f} mm, residual overlap L {ov_l:.3f} R {ov_r:.3f} mm3")
 
     scene = scene_parts()

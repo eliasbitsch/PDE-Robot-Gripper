@@ -61,9 +61,9 @@ def holder_screws(side):
 
 
 def cover_screws():
-    hx = P.HOUSING_X / 2
+    x0, x1 = P.HOUSING_XR
     y0, y1 = P.HOUSING_Y
-    return [(x, y) for x in (-hx + COVER_SCREW_IN, hx - COVER_SCREW_IN) for y in (y0 + 18, y1 - 18)]
+    return [(x, y) for x in (x0 + COVER_SCREW_IN, x1 - COVER_SCREW_IN) for y in (y0 + 18, y1 - 18)]
 
 
 COVER_SCREW_IN = 6.0                # countersunk M3 needs 6 mm to the edge; small bosses reach into the pocket
@@ -82,11 +82,11 @@ def chamfer_z_edges(s, z, size):
 
 
 def housing_body():
-    hx = P.HOUSING_X / 2
+    x0, x1 = P.HOUSING_XR
     y0, y1 = P.HOUSING_Y
-    s = rounded_box(-hx, hx, y0, y1, P.POCKET_Z, P.PLATE_T, P.HOUSING_R)
+    s = rounded_box(x0, x1, y0, y1, P.POCKET_Z, P.PLATE_T, P.HOUSING_R)
     s = chamfer_z_edges(s, P.PLATE_T, P.EDGE_CHAMFER)
-    s = s.cut(rounded_box(-hx + P.WALL, hx - P.WALL, y0 + P.WALL, y1 - P.WALL, P.POCKET_Z - 1, 0, 6.0))   # R6: standard d10 cutter
+    s = s.cut(rounded_box(x0 + P.WALL, x1 - P.WALL, y0 + P.WALL, y1 - P.WALL, P.POCKET_Z - 1, 0, 6.0))   # R6: standard d10 cutter
     if P.RAIL_BASE_Z < 0:
         s = s.fuse(box(-P.RAIL_L / 2 - 2, P.RAIL_L / 2 + 2, P.RAIL_Y - P.RAIL_W / 2 - 5, P.RAIL_Y + P.RAIL_W / 2 + 5, P.RAIL_BASE_Z, 0.01))  # rail land
     for x, y in cover_screws():
@@ -97,20 +97,24 @@ def housing_body():
              cylz(P.SHOULDER_D / 2, -1, P.BEARING_UPPER_Z + 0.1, xp, 0),                       # shoulders touch the outer rings only
              cylz(P.BEARING[1] / 2, P.BEARING_UPPER_Z, P.BOSS_TOP + 1, xp, 0),
              cylz(11.5, P.BEARING_UPPER_Z + P.BEARING[2] + 0.1, P.BEARING_UPPER_Z + P.BEARING[2] + 1.2, xp, 0)]   # DIN 472 22 groove
-    from parts import drive as D
-    tools += [cylz(1.6, 2.5, P.PLATE_T + 1, x, y) for x, y in D.bracket_screws()]          # HELICOIL M3 x 1.5 d (STI 3.2), floor keeps 1.5 mm to the pocket edge
-    tools += [cylz(2.25, -1, P.PLATE_T + 1, x, y) for x, y in D.hood_screws()]                   # hood M4 from below
-    tools += [cylz(3.75, -1, P.GEAR_SCREW_CBORE, x, y) for x, y in D.hood_screws()]
+    if P.DRIVE == "electric":
+        from parts import drive as D
+        tools += [cylz(1.6, 2.5, P.PLATE_T + 1, x, y) for x, y in D.bracket_screws()]          # HELICOIL M3 x 1.5 d (STI 3.2), floor keeps 1.5 mm to the pocket edge
+        tools += [cylz(2.25, -1, P.PLATE_T + 1, x, y) for x, y in D.hood_screws()]                   # hood M4 from below
+        tools += [cylz(3.75, -1, P.GEAR_SCREW_CBORE, x, y) for x, y in D.hood_screws()]
+    else:
+        from parts import pneumatic as PN
+        tools += PN.plate_tools()
     tools += [cylz(1.25, P.RAIL_BASE_Z - 1, 5, x, P.RAIL_Y) for x in rail_hole_x()]   # rail M3 tapped
     tools += [cylz(1.25, P.POCKET_Z - 1, P.POCKET_Z + 10, x, y) for x, y in cover_screws()]   # cover M3 tapped
     return cut_all(s, tools)
 
 
 def cover():
-    hx = P.HOUSING_X / 2
+    x0, x1 = P.HOUSING_XR
     y0, y1 = P.HOUSING_Y
     z1 = P.POCKET_Z
-    s = rounded_box(-hx, hx, y0, y1, z1 - P.COVER_T, z1, P.HOUSING_R)
+    s = rounded_box(x0, x1, y0, y1, z1 - P.COVER_T, z1, P.HOUSING_R)
     s = chamfer_z_edges(s, z1 - P.COVER_T, P.COVER_CHAMFER)
     tools = []
     for sg in (1, -1):

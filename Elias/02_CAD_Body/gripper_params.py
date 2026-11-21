@@ -5,6 +5,10 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "cad"))
 from params import *  # noqa: E402,F401,F403
 
+# Drive variant: "electric" (stepper + brake + gearbox + bevel pair, tag v1-electric) or "pneumatic" (compact cylinder
+# + safety spring, 21 Nov 2026). Set GRIPPER_DRIVE=pneumatic to build the second version; outputs go to out_pneumatic.
+DRIVE = os.environ.get("GRIPPER_DRIVE", "electric")
+
 # Catalogue data, sources in vendor/SOURCES.md. Lengths in mm, torques in N*m.
 # Rack m=1 steel (Maedler; profile per DIN 867): cross-section and pitch line height from the base
 RACK_W, RACK_H, RACK_PITCH_LINE = 10.0, 12.0, 11.0
@@ -58,6 +62,7 @@ RAIL_BASE_Z = 0.0                   # rail straight on the plate (size 12 carria
 PLATE_T = 7.0                       # top plate (lighter since 11 Nov; bearings sit in the boss above it)
 WALL = 7.0                          # M3 cover screws on the wall centre line
 HOUSING_X = 192.0                   # 164 + 2 x 14 (15 Nov): NME2 encoder behind the brake, kept symmetric
+HOUSING_XR = (-HOUSING_X / 2, HOUSING_X / 2)
 HOUSING_Y = (-60.5, 38.0)           # +y face flush with the hood and the flange edge; -y carries rail and slides
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
 COVER_T = 3.0
@@ -147,3 +152,49 @@ RACK_SPAN = {1: (-72.5, 37.5), -1: (-61.98, -18.0)}     # x at d = 0
 RACK_TEETH_SIDE = {1: 35, -1: 14}
 RACK_SCREW_XS = {1: (18.0, 32.5), -1: (-23.0, -39.0)}
 RACK_PIN_XS = {1: 25.0, -1: -31.0}
+
+
+# ---------------------------------------------------------------- pneumatic variant (21 Nov 2026)
+# Double-acting compact cylinder Festo ADN-16-10-A-P-A (536220, ISO 21287): air closes with the force set on a
+# pressure regulator (like the current limit of the electric drive), air opens. A compression spring adds to the
+# closing force and alone holds the part at standstill when the air fails (fail-safe). The cylinder sits in a flat
+# riser on the top plate; a driver on its rod reaches through a slot in the plate into the right rack, the pinion
+# keeps the left jaw in step. Racks, slides, rail, jaws and the bearing boss stay as in the electric version.
+CYL_BORE, CYL_ROD = 16.0, 8.0                    # mm, ADN-16 (rod thread M6)
+CYL_BODY = (39.7, 29.0)                          # body length, square [verify against the Festo drawing]
+CYL_ROD_OUT = 8.0                                # rod beyond the front face when retracted, 6 mm of it in the driver
+CYL_MASS = 0.089                                 # kg, Festo data sheet 536220
+CYL_Y, CYL_Z0 = -32.0, 10.0                      # axis y, body underside (3 mm above the plate)
+CYL_FRONT_X = 2.0                                # front face at d = 0
+P_SUPPLY = 6.0                                   # bar
+A_EXTEND = 3.14159 / 4 * CYL_BORE ** 2           # mm2, opens
+A_RETRACT = A_EXTEND - 3.14159 / 4 * CYL_ROD ** 2   # mm2, closes
+ETA_CYL = 0.9                                    # seal friction
+DRV_X0, DRV_T = CYL_FRONT_X + 2.0, 10.0          # driver plate on the rod
+DRV_Y, DRV_Z = (-40.0, 15.0), (12.0, 37.0)
+PIN_X = DRV_X0 + DRV_T / 2                       # driver pin into the right rack (ISO 8734 5 x 20)
+PIN_D = 5.0
+SPRING_Y = 8.0                                   # safety spring beside the cylinder, on a guide pin in the driver
+# DIN EN 13906-1, patented spring wire DH: d 1.8, Dm 12, 12.4 active coils, L0 46 -> c ~ 5 N/mm [V2 to check]
+SPRING_D, SPRING_DM, SPRING_N, SPRING_L0, SPRING_RATE = 1.8, 12.0, 12.4, 46.0, 5.0
+SPRING_L_GRIP = 36.0                             # installed length at d = D_GRIP
+GUIDE_D = 9.0
+RISER_WALL, RISER_TOP_T, ISO_BOSS_T = 3.0, 3.0, 9.0   # the ISO 9409 pattern is machined into the riser top
+RISER_XR, RISER_Y = (-76.0, 74.0), (-50.0, 38.0)       # only over boss, cylinder, spring and flange
+RISER_H = CYL_Z0 + CYL_BODY[1] + 1.0 + ISO_BOSS_T - PLATE_T   # plate top to flange face
+
+if DRIVE == "pneumatic":
+    HOUSING_XR = (-84.0, 76.0)                   # holder slots end at |x| 65, the cover screws stay outside them
+    HOUSING_X = HOUSING_XR[1] - HOUSING_XR[0]
+    F_SPRING_GRIP = SPRING_RATE * (SPRING_L0 - SPRING_L_GRIP)            # N, both jaws together, at d = D_GRIP
+    F_SPRING_OPEN = F_SPRING_GRIP + SPRING_RATE * (D_OPEN - D_GRIP)
+    F_SPRING_CLOSED = F_SPRING_GRIP - SPRING_RATE * D_GRIP
+    P_GRIP = (2 * F_GRIP_SET - F_SPRING_GRIP) / (A_RETRACT * ETA_CYL) * 10        # bar on the closing side
+    F_JAW_MAX = (F_SPRING_GRIP + P_SUPPLY / 10 * A_RETRACT) / 2          # regulator fails: full supply, no losses
+    F_JAW_LIMIT = F_JAW_MAX
+    F_JAW_AVAIL = (F_SPRING_GRIP + P_SUPPLY / 10 * A_RETRACT * ETA_CYL) / 2
+    F_OPEN_CYL = P_SUPPLY / 10 * A_EXTEND * ETA_CYL                      # N, must beat the spring when opening
+    F_HOLD_AIR_LOSS = F_SPRING_GRIP / 2                                  # N per jaw, spring alone
+    assert F_OPEN_CYL > F_SPRING_OPEN * 1.2, (F_OPEN_CYL, F_SPRING_OPEN)
+    assert F_HOLD_AIR_LOSS >= 1.5 * B_MASSE * G / (N_BACKEN * MU_OILY), F_HOLD_AIR_LOSS
+    assert 0 < P_GRIP < P_SUPPLY, P_GRIP
