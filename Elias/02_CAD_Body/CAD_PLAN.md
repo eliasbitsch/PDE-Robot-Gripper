@@ -271,3 +271,15 @@ Checkpoint of the electric version: tag `v1-electric`. Built from the same param
 Still to do for the pneumatic version: V2 cylinder and spring sizing (DIN EN 13906-1, block length, fatigue),
 cabinet BOM (valve, regulator, throttles, sensors), E1 payload, MuJoCo closing and air-loss cases, FEM strength
 case at 70 N, verify the ADN-16 drawing (body length, end-cap thread pattern).
+
+## Decision 21 Nov 2026: the electric version stays the main design
+
+Compared on the same jaws and part: electric 2.92 kg / flange to TCP 150.5 mm, pneumatic 2.08 kg / 123.5 mm
+(`GRIPPER_DRIVE=pneumatic`), wedge hook (rough, `concepts/wedge_hook.py`) about 1.4 kg / 102.5 mm.
+The electric drive is kept: grip force set in software (current limit), part detection from current and position
+without extra sensors, programmable stroke and speed (two-stage close), no compressed air in the cell, holding on
+power failure proven (brake + buffer + brake-first shutdown). The weight is no limit for the IRB 1300 (3.5 kg of
+7 kg, wrist torque 70 %). No further slimming: the drive chain (motor, brake, encoder, gearbox, about 165 mm) sets
+the length, and the hood, housing and flange close flush on the +y face on purpose; narrowing the hood would only
+gain a few percent and break that line. Pneumatic version and wedge-hook concept stay in the repo as the evaluated
+alternatives for the variant comparison (V1).
