@@ -12,6 +12,7 @@ workpiece carrier. The model is generated from the sources, nothing is drawn by 
 | `drive.py` | motor curve (ST4118S at 24 V from R, L, holding torque), reflected drive inertia, fastest move |
 | `closing_time.py` | closing time and impact on the part, `python closing_time.py` |
 | `power_fail.py` | power loss with the part in the jaws: detent only until the brake engages |
+| `brake_play.py` | grip force left after the brake's rotational play (chain stiffness from FEM, pad, shaft); time until the preload is gone |
 | `viz.py` | slow-motion video with four cameras, contact points and forces, clearance check (convex hulls) |
 | `cell_video.py` | running cell at the 5 s takt: parts queue on the buffer line, the robot loads chain 2 and chain 1 in turn (chain 1 = mirrored E4 path), the carriers index into the machine; kinematic replay, [`figures/cell_takt.mp4`](figures/cell_takt.mp4) |
 | `validation_notebook.py` | everything live: `marimo edit validation_notebook.py` |
@@ -97,7 +98,8 @@ within the zone radius of the via to where it leaves it, quadratic Bezier in joi
 point, tangent to both lines, no axis overshoot). The earlier model interpolated a PCHIP curve through the via
 (R 350 mm, Z 1700 mm); on the real MoveJ line to that via the forearm cut **4.9 mm into the fence**, the curve had
 hidden it. New via search on the MoveJ path (A1 60 ... 120°, R 200 ... 500 mm, Z 1250 ... 1800 mm, zone 100 /
-200 mm, both chains): R 200, Z 1450, z200 gives 101.7 mm to the fence on both chains.
+200 mm, both chains): R 200, Z 1450, z200 gives 101.7 mm to the fence on both chains (99.8 mm since the body grew to
+200 mm for the BKE brake, review 1.10).
 
 **Acceleration as programmed, not assumed.** The 4.96 m/s² the grip force is sized for are a cap in the robot
 program, not a property of MoveJ: the loaded moves run with `WorldAccLim \On := 4.96;` (acceleration of tool and
@@ -138,7 +140,7 @@ checked; they are identical in time.
 | **cycle** | **4.38 s of 5.0 s** |
 
 Collision log every 10 ms, robot links 2-6 and the gripper against every obstacle (convex hulls, on the safe side):
-no contact anywhere, on either chain. Closest: fence 101.7 mm (both chains, loaded way and empty way back near the
+no contact anywhere, on either chain. Closest: fence 99.8 mm (right fence on the loaded way, 101.7 mm left on the empty way back, both near the
 via), production line 153 mm, chain / carrier on the other chain 423 mm, pedestal 434 mm, belt 93 mm while carrying
 the part off; the 33 mm to belt and carrier are the jaws at the part while picking and placing, 63 mm the jaw to the
 near chain. Axes: smallest margin to a limit 16.1° (axis 3, arm pulled in at the via) and 20.6° (axis 1 at the
@@ -183,20 +185,59 @@ the part and the jaws, pad plates, holders, cover and housing, and between gripp
 pedestal (convex hulls, so conservative). Colliding parts turn red; the HUD shows pad forces, friction use and
 part movement. [`figures/closing_direct_120ms.mp4`](figures/closing_direct_120ms.mp4), [`figures/closing_two-stage_120ms.mp4`](figures/closing_two-stage_120ms.mp4) at 0.05 ×, [`figures/cycle_estop.mp4`](figures/cycle_estop.mp4) at 0.25 ×; in the notebook with your own values.
 
-## Power failure (`power_fail.py`, `out/power_fail.json`, `figures/power_fail.png`)
+## Power failure (`power_fail.py`, `brake_play.py`; `out/power_fail.json`, `out/brake_play.json`)
 
 The robot holds the part above the belt at the setpoint (44.5 N per jaw), then the drive loses power: only the
-stepper's detent torque is left (6 mN·m → 1.9 N per jaw), until the spring-applied brake locks the drive.
+stepper's detent torque is left (6 mN·m → 1.9 N per jaw), until the brake locks the drive.
 
 | brake engages after | pad force left | part |
 |---|---|---|
 | 0 ms (drive holds until the brake is closed) | 44.5 N | held |
 | 2, 5, 10, 20, 50 ms | 0 N | **dropped** (58 mm, onto the belt) |
 
-The part needs 14.8 N per jaw against its weight; the elastic preload of pads, jaws and slides opens the jaws within
-about 2 ms. No spring-applied brake is that fast, so the brake alone does not hold the part: the controller must keep
-the motor powered until the brake has closed. Remedy in D11 (`02_CAD_Body/CAD_PLAN.md`): 24 V buffer module (PULS
-UF20.241) and a brake-first shutdown in the NanoJ program. Gearbox friction is left out (conservative).
+The part needs 14.8 N per jaw against its weight. Without current the elastic preload of pads, jaws and slides opens
+the jaws within about 2 ms. This does not hang on MuJoCo's contact stiffness (solref 0.002, not calibrated):
+`brake_play.py` takes the chain stiffness from the FEM (LC1, 29.2 µm), the NBR pad (bonded layer, E 4.5 ... 8 MPa)
+and the pinion shaft torsion (51.8 ... 63.0 µm stored per jaw), and the reflected drive inertia (3.2 kg). The
+quarter period is **2.3 ... 2.5 ms**. No brake engages that fast, so the controller must keep the motor powered
+until the brake has closed: a 24 V buffer module and a brake-first shutdown (D11 in `02_CAD_Body/CAD_PLAN.md`).
+
+**Brake play (review 1.10, 21 Nov).** The brake sits on the motor's rear shaft. The spring-applied
+BRAKE-BWA-0,35-5 drives its friction disc through a hex hub with up to 2° play (datasheet). While the jaws grip, the
+hub rests on the closing-side flank. Once the brake has closed and the current goes off, the preload turns the shaft
+back through the play, and each jaw opens by 2° / 7.07 × 10 mm = **49 µm**. With 52 ... 63 µm stored, only
+**2 ... 10 N per jaw are left: the part drops even with the brake-first shutdown**. A play of at most 1.05° (S 1.5)
+to 1.4° (S 1) would be needed, and the datasheet does not guarantee it. Hence since 21 Nov the **permanent-magnet
+brake BRAKE-BKE-0,4-5,0**: its armature hangs on a diaphragm spring and its hub is clamped to the shaft by grub
+screws, so there is no hex play. The whole 44.5 N stays. It holds 0.4 N·m (2.83 N·m at the pinion, 141 N per jaw)
+and engages within ≤ 10 ms (the larger of the two switching times on the sheet). The datasheet lists the backlash
+as "n.a."; zero play is the design principle **[confirm with Nanotec]**. The stiffness left out (carriage tilt,
+gear meshes, gearbox torsion) only adds stored travel, so these numbers are conservative.
+
+![brake play](figures/brake_play.png)
+
+**What is shown and what is not.** Shown: on a mains failure the part stays, with the buffer, the brake-first
+shutdown and the backlash-free brake. Not covered: single faults that take the motor current away *at once*, so the
+brake closes too late (2 ms against ≤ 10 ms):
+
+| Fault | Brake-first possible? | Part |
+|---|---|---|
+| Mains / 24 V supply in front of the buffer | yes (buffer, undervoltage → NanoJ) | held |
+| Encoder fault | yes, if the CL4-E error reaction is set to "hold with open-loop current, close brake, then disable" (a stepper holds without feedback) | held |
+| Brake cable or coil | brake engages by itself (fail-safe), motor still holds | held |
+| E-stop | gripper 24 V is not switched by the e-stop | held |
+| Motor cable / connector, motor phase | no: torque gone instantly | **drops** |
+| Controller power stage trips (overcurrent, overtemperature, internal fault), fuse behind the buffer | no | **drops** |
+
+These faults stay as residual risk. The part (0.6 kg) then falls inside the guarded cell (ISO 10218-2, nobody inside
+during automatic operation) onto belt, carrier or floor: material damage, no injury. A gripper that holds even then
+would need a self-locking stage (worm or lead screw), which is outside this design.
+
+**Brake test instead of running-in.** Nanotec asks for a maintenance running-in of the BKE every 4 weeks when it is
+only used as a holding brake, because its torque can drop otherwise. Our motor cannot slip it (0.20 N·m holding
+against 0.4 N·m). Instead the controller runs a cyclic brake test at rest, as robot controllers do: with the jaws
+open and the brake closed, the motor puts its full 0.20 N·m on the shaft; the encoder must not move. That proves
+≥ 0.20 N·m, 1.6 times the 0.126 N·m the 44.5 N preload needs at the motor.
 
 ![power failure](figures/power_fail.png)
 

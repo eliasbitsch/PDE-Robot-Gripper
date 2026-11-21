@@ -30,7 +30,7 @@ DESIGNATION = {
         "Spiral-Kegelrad m = 1, z = 20, links, Bohrung 8 H7 + Nut, Nabe auf Einbaumaß 16",
     "Spiral miter gear m = 1, z = 20, right hand, rebored 8 H7, hub faced to mounting dist. 16":
         "Spiral-Kegelrad m = 1, z = 20, rechts, Bohrung 8 H7, Nabe auf Einbaumaß 16",
-    "Spring-applied brake BRAKE-BWA-0,35-5, 24 V": "Federdruckbremse BRAKE-BWA-0,35-5, 24 V",
+    "Permanent-magnet brake BRAKE-BKE-0,4-5,0, 24 V, zero backlash, on a 3 mm adapter plate": "Permanentmagnetbremse BRAKE-BKE-0,4-5,0, 24 V, spielfrei, auf 3-mm-Adapterplatte",
     "Stepper motor ST4118S1404-B, long B shaft through brake and encoder": "Schrittmotor ST4118S1404-B, durchgehende B-Welle",
     "Wire thread insert HELICOIL plus M3 x 1.5 d, top plate for the drive bracket screws": "Gewindeeinsatz HELICOIL plus M3 x 1,5 d (Antriebswinkel)",
     "Wire thread insert HELICOIL plus M4 x 1.5 d, hood seat for the adapter screws": "Gewindeeinsatz HELICOIL plus M4 x 1,5 d (Adapter)",

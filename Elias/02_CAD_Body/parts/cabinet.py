@@ -1,7 +1,7 @@
 """Control cabinet parts for the gripper (D11, CAD_PLAN.md): the gripper BOM covers only what sits on the robot.
 
 python -m parts.cabinet  ->  out/bom_cabinet.csv (also written by build.py)
-Load on the 24 V rail: controller + motor ~1 A, 2 A peak while closing, brake 0.25 A (5.9 W).
+Load on the 24 V rail: controller + motor ~1 A, 2 A peak while closing, brake 0.33 A (8 W, BKE-0,4-5,0).
 """
 import csv
 import os

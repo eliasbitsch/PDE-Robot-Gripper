@@ -50,7 +50,7 @@ so holder and slide see their real loads. When V3 arrives only `export_train.py`
 | LC2 full current | 63.6 | 0.0 | 0.0 | 2.0 | motor at full current, end stop or part |
 | LC3 transport | 44.5 | 1.5 | -4.4 | 2.0 | LC1 plus the part's weight and path acceleration carried by friction |
 | LC4 emergency stop | 63.6 | 17.5 | -17.5 | 1.5 | LC2 plus the part's inertia at 82 m/s² (ABB e-stop design acceleration incl. gravity, spec p. 54) |
-| LC5 brake limit | 123.7 | 0.0 | 0.0 | 1.2 | power off, jaw pushed until the brake slips (misuse / collision) |
+| LC5 brake limit | 141.4 | 0.0 | 0.0 | 1.2 | power off, jaw pushed until the brake slips (misuse / collision); BKE 0.4 N·m since 21 Nov (BWA 123.7 N) |
 
 **Model.** Slide fixed on its contact patch with the ball carriage (carriage taken as rigid), slide - holder and
 holder - jaw bonded (preloaded screws and dowels), load as uniform traction on the pad area. EN AW-6082 T6 for
@@ -78,9 +78,9 @@ the pad is 80.8 x 19.8 mm instead of 21.8 x 33.8 mm, low on the flat zone betwee
 | LC2 full current | 41.8 | 0.059 | 13.7 / 18.2 | 15.4 / 16.2 | 8.2 / 55.8 |
 | LC3 transport | 29.5 | 0.042 | 9.6 / 25.9 | 11.2 / 22.4 | 6.0 / 76.8 |
 | LC4 emergency stop | 45.3 | 0.062 | 15.2 / 16.4 | 20.1 / 12.5 | 10.6 / 43.3 |
-| LC5 brake limit | 81.3 | 0.114 | 26.7 / 9.4 | 30.0 / 8.3 | 16.0 / 28.7 |
+| LC5 brake limit | 92.9 | 0.131 | 30.5 / 8.2 | 34.3 / 7.3 | 18.3 / 25.1 |
 
-- Strength is far from critical: S ≥ 8.3 everywhere, also at the brake limit.
+- Strength is far from critical: S ≥ 7.3 everywhere, also at the brake limit.
 - Stiffness drives the design: LC2 tilt 0.059° against 0.1° (0.091° with the old jaw: the shorter lever helps more
   than the heavier plate costs). The carriage is still rigid in the model; its own tilting stiffness (Rexroth
   catalogue) is the next thing to add.

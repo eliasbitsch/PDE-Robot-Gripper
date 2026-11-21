@@ -52,6 +52,7 @@ def q_place(lift=0.0, side=+1, square=True):
 # targets is what the ABB controller runs (abb_path.py, review 1.5): straight MoveJ lines in joint space. The old
 # via (R 350, Z 1700) only cleared the fence on a PCHIP curve; on the real MoveJ line it cut 4.9 mm into it. Via
 # search 21 Nov on the MoveJ path (A1 75 ... 120, R 200 ... 500, Z 1250 ... 1800, zone 100 / 200): fence >= 101 mm
+# (99.8 mm with the 200 mm body since review 1.10)
 # on both chains, axis margin >= 16 deg.
 VIA_R, VIA_Z, VIA_A1, VIA_ZONE = 200.0, 1450.0, 90.0, 200.0
 

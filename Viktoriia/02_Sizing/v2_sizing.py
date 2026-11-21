@@ -647,8 +647,8 @@ def _(F_max, F_req, F_set, P, mo, r_p):
     mo.md(f"""
     ## 9. Holding on power failure
 
-    Rack and pinion is back-drivable. The spring-applied brake BRAKE-BWA-0,35-5 (0.35 Nm) sits on the motor,
-    so it acts through the gearbox: {P.BRAKE_T} Nm × {P.GEAR_I} = **{T_brake_pinion/1000:.2f} Nm at the pinion**
+    Rack and pinion is back-drivable. The permanent-magnet brake BRAKE-BKE-0,4-5,0 ({P.BRAKE_T} Nm, since 21 Nov;
+    before the spring-applied BWA-0,35-5) sits on the motor's rear shaft, so it acts through the gearbox: {P.BRAKE_T} Nm × {P.GEAR_I} = **{T_brake_pinion/1000:.2f} Nm at the pinion**
     → it can hold **{F_hold:.0f} N per jaw**. Gearbox efficiency is neglected; when the load back-drives the gearbox,
     friction helps the brake, so this is conservative.
 
@@ -656,12 +656,19 @@ def _(F_max, F_req, F_set, P, mo, r_p):
     |---|---|---|---|
     {_rows}
 
-    Spring-applied = fail-safe: no current, brake closed - **but only if the preload is still there when it closes.**
+    Fail-safe: no current, brake closed - **but only if the preload is still there when it closes.**
     The detent torque (6 mN·m) holds just ≈ 1.9 N per jaw, the part needs 14.8 N per jaw against its own weight.
-    MuJoCo (E4, `power_fail.py`): without current the elastic preload of pads, jaws and slides pushes the jaws open
-    within ≈ 2 ms and the part drops, whatever the brake does afterwards. Remedy (D11): a 24 V buffer module
+    Without current the elastic preload of pads, jaws and slides pushes the jaws open within ≈ 2.3 ... 2.5 ms
+    (stiffness from FEM, pad and shaft against the reflected inertia, `Elias/04_Simulation/brake_play.py`; MuJoCo
+    `power_fail.py` gives the same), whatever the brake does afterwards. Remedy (D11): a 24 V buffer module
     (PULS UF20.241, ≥ 200 ms at 20 A) keeps the controller and motor powered; on undervoltage the controller closes
-    the brake, waits its engagement time, then switches the motor off. The gripper supply is not cut by the e-stop.
+    the brake, waits 50 ms, then switches the motor off. The gripper supply is not cut by the e-stop.
+
+    **Brake play decides it.** The force is stored in only 52 ... 63 µm of elastic travel per jaw. The BWA's hex hub
+    had up to 2° play at the motor = 49 µm per jaw: after brake-first only 2 ... 10 N would be left, the part drops.
+    The BKE has a diaphragm-spring armature and a clamped hub, no play → the full setpoint stays. Single faults that
+    cut the motor current at once (motor cable, power stage trip) still drop the part inside the guarded cell; see
+    the table in `Elias/04_Simulation/README.md`.
     """)
     return
 
@@ -757,7 +764,7 @@ def _(F_max, F_req, F_set, P, S0_cases, mo, s0_608):
     | 6 | Ball rail size 12, tilting (hanging) | S0 = {S0_cases['setpoint']:.1f} (setpoint) / {S0_cases['full current + E-stop']:.1f} (full current + e-stop) ✓ ≥ 5, because the cover catches a failed slide 2 mm lower (otherwise Rexroth asks ≥ 12, § 6a) |
     | 7 | Bearings 608-2Z, spiral bevel forces | s0 = {s0_608['setpoint']:.1f} (setpoint) / {s0_608['full current']:.1f} (full current) ✓ (SKF ≥ 2) |
     | 8 | Gearbox shaft load, spiral bevel forces | ≤ 46 % of 305 N ✓ |
-    | 9 | Brake on power failure | holds ≈ 124 N per jaw ✓ |
+    | 9 | Brake on power failure | BKE without play: holds ≈ 141 N per jaw, the full setpoint stays after brake-first ✓ (BWA play would have left 2 ... 10 N); motor-circuit single faults = residual risk |
     | 10 | Motor | margin ≈ 1.7 (regular) / 1.4 (setpoint) ✓, max ≈ 60 N with all efficiencies = current limit; two-stage close against the impact |
 
     Envelope for all part checks: {F_max:.1f} N (full motor current).

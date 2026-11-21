@@ -11,12 +11,12 @@ Status: 10 Nov 2026, proposal. Replaces "Onshape is the leading CAD model" in PL
 | D3 | Standard parts | **Standard or catalogue part wherever one exists**, from large, well-known (preferably German) manufacturers, metric; own parts only where the geometry is specific to part B or to our layout | Shorter BOM, ratings come from datasheets instead of own proofs, cheaper to justify. |
 | D4 | Guide | **Miniature ball rail size 12, one rail, two carriages** (Bosch Rexroth: carriage SLS long **R0444 213 01**, rail **R0445 203 31**, L = 125), carriages hang under the base plate, rail aligned to a straightedge; C0 = 5630 N, Mt0 = 33.5 N·m, ML0 = 29.2 N·m (catalogue R999001206). V2 § 6: S0 = 8.4 at the 44.5 N setpoint, 7.5 at the calibrated setpoint +5 % with the e-stop, 5.7 at full current plus e-stop (size 9 gave 2.5 ... 3.7). **Hanging arrangement (review 1.9):** Rexroth asks S0 ≥ 12 for overhead arrangements (R999001206 p. 9) because a failed carriage drops the load. Here the slide hangs 2 mm above the bottom cover and is wider than the holder slot: a slide that loses its carriage rests on the cover (≈ 2800 ... 3300 mm²) and its rack stays 7 of 10 mm in mesh - nothing falls out. With this catch the "normal design" row S0 5 ... 8 applies (V2 § 6a); SLS 15 would be needed for ≥ 12. The catch is checked in every build (`carriage_loss_check`) | Catalogue part with rated static moments; changed from size 9 back to size 12 for the tilting moment of the long jaw. One shared rail keeps both jaws parallel by construction. |
 | D5 | Gear | **m = 1, pinion z = 20 (d = 20 mm), steel racks, both catalogue** | z = 20 is above the undercut limit (17), no profile shift. 14 mm stroke = 80° pinion rotation. Pinion torque for 14.3 N per jaw: 2 · 14.3 N · 10 mm = **0.29 N·m**. `cad/params.py` already says z = 20; PLAN.md still says z = 16 and gets corrected. |
-| D6 | Drive | **Lying drive under a flat hood** (variant 4, decided 10 Nov 2026): Nanotec ST4118S1404-B + GP42-S1-7-SR + BRAKE-BWA-0,35-5 along X; a 1:1 bevel pair (KHK SMSG1.5-20 R/L since 21 Nov, ground spiral teeth, m = 1.5, z = 20) turns it onto a pinion shaft (own part, two DIN 625 608-2Z) at x = -56. Racks of 35 and 14 teeth keep jaws, hood and flange centred because both racks always run at the same speed in opposite directions. | Stem 63 mm instead of 124 mm, flange to grip centre 148 mm instead of 208 mm, nothing overhangs; COG 3 mm off the flange axis. GPLE22 rejected: 20 N permissible shaft load against ≈ 30 N from the bevel pinion. Static torque at the pinion 1.27 N·m (63.6 N per jaw), brake 2.5 N·m. |
+| D6 | Drive | **Lying drive under a flat hood** (variant 4, decided 10 Nov 2026): Nanotec ST4118S1404-B + GP42-S1-7-SR + brake (BRAKE-BKE-0,4-5,0 since 21 Nov, before BWA-0,35-5) along X; a 1:1 bevel pair (KHK SMSG1.5-20 R/L since 21 Nov, ground spiral teeth, m = 1.5, z = 20) turns it onto a pinion shaft (own part, two DIN 625 608-2Z) at x = -56. Racks of 35 and 14 teeth keep jaws, hood and flange centred because both racks always run at the same speed in opposite directions. | Stem 63 mm instead of 124 mm, flange to grip centre 148 mm instead of 208 mm, nothing overhangs; COG 3 mm off the flange axis. GPLE22 rejected: 20 N permissible shaft load against ≈ 30 N from the bevel pinion. Static torque at the pinion 1.27 N·m (63.6 N per jaw), brake 2.83 N·m. |
 | D7 | Jaw quick change | **2 dowel pins ISO 8734 + 1 indexing plunger (catalogue, e.g. GN 617) per jaw** on the carriage plate | The assignment requires quick-change jaws ("Greiferzangen ... mit einem Schnellwechselsystem"), not a tool changer. Pins locate, the plunger locks, no tool needed. |
 | D8 | Robot interface | **Round adapter Ø76 to ISO 9409-1-40-4-M6** (ABB IRB 1300-7/1.4), fixed to the motor housing lid from the top with 4 × ISO 10642 M4 on PCD 62 | Prescribed by the robot; screw heads stay reachable outside the robot flange. |
 | D9 | Visuals | **Blender** (glTF from FreeCAD) for materials, renders and the open/close animation | FreeCAD has no proper material rendering. Same parameters drive the Blender rig. |
 | D10 | Animation | Kinematic check in the **FreeCAD Assembly workbench** (rack-pinion joint + "Create Simulation"); the **presentation animation in Blender**; the cell sequence stays in **MuJoCo** | FreeCAD proves the kinematics are right, Blender makes it look good, MuJoCo proves the cell. |
-| D11 | Motor control | **Closed-loop stepper with an external controller** (e.g. Nanotec CL3-E in the cabinet): ST4118 + encoder + BRAKE-BWA + GP42 stay in the hood (decided 15 Nov 2026, replaces the Plug & Drive idea of 12 Nov) | Grip force set by motor current, "part gripped / nothing gripped" from current and following error, no lost steps, fieldbus to the robot. A Plug & Drive (PD2-C/PD2-E) fits only without brake: its only brake (BCD42, front-mounted) adds 45.5 mm and the chain would end at x ≈ 132 against 79 inside the hood. Holding on power failure wins; cost: a thicker cable (motor, encoder, brake) through the dress pack. Encoder type and the extra motor length are still open (open point 2). |
+| D11 | Motor control | **Closed-loop stepper with an external controller** (e.g. Nanotec CL3-E in the cabinet): ST4118 + encoder + brake + GP42 stay in the hood (decided 15 Nov 2026, replaces the Plug & Drive idea of 12 Nov) | Grip force set by motor current, "part gripped / nothing gripped" from current and following error, no lost steps, fieldbus to the robot. A Plug & Drive (PD2-C/PD2-E) fits only without brake: its only brake (BCD42, front-mounted) adds 45.5 mm and the chain would end at x ≈ 132 against 79 inside the hood. Holding on power failure wins; cost: a thicker cable (motor, encoder, brake) through the dress pack. Encoder type and the extra motor length are still open (open point 2). |
 
 ## 2. Parts list (target BOM)
 
@@ -38,7 +38,7 @@ Standard / catalogue parts:
 | Miniature ball rail size 12 R0445 203 31 + 2 carriages SLS long R0444 213 01 | Bosch Rexroth |
 | Rack m = 1, steel, 10 × 12 mm (pitch line 11 mm), cut to length x2 | Mädler |
 | Pinion m = 1, z = 20, d = 20 mm, b = 10 mm, bored to the gearbox shaft | Mädler |
-| Stepper ST4118S1404-B + gearbox GP42-S1-5-SR + brake BRAKE-BWA-0,35-5 | Nanotec (supplied assembled) |
+| Stepper ST4118S1404-B + gearbox GP42-S1-7-SR + permanent-magnet brake BRAKE-BKE-0,4-5,0 (adapter plate) | Nanotec (supplied assembled) |
 | Cap screws | ISO 4762 |
 | Washers | ISO 7089 |
 | Dowel pins | ISO 8734 |
@@ -118,7 +118,9 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 1. **Placement orientation on the workpiece carrier** (PLAN § 8.2) - still the only point that can change the grip direction.
 
 2. **D11 drive electronics (chosen 15 Nov 2026, to be confirmed against the CL4-E manual):**
-   - Gripper: ST4118S1404-B with long B shaft, BRAKE-BWA-0,35-5, NME2 incremental encoder (5 V) on the brake; body 192 mm.
+   - Gripper: ST4118S1404-B with long B shaft, BRAKE-BKE-0,4-5,0 on a 3 mm adapter plate, NME2 incremental encoder (5 V)
+     on its own bracket 1 mm behind the brake's turning armature; body 200 mm (192 mm with the BWA). Open with
+     Nanotec: BKE on the ST4118 rear face (hole circle d33.5 vs the BWA's d30.5), rear shaft length, zero backlash.
    - Cabinet: **Nanotec CL4-E-1-12** (12-58 V, 3 A rated / 6 A peak, encoder input, brake output, 4 DI / 2 DO,
      CANopen / Modbus RTU / USB, programmable in NanoJ). Supply 24 V, so the brake runs from the same rail.
    - Robot interface over plain 24 V I/O (no fieldbus option needed on the OmniCore): DI "close", DI "open" to the
@@ -126,15 +128,26 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
      gripped" (closed end stop reached). A NanoJ program on the CL4-E runs the current-limited close move.
    - Cable: one shielded robot-rated hybrid cable (motor 4 + encoder 6 + brake 2 cores, about 8-9 mm), fits the
      existing SKINTOP M16 (clamping range 4.5-10 mm).
-   - **Power failure (19 Nov 2026):** the brake alone does not keep the part. Without current the elastic preload opens
-     the jaws within ≈ 2 ms (detent ≈ 1.9 N per jaw, the part needs 14.8 N), long before a spring-applied brake engages
-     (`04_Simulation/power_fail.py`). Hence: 24 V buffer module **PULS UF20.241** (≥ 200 ms at 20 A, > 1 s at the ≈ 2 A
-     of controller + motor + brake) in front of the CL4-E; on undervoltage the NanoJ program closes the brake, waits
-     the brake engagement time plus margin, then disables the motor current. The gripper 24 V is a separate,
+   - **Power failure (19 Nov 2026, revised 21 Nov, review 1.10):** the brake alone does not keep the part. Without
+     current the elastic preload opens the jaws within 2.3 ... 2.5 ms (chain stiffness from FEM, pad and shaft
+     against the reflected inertia, `04_Simulation/brake_play.py`; MuJoCo gives the same, `power_fail.py`), long
+     before any brake engages. Hence a 24 V buffer module **PULS UF20.241** (≥ 200 ms at 20 A, > 1 s at the ≈ 2 A of
+     controller + motor + brake) in front of the CL4-E and a brake-first shutdown. The gripper 24 V is a separate,
      non-e-stop-switched supply (the e-stop stops the robot, it must not open the jaws).
-   - Shutdown on power loss (NanoJ): undervoltage detected -> motor keeps its current (preload stays) -> brake output off,
-     the spring closes the brake -> wait brake engagement time + margin (50-100 ms; not in the Nanotec sheet, measure or
-     ask) -> motor current off, the brake now holds the preload.
+   - **Brake play:** the BWA's hex hub has up to 2° play at the motor = 49 µm per jaw, against 52 ... 63 µm stored
+     elastically at 44.5 N: 2 ... 10 N would be left, the part (14.8 N) drops even with brake-first. Changed to the
+     **permanent-magnet brake BRAKE-BKE-0,4-5,0** (diaphragm-spring armature, hub clamped, no play; 0.4 N·m; engages
+     ≤ 10 ms): the full 44.5 N stays. The brake output must give the full 24 V (+6 / -10 %); no PWM holding-voltage
+     reduction, since a PM brake starts to grip again at reduced voltage.
+   - Shutdown on power loss (NanoJ): undervoltage detected -> motor keeps its current (preload stays) -> brake output
+     off, the magnet closes the brake -> wait 50 ms (≥ 5 × the 10 ms switching time) -> motor current off, the brake
+     holds the preload. Encoder fault: error reaction "keep open-loop holding current, close brake, then disable".
+   - **Not covered (single faults, residual risk):** motor cable / connector, controller power-stage trip, fuse behind
+     the buffer take the current away at once, and the part drops inside the guarded cell (material damage only).
+     Only a self-locking stage would hold then. Full table in `04_Simulation/README.md`, "Power failure".
+   - **Brake test:** the BKE would need a running-in every 4 weeks as a pure holding brake, which the 0.20 N·m motor
+     cannot do (it cannot slip 0.4 N·m). Instead a cyclic brake test at rest (jaws open, brake closed, full motor
+     torque, encoder must not move) proves ≥ 0.20 N·m, 1.6 × the 0.126 N·m the preload needs.
    - **Cabinet BOM** (`parts/cabinet.py` -> `out/bom_cabinet.csv`, written by every build):
 
      | Pos | Qty | Part | Type |
@@ -260,13 +273,13 @@ scatter of the current setting. Life: one load cycle per grip on the same few te
 
 Rare overloads against the static capacity (ISO 6336 life factors, induction hardened: flank Z_NT 1.6, root
 Y_NT 2.5) with the m 1.5 pair: full current if the current limit is lost 1.48 N·m (use 0.17), direct close in 0.12 s
-without the two-stage profile, 160 N impact (`closing_time.py`) 3.36 N·m (0.38), LC5 jaw pushed with the power off until the brake slips 2.47 N·m (0.28, the
-m 1 pair was at 1.00). Key DIN 6885 A 2×2×12 in the S45C hub: 32 MPa in operation, 77 MPa at LC5 (static limit
+without the two-stage profile, 160 N impact (`closing_time.py`) 3.36 N·m (0.38), LC5 jaw pushed with the power off until the brake slips 2.83 N·m with the BKE (0.32; 2.47 N·m with the BWA, where the
+m 1 pair was at 1.00). Key DIN 6885 A 2×2×12 in the S45C hub: 32 MPa in operation, 88 MPa at LC5 (static limit
 310 MPa).
 
 Consequences: bevel pair m 1.5 (bore 8 as bought, hubs turned to Ø16, wheel faced to mounting distance 19), drive
 axis 32.5 → 36 mm, hood 2 mm higher, gearbox shaft reaches 5 mm from the pinion shaft axis so motor, brake and
-encoder stay where they were; gripper 3.053 kg. The grip force is calibrated once at commissioning with a grip
+encoder stay where they were; gripper 3.053 kg (3.036 kg with the BKE brake and the 200 mm body, review 1.10). The grip force is calibrated once at commissioning with a grip
 force gauge (current setting from the data sheets alone may give 35.6 N). The current limit is now the motor at full
 current (60.5 N per jaw), no longer the bevel pair.
 
@@ -303,7 +316,7 @@ Compared on the same jaws and part: electric 2.92 kg / flange to TCP 150.5 mm, p
 (`GRIPPER_DRIVE=pneumatic`), wedge hook (rough, `concepts/wedge_hook.py`) about 1.4 kg / 102.5 mm.
 The electric drive is kept: grip force set in software (current limit), part detection from current and position
 without extra sensors, programmable stroke and speed (two-stage close), no compressed air in the cell, holding on
-power failure proven (brake + buffer + brake-first shutdown). The weight is no limit for the IRB 1300 (3.5 kg of
+holding on mains failure (zero-backlash brake + buffer + brake-first shutdown; single faults in the motor circuit stay as residual risk, review 1.10). The weight is no limit for the IRB 1300 (3.5 kg of
 7 kg, wrist torque 70 %). No further slimming: the drive chain (motor, brake, encoder, gearbox, about 165 mm) sets
 the length, and the hood, housing and flange close flush on the +y face on purpose; narrowing the hood would only
 gain a few percent and break that line. Pneumatic version and wedge-hook concept stay in the repo as the evaluated

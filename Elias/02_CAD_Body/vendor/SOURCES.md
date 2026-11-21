@@ -6,7 +6,8 @@ Catalogue STEP files are not committed (vendor licences). Download each into thi
 |---|---|---|
 | `nanotec_st4118s1404b.step` | Stepper ST4118S1404-B | https://www.nanotec.com/eu/de/produkte/250-st4118-schrittmotor-nema-17 |
 | `nanotec_gp42_s1_srr.step`, `nanotec_gp42_s1_srs.step` | Planetary gearbox GP42-S1 (round shaft / shaft with key) | https://www.nanotec.com/eu/de/produkte/2724-gp42-s1-5-sr |
-| `nanotec_bwa_035_5.step` | Brake BRAKE-BWA-0,35-5 | https://www.nanotec.com/eu/de/produkte/1936-federdruckbremse |
+| `nanotec_bwa_035_5.step` | Brake BRAKE-BWA-0,35-5 | https://www.nanotec.com/eu/de/produkte/1936-federdruckbremse | (replaced 21 Nov by the BKE, review 1.10)
+| `nanotec_bke_04_5.pdf` | Permanent-magnet brake BRAKE-BKE-0,4-5,0 (datasheet, rev. 01 of 22 May 2025; no STEP published) | https://www.nanotec.com/fileadmin/files/Datenblaetter/Bremsen/BKE/BRAKE-BKE-0_4-5_0.pdf |
 | `rexroth_ksf_mini_R999001206.pdf` | Catalogue miniature ball rails | boschrexroth.com media R999001206 |
 | - | Carriage SLS size 12, rail size 12 | modelled from catalogue R999001206 p. 19/21 |
 | - | Indexing plunger GN 617-5-A | modelled from the ganternorm.com dimension table (CAD download needs a login) |

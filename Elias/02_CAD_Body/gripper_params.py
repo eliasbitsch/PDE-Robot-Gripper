@@ -30,7 +30,8 @@ MOTOR_FRAME = 42.3                              # NEMA 17 square
 MOTOR_L = 34.0                                  # ST4118S, 1.2 in on the datasheet (measure in STEP)
 MOTOR_T_HOLD = 0.20                             # 28.3 oz-in
 GEAR_I, GEAR_ETA, GEAR_L = 7.07, 0.90, 38.0     # GP42-S1-7-SR (same housing as -5)
-BRAKE_T = 0.35                                  # BRAKE-BWA-0,35-5, 24 V
+BRAKE_T = 0.40                                  # BRAKE-BKE-0,4-5,0, permanent magnet, no play (BWA had < 2 deg, review 1.10)
+BRAKE_L, BRAKE_D, BRAKE_ADAPTER_T = 28.9, 39.0, 3.0   # datasheet envelope; adapter plate to the motor rear face [verify]
 T_PINION_STATIC = MOTOR_T_HOLD * GEAR_I * GEAR_ETA
 T_PINION_BRAKE = BRAKE_T * GEAR_I
 F_JAW_MAX = T_PINION_STATIC / (2 * PINION_D / 2 / 1000)   # N per jaw at full current, gearbox loss only: FEM upper bound
@@ -67,7 +68,7 @@ RAIL_BASE_Z = 0.0                   # rail straight on the plate (size 12 carria
 
 PLATE_T = 7.0                       # top plate (lighter since 11 Nov; bearings sit in the boss above it)
 WALL = 7.0                          # M3 cover screws on the wall centre line
-HOUSING_X = 192.0                   # 164 + 2 x 14 (15 Nov): NME2 encoder behind the brake, kept symmetric
+HOUSING_X = 200.0                   # 164 + 2 x 14 (15 Nov) + 2 x 4 (21 Nov): BKE brake + encoder bracket, kept symmetric
 HOUSING_XR = (-HOUSING_X / 2, HOUSING_X / 2)
 HOUSING_Y = (-60.5, 38.0)           # +y face flush with the hood and the flange edge; -y carries rail and slides
 POCKET_Z = -23.0                    # underside of the body = top of the bottom cover
