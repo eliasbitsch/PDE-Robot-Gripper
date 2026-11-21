@@ -140,9 +140,12 @@ UF20.241) and a brake-first shutdown in the NanoJ program. Gearbox friction is l
 
 ## Looks of the cell (NVIDIA SimReady, CC-BY-4.0)
 
-Belt, fence, floor and operator terminal are NVIDIA SimReady assets (`06_Cell/simready`: `fetch.py` downloads
-them into the git-ignored `06_Cell/vendor/simready`, `usd2obj.py` converts them in Blender, `layout.py` scales and
-places them onto the exact cell geometry). They are visual only: the collision check and the physics use the plain
-boxes from `cell_params.py` (Abb. 1), which stay underneath. Without the downloaded assets the model falls back to
-the boxes. Assets: `conveyor_belt_a05`, `wire_machineGuard_a04`, `environment_floor_a01`,
-`digitalSystem_touchTerminal_standing_a01` Â© NVIDIA, https://huggingface.co/datasets/nvidia/simready-assets.
+Belt, fence and floor are NVIDIA SimReady assets (`06_Cell/simready`: `fetch.py` downloads them into the
+git-ignored `06_Cell/vendor/simready`, `usd2obj.py` converts them in Blender, `derived.py` adapts them, `layout.py`
+scales and places them onto the exact cell geometry). They are visual only: the collision check and the physics use
+the plain boxes from `cell_params.py` (Abb. 1), which stay underneath. Without the downloaded assets the model falls
+back to the boxes. The buffer belt is the flat belt `warehouse_conveyorBelt_a06`; the catalogue only has chain
+modules with legs at one end, so `derived.py` mirrors the leg pair and cuts the posts at the belt top. Fence
+`wire_machineGuard_a04`, floor `environment_floor_a01`, © NVIDIA, https://huggingface.co/datasets/nvidia/simready-assets.
+The switch cabinet with the OmniCore C30 on top (449 x 443 x 170 mm per the ABB brochure) is modelled in
+`derived.py` with drawn front textures (C30 front, door with warning sign, labels, pilot lights, E-stop, main switch).

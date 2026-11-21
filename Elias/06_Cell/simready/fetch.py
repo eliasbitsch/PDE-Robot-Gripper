@@ -8,7 +8,7 @@ from huggingface_hub import snapshot_download
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DST = os.path.join(HERE, "..", "vendor", "simready")
-ASSETS = ["conveyor_belt_a05", "wire_machineGuard_a01", "wire_machineGuard_a03", "wire_machineGuard_a04",
+ASSETS = ["conveyor_belt_a05", "warehouse_conveyorBelt_a06", "warehouse_conveyorBelt_a29", "wire_machineGuard_a01", "wire_machineGuard_a03", "wire_machineGuard_a04",
           "environment_floor_a01", "digitalSystem_touchTerminal_standing_a01"]
 
 if __name__ == "__main__":
