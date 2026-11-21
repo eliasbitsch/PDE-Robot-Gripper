@@ -36,10 +36,10 @@ LD_LMAX = [0.312, 0.212, 0.168, 0.141, 0.124, 0.111, 0.100]
 
 CANDIDATES = [  # name, reach mm, payload kg, axis 1 deg/s, controller generation, source
     ("ABB IRB 1300-7/1.4", 1400, 7.0, 249, "OmniCore (current)", "3HAC070393-001 rev. M, local"),
-    ("ABB IRB 1600-6/1.45", 1450, 6.0, 150, "IRC5 (previous)", "ABB data sheet [verify]"),
-    ("KUKA KR 10 R1420", 1420, 10.0, 220, "KR C5 micro", "KUKA data sheet [verify]"),
-    ("FANUC M-10iD/12", 1441, 12.0, 210, "R-30iB Plus", "FANUC data sheet [verify]"),
-    ("Universal Robots UR10e", 1300, 12.5, 120, "cobot, TCP speed limited", "UR data sheet [verify]"),
+    ("ABB IRB 1600-6/1.45", 1450, 6.0, 150, "IRC5 (previous)", "ABB product specification PR10282 rev. E (21 Nov)"),
+    ("KUKA KR 10 R1420", 1420, 10.0, 220, "KR C4 compact", "RoboDK listing; axis 1 from a distributor sheet (21 Nov)"),
+    ("FANUC M-10iD/12", 1441, 12.0, 260, "R-30iB Plus", "FANUC America product page (21 Nov)"),
+    ("Universal Robots UR10e", 1300, 12.5, 120, "cobot, TCP speed limited", "UR10e data sheet (21 Nov)"),
 ]
 
 

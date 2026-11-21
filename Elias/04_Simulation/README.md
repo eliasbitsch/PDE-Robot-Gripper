@@ -79,12 +79,26 @@ contact model, not the grip. Slip is therefore measured beyond a reference run a
 (`creep_base`), limit 0.5 mm. Two pad springs (NBR shear, `build_model.py`) now share the tangential load between
 the pads as the rubber does: before, one pad sat at its friction limit while the other pulled the other way.
 
-Hand calculation at each instant (`validate_grip.quasi_static`, `friction_check`, `out/friction_check.json`): the
-pads must carry m (a - g) in their plane, with a from the simulated part motion. Median friction use over the
-transfer, quasi-static vs simulated agree within 0.1 %; note that the quasi-static value uses the simulated
-normal force and part acceleration, so this checks the friction bookkeeping, not V2's inputs. Short peaks on the via path: simulation 0.72 ... 0.81 against 0.47 ... 0.58
-quasi-static; the fast axis 1 turn on the small radius adds dynamics the hand formula does not contain. The setpoint
-covers it (peak 0.72).
+**What the simulation does and does not validate (review 1.14).** `friction_check` compares the simulated friction
+use with m (a - g) / (mu N) evaluated on the *simulated* part acceleration and normal force; the medians agree within
+0.1 %, but that only checks the friction bookkeeping, it is no validation of V2 (circular). The independent
+comparison is against the design inputs:
+
+| at the setpoint 44.5 N, mu 0.2 | V2 (translation only, a 4.96 m/s²) | grip_check (with twist, uniform / tilted pad) | MuJoCo |
+|---|---|---|---|
+| friction use, median over the transfer | 0.50 | - | 0.33 |
+| friction use, peak | 0.50 | 0.40 / 0.43 | **0.74** |
+| safety against slip at the peak | 2.0 | 2.48 / 2.30 | **1.36** (mu 0.3: 1.71) |
+
+V2 is conservative for the bulk of the transfer, but the short peaks at the via corner are about 50 % above any hand
+model: the fast axis 1 turn on the small radius turns the part in the jaws, dynamics the hand formulas do not
+contain. The part does not slip there (friction use < 1 on both pads at every instant), but the dynamic safety at
+that instant is 1.36 with the worst-case mu 0.2, not 2. The design proof S 2 is the quasi-static one (VDI 2860);
+the simulation shows the margin that is left at the peak.
+
+**Slip.** The primary "held" criterion is friction use < 1 on each pad at every instant. Slip measured beyond the
+100 N reference run (creep base above) is a secondary check: MuJoCo's soft contacts creep 2.3-2.4 mm at any grip
+force, so a slip below 0.5 mm beyond that base can only show the absence of gross slip, not of micro-slip.
 
 ## Enclosure and transfer path (`clearance.py`, `sim.transfer_path`, `sim.TimeLaw`)
 

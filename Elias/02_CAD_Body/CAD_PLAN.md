@@ -283,7 +283,7 @@ encoder stay where they were; gripper 3.053 kg (3.036 kg with the BKE brake and 
 force gauge (current setting from the data sheets alone may give 35.6 N). The current limit is now the motor at full
 current (60.5 N per jaw), no longer the bevel pair.
 
-## Second version: pneumatic drive (21 Nov 2026, `GRIPPER_DRIVE=pneumatic`, output `out_pneumatic/`)
+## Second version: pneumatic drive (21 Nov 2026, `GRIPPER_DRIVE=pneumatic`, output `out_pneumatic/`) - not pursued, not shown
 
 Checkpoint of the electric version: tag `v1-electric`. Built from the same parameters with a switch (`DRIVE` in
 `gripper_params.py`); racks, slides, rail, jaws, pinion with its bearings and the FEM models stay the same.
@@ -306,18 +306,17 @@ Checkpoint of the electric version: tag `v1-electric`. Built from the same param
 | height above the top plate | 76 mm (hood + adapter) | 49 mm (riser with flange) |
 | bounding box | 3.38 l | 2.80 l (-17 %) |
 
-Still to do for the pneumatic version: V2 cylinder and spring sizing (DIN EN 13906-1, block length, fatigue),
-cabinet BOM (valve, regulator, throttles, sensors), E1 payload, MuJoCo closing and air-loss cases, FEM strength
-case at 70 N, verify the ADN-16 drawing (body length, end-cap thread pattern).
+Not pursued (decision below): the pneumatic version is an internal design study only, it is not part of the submission
+and not shown as an alternative; its spring and cylinder sizing was not finished (review 1.13 dropped with it).
 
 ## Decision 21 Nov 2026: the electric version stays the main design
 
 Compared on the same jaws and part: electric 2.92 kg / flange to TCP 150.5 mm, pneumatic 2.08 kg / 123.5 mm
 (`GRIPPER_DRIVE=pneumatic`), wedge hook (rough, `concepts/wedge_hook.py`) about 1.4 kg / 102.5 mm.
 The electric drive is kept: grip force set in software (current limit), part detection from current and position
-without extra sensors, programmable stroke and speed (two-stage close), no compressed air in the cell, holding on
-holding on mains failure (zero-backlash brake + buffer + brake-first shutdown; single faults in the motor circuit stay as residual risk, review 1.10). The weight is no limit for the IRB 1300 (3.5 kg of
-7 kg, wrist torque 70 %). No further slimming: the drive chain (motor, brake, encoder, gearbox, about 165 mm) sets
+without extra sensors, programmable stroke and speed (two-stage close), no compressed air in the cell, holding on mains failure (zero-backlash brake + buffer + brake-first shutdown; single faults in the motor circuit stay as residual risk, review 1.10). The weight is no limit for the IRB 1300 (3.64 kg of
+7 kg, 52 %). No further slimming: the drive chain (motor, brake, encoder, gearbox, about 165 mm) sets
 the length, and the hood, housing and flange close flush on the +y face on purpose; narrowing the hood would only
-gain a few percent and break that line. Pneumatic version and wedge-hook concept stay in the repo as the evaluated
-alternatives for the variant comparison (V1).
+gain a few percent and break that line. Pneumatic version and wedge-hook study stay in the repo as internal
+studies only; they are not shown as alternatives (21 Nov 2026). The variant comparison V1 compares the gripper
+principles (kinematics), all with the electric drive.

@@ -130,7 +130,7 @@
    "payload": 6.0,
    "a1": 150,
    "ctrl": "IRC5 (previous)",
-   "src": "ABB data sheet [verify]",
+   "src": "ABB product specification PR10282 rev. E (21 Nov)",
    "reach_ok": true,
    "payload_ok": true,
    "v_tcp": 2.6179938779914944
@@ -140,8 +140,8 @@
    "reach": 1420,
    "payload": 10.0,
    "a1": 220,
-   "ctrl": "KR C5 micro",
-   "src": "KUKA data sheet [verify]",
+   "ctrl": "KR C4 compact",
+   "src": "RoboDK listing; axis 1 from a distributor sheet (21 Nov)",
    "reach_ok": true,
    "payload_ok": true,
    "v_tcp": 3.839724354387525
@@ -150,12 +150,12 @@
    "name": "FANUC M-10iD/12",
    "reach": 1441,
    "payload": 12.0,
-   "a1": 210,
+   "a1": 260,
    "ctrl": "R-30iB Plus",
-   "src": "FANUC data sheet [verify]",
+   "src": "FANUC America product page (21 Nov)",
    "reach_ok": true,
    "payload_ok": true,
-   "v_tcp": 3.6651914291880923
+   "v_tcp": 4.537856055185257
   },
   {
    "name": "Universal Robots UR10e",
@@ -163,7 +163,7 @@
    "payload": 12.5,
    "a1": 120,
    "ctrl": "cobot, TCP speed limited",
-   "src": "UR data sheet [verify]",
+   "src": "UR10e data sheet (21 Nov)",
    "reach_ok": true,
    "payload_ok": true,
    "v_tcp": 2.0943951023931953

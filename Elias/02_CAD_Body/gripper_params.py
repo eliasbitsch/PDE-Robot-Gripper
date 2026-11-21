@@ -27,14 +27,16 @@ CARRIAGE_MASS = 0.051                         # kg
 
 # Drive, Nanotec
 MOTOR_FRAME = 42.3                              # NEMA 17 square
-MOTOR_L = 34.0                                  # ST4118S, 1.2 in on the datasheet (measure in STEP)
+MOTOR_L = 30.5                                  # ST4118S1404-B body (datasheet and STEP); rear shaft 13.5 on the sheet,
+                                                # longer B shaft through brake and encoder assumed (virtual design)
 MOTOR_T_HOLD = 0.20                             # 28.3 oz-in
 GEAR_I, GEAR_ETA, GEAR_L = 7.07, 0.90, 38.0     # GP42-S1-7-SR (same housing as -5)
 BRAKE_T = 0.40                                  # BRAKE-BKE-0,4-5,0, permanent magnet, no play (BWA had < 2 deg, review 1.10)
 BRAKE_L, BRAKE_D, BRAKE_ADAPTER_T = 28.9, 39.0, 3.0   # datasheet envelope; adapter plate to the motor rear face [verify]
 T_PINION_STATIC = MOTOR_T_HOLD * GEAR_I * GEAR_ETA
 T_PINION_BRAKE = BRAKE_T * GEAR_I
-F_JAW_MAX = T_PINION_STATIC / (2 * PINION_D / 2 / 1000)   # N per jaw at full current, gearbox loss only: FEM upper bound
+F_JAW_MAX = T_PINION_STATIC / (2 * PINION_D / 2 / 1000)   # N per jaw at full current, nominal gearbox eta 0.9 (FEM LC2)
+F_JAW_UPPER = MOTOR_T_HOLD * 1.10 * GEAR_I / (2 * PINION_D / 2 / 1000)   # no losses, k_T +10 %: 77.8 N, enveloped by LC5
 ETA_BEVEL, ETA_RP = 0.98, 0.97                  # V2 § 10
 F_JAW_AVAIL = F_JAW_MAX * ETA_BEVEL * ETA_RP    # N per jaw the motor really delivers at full current (all losses)
 # Part may be dirty or oily (feedback 10 Nov). Design value for NBR on oily PA 6: 0.2. Brackets: steel on steel 0.1
