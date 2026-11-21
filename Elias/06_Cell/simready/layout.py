@@ -15,6 +15,8 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 import cell_params as CP  # noqa: E402
 
 MM = 0.001
+DOOR_X = (-0.35, 1.05)          # door bay on the operator side, m
+CAB_X = -0.75                   # switch cabinet next to the door, outside the fence
 
 
 def manifest(asset):
@@ -41,15 +43,26 @@ def placements():
     if manifest("flat_belt"):
         s = np.array([(CP.BELT_X[1] - CP.BELT_X[0]) * MM / 2.0, CP.BELT_W * MM / 0.9, CP.H_PICK * MM / 1.781])
         out.append(("flat_belt", s, np.array([CP.BELT_X[0] * MM, 0.0, 0.0]), 0.0))
-    # fence: one mesh panel per side over the enclosure length, 2100 high, inner face on y = +-Y_FENCE
-    m = manifest("wire_machineGuard_a04")
-    if m:
-        lo, hi = np.array(m["bbox"][0]), np.array(m["bbox"][1])
-        half_t = 0.5 * (hi[1] - lo[1])
-        for side in (1, -1):
-            yc = side * (CP.Y_FENCE * MM + half_t)
-            s, o = fit(lo, hi, [CP.X_FENCE[0] * MM, yc - half_t, 0.0], [CP.X_FENCE[1] * MM, yc + half_t, CP.H_FENCE * MM], keep=(1,))
-            out.append(("wire_machineGuard_a04", s, o, 0.0))
+    # fence (Abb. 1: 2100 high, inner faces y = +-Y_FENCE): mesh panels wire_machineGuard_a03 (1.3 m, post at its +x
+    # end) cut to the bays, on the operator side (-y) the door wire_machineGuard_a01 (1.4 m, with the guard locking
+    # box) next to the switch cabinet; the ends are closed by the machine and the buffer housing (cell_parts.py)
+    sz = CP.H_FENCE * MM / 1.7
+    yf = (CP.Y_FENCE * MM + 0.075)
+    xa, xb = CP.X_FENCE[0] * MM, CP.X_FENCE[1] * MM
+    if manifest("wire_machineGuard_a03"):
+        def bay(x0, x1, y):
+            sx = (x1 - x0) / 1.3
+            out.append(("wire_machineGuard_a03", np.array([sx, 1.0, sz]), np.array([x1 - sx * 0.075, y, 0.0]), 0.0))
+        xm = 0.5 * (xa + xb)
+        bay(xa, xm, yf)
+        bay(xm, xb, yf)
+        bay(xa, DOOR_X[0], -yf)
+    if manifest("wire_machineGuard_a01"):
+        out.append(("wire_machineGuard_a01", np.array([(DOOR_X[1] - DOOR_X[0]) / 1.396, 1.0, sz]),
+                    np.array([0.5 * (DOOR_X[0] + DOOR_X[1]), -yf, 0.0]), 0.0))
+    for own in ("machine", "buffer_housing", "chain_conveyors", "fence_fill"):
+        if manifest(own):
+            out.append((own, np.ones(3), np.zeros(3), 0.0))
     # hall floor, top face at z = 0
     m = manifest("environment_floor_a01")
     if m:
@@ -57,7 +70,7 @@ def placements():
         out.append(("environment_floor_a01", np.ones(3), np.array([0.3, 0.0, -hi[2]]), 0.0))
     # OmniCore C30 on the switch cabinet outside the fence, door towards the operator (-y)
     if manifest("controller"):
-        out.append(("controller", np.ones(3), np.array([0.3, -(CP.Y_FENCE + CP.T_FENCE) * MM - 0.30, 0.0]), 0.0))
+        out.append(("controller", np.ones(3), np.array([CAB_X, -(CP.Y_FENCE + CP.T_FENCE) * MM - 0.32, 0.0]), 0.0))
     return out
 
 

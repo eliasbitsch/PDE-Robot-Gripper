@@ -13,6 +13,7 @@ workpiece carrier. The model is generated from the sources, nothing is drawn by 
 | `closing_time.py` | closing time and impact on the part, `python closing_time.py` |
 | `power_fail.py` | power loss with the part in the jaws: detent only until the brake engages |
 | `viz.py` | slow-motion video with four cameras, contact points and forces, clearance check (convex hulls) |
+| `cell_video.py` | running cell at the 5 s takt: parts queue on the buffer line, the robot loads chain 2 and chain 1 in turn (chain 1 = mirrored E4 path), the carriers index into the machine; kinematic replay, [`figures/cell_takt.mp4`](figures/cell_takt.mp4) |
 | `validation_notebook.py` | everything live: `marimo edit validation_notebook.py` |
 
 **Model.** Robot joints follow the path through stiff position control with gravity compensation (the robot's own
@@ -147,5 +148,11 @@ the plain boxes from `cell_params.py` (Abb. 1), which stay underneath. Without t
 back to the boxes. The buffer belt is the flat belt `warehouse_conveyorBelt_a06`; the catalogue only has chain
 modules with legs at one end, so `derived.py` mirrors the leg pair and cuts the posts at the belt top. Fence
 `wire_machineGuard_a04`, floor `environment_floor_a01`, © NVIDIA, https://huggingface.co/datasets/nvidia/simready-assets.
-The switch cabinet with the OmniCore C30 on top (449 x 443 x 170 mm per the ABB brochure) is modelled in
+Own visual parts (`cell_parts.py`): a CNC machining centre (finishes slot and bore of part B) closes the place
+side and takes both carrier chains through inlets; the chains run as in Abb. 1 (carriers fixed to the chain, top
+run into the machine, return underneath, end sprocket). The buffer line housing closes the pick side, the belt leaves
+it through an 850 mm hood (ISO 13857: no reach through the 110 mm slot). Mesh panels fill the gaps, so the
+enclosure is closed all round; the door with guard locking sits on the operator side next to the switch cabinet.
+With A6 = 0, part B lands 20.6 deg skewed on the carrier; the video turns A6 by -20.6 / +20.6 deg (chain 2 / 1) so
+it lands square. E4 (clearance, axis margins) still uses A6 = 0 and has to be rerun with this. The switch cabinet with the OmniCore C30 on top (449 x 443 x 170 mm per the ABB brochure) is modelled in
 `derived.py` with drawn front textures (C30 front, door with warning sign, labels, pilot lights, E-stop, main switch).

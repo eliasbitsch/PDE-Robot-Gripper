@@ -70,7 +70,7 @@ def build():
         decimate(os.path.join(MESH, f"robot_link{i}.stl"), os.path.join(MESH, f"robot_link{i}_s.stl"))
         assets.append(f'<mesh name="link{i}" file="{os.path.join(MESH, f"robot_link{i}_s.stl")}" scale="{MM} {MM} {MM}"/>')
     assets.append(f'<mesh name="part_b" file="{os.path.join(MESH, "part_b.stl")}" scale="{MM} {MM} {MM}"/>')
-    # NVIDIA SimReady meshes (belt, fence, floor, terminal) as looks over the exact boxes, if downloaded
+    # looks over the exact boxes, if built: SimReady belt, fence, floor + own machine, buffer housing, chains, cabinet
     sr_assets, sr_geoms, sr_used = SR.mjcf()
     assets += sr_assets
     hide = ' rgba="0 0 0 0"' if sr_used else ""
@@ -152,12 +152,12 @@ def build():
     <geom name="floor" type="plane" size="4 4 0.1" rgba="0.85 0.86 0.86 {0 if sr_used else 1}" contype="1" conaffinity="1"/>
     {chr(10).join("    " + g for g in sr_geoms)}
     <geom name="pedestal" type="cylinder" pos="{CP.BASE[0] * MM} 0 {CP.BASE[2] / 2 * MM}" size="0.22 {CP.BASE[2] / 2 * MM}" rgba="0.3 0.32 0.35 1" contype="1" conaffinity="1"/>
-    <geom name="plant" type="box" pos="{(CP.PLANT_X[0] + CP.PLANT_X[1]) / 2 * MM} 0 {CP.H_FENCE / 2 * MM}" size="{(CP.PLANT_X[1] - CP.PLANT_X[0]) / 2 * MM} {(CP.Y_FENCE + 200) * MM} {CP.H_FENCE / 2 * MM}" rgba="0.82 0.84 0.86 1" contype="0" conaffinity="0"/>
+    <geom name="plant" type="box" pos="{(CP.PLANT_X[0] + CP.PLANT_X[1]) / 2 * MM} 0 {CP.H_FENCE / 2 * MM}" size="{(CP.PLANT_X[1] - CP.PLANT_X[0]) / 2 * MM} {(CP.Y_FENCE + 200) * MM} {CP.H_FENCE / 2 * MM}" rgba="0.82 0.84 0.86 {0 if sr_used else 1}" contype="0" conaffinity="0"/>
     <geom name="belt" type="box" pos="{(CP.BELT_X[0] + CP.BELT_X[1]) / 2 * MM} 0 {(CP.H_PICK - 20) * MM}" size="{(CP.BELT_X[1] - CP.BELT_X[0]) / 2 * MM} {CP.BELT_W / 2 * MM} 0.02" rgba="0.15 0.15 0.15 {0 if sr_used else 1}" contype="1" conaffinity="1" friction="0.6"/>
     <geom name="fence_left" type="box" pos="{(CP.X_FENCE[0] + CP.X_FENCE[1]) / 2 * MM} {(CP.Y_FENCE + CP.T_FENCE / 2) * MM} {CP.H_FENCE / 2 * MM}" size="{(CP.X_FENCE[1] - CP.X_FENCE[0]) / 2 * MM} {CP.T_FENCE / 2 * MM} {CP.H_FENCE / 2 * MM}" rgba="0.95 0.8 0.1 {0 if sr_used else 0.25}" contype="0" conaffinity="0"/>
     <geom name="fence_right" type="box" pos="{(CP.X_FENCE[0] + CP.X_FENCE[1]) / 2 * MM} {-(CP.Y_FENCE + CP.T_FENCE / 2) * MM} {CP.H_FENCE / 2 * MM}" size="{(CP.X_FENCE[1] - CP.X_FENCE[0]) / 2 * MM} {CP.T_FENCE / 2 * MM} {CP.H_FENCE / 2 * MM}" rgba="0.95 0.8 0.1 {0 if sr_used else 0.25}" contype="0" conaffinity="0"/>
-    <geom name="chain_1" type="box" pos="{(CP.CHAIN_X[0] + CP.CHAIN_X[1]) / 2 * MM} {-CP.DY_CHAIN * MM} {(CP.H_PLACE - 45) * MM}" size="{(CP.CHAIN_X[1] - CP.CHAIN_X[0]) / 2 * MM} {CP.CHAIN_W / 2 * MM} 0.015" rgba="0.2 0.2 0.22 1" contype="0" conaffinity="0"/>
-    <geom name="chain_2" type="box" pos="{(CP.CHAIN_X[0] + CP.CHAIN_X[1]) / 2 * MM} {CP.DY_CHAIN * MM} {(CP.H_PLACE - 45) * MM}" size="{(CP.CHAIN_X[1] - CP.CHAIN_X[0]) / 2 * MM} {CP.CHAIN_W / 2 * MM} 0.015" rgba="0.2 0.2 0.22 1" contype="0" conaffinity="0"/>
+    <geom name="chain_1" type="box" pos="{(CP.CHAIN_X[0] + CP.CHAIN_X[1]) / 2 * MM} {-CP.DY_CHAIN * MM} {(CP.H_PLACE - 45) * MM}" size="{(CP.CHAIN_X[1] - CP.CHAIN_X[0]) / 2 * MM} {CP.CHAIN_W / 2 * MM} 0.015" rgba="0.2 0.2 0.22 {0 if sr_used else 1}" contype="0" conaffinity="0"/>
+    <geom name="chain_2" type="box" pos="{(CP.CHAIN_X[0] + CP.CHAIN_X[1]) / 2 * MM} {CP.DY_CHAIN * MM} {(CP.H_PLACE - 45) * MM}" size="{(CP.CHAIN_X[1] - CP.CHAIN_X[0]) / 2 * MM} {CP.CHAIN_W / 2 * MM} 0.015" rgba="0.2 0.2 0.22 {0 if sr_used else 1}" contype="0" conaffinity="0"/>
     <geom name="carrier_1" type="box" pos="{CP.X_PLACE * MM} {-CP.DY_CHAIN * MM} {(CP.H_PLACE - 15) * MM}" size="0.12 0.08 0.015" rgba="0.25 0.45 0.7 1" contype="0" conaffinity="0"/>
     <geom name="carrier" type="box" pos="{CP.X_PLACE * MM} {CP.DY_CHAIN * MM} {(CP.H_PLACE - 15) * MM}" size="0.12 0.08 0.015" rgba="0.25 0.45 0.7 1" contype="1" conaffinity="1" friction="0.6"/>
     <body name="robot" pos="{v(CP.BASE, MM)}">
