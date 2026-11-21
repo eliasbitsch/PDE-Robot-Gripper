@@ -85,6 +85,12 @@ close (frames 1-150); shot B: close-up of the drive train with the shell hidden 
 2 and 5 above. Render: `blender -b -P hero_v1.py -- anim` (≈ 50 min at 128 samples, 1080p), then ffmpeg to
 `hero_v1.mp4`. Frames and the .blend go to `out/` (git-ignored); the script and the mp4 are kept in the repo.
 
+**Review 21 Nov (Elias):** light and materials approved. Of the eight test views (`hero_v1.py -- views`) all are kept
+except 3 (low front): 1/2 hero, 4 three-quarter high, 5 side, 6 top, 7 jaw macro, 8 drive close-up. They are not
+separate fixed shots but waypoints of **one flowing camera move** (eased spline path with speed changes, no cuts
+inside a sequence). Before any render: previews at 480p in EEVEE, short clips only; the long Cycles render only
+after approval.
+
 ## 4. Order of work
 
 1. Export the assembly with names and BOM positions (FreeCAD → glTF / OBJ) and the E4 trajectory as JSON.
