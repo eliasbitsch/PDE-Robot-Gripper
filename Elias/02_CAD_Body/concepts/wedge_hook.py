@@ -31,7 +31,7 @@ Z_C = -15.0                                    # flank contact height
 SL_W = 30.0                                    # slide width (y)
 HX, HY = 62.0, 26.0                            # housing half size
 BORE, PISTON_T = 20.0, 8.0
-DENS = {"Al": 2.70e-6, "steel": 7.85e-6}
+DENS = {"Al": 2.70e-6, "steel": 7.85e-6}   # pads counted as steel (plate 3 + NBR 3): a few grams too much
 
 
 def box(x0, x1, y0, y1, z0, z1):
@@ -91,12 +91,15 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     dz = -S_PISTON
     jaws = {}
+    v3 = os.path.join(ROOT, "..", "..", "Viktoriia", "03_CAD_Jaws")
     for side, tag in ((-1, "L"), (1, "R")):
-        jaws[f"Jaw_{tag}"] = Part.read(os.path.join(ROOT, "..", "..", "Viktoriia", "03_CAD_Jaws", f"jaw_{tag}.step"))
+        jaws[f"Jaw_{tag}"] = Part.read(os.path.join(v3, f"jaw_{tag}.step"))
+        jaws[f"PadPlate_{tag}"] = Part.read(os.path.join(v3, f"pad_plate_{tag}.step"))
+        jaws[f"Pad_{tag}"] = Part.read(os.path.join(v3, f"pad_NBR_{tag}.step"))
     parts = {"Housing": (housing(), "Al"), "Cap_flange": (cap(), "Al"), "Wedge": (wedge(dz), "steel"),
              "Piston": (piston(dz), "Al"), "Slide_L": (slide(-1, D), "steel"), "Slide_R": (slide(1, D), "steel")}
     for k, s in jaws.items():
-        parts[k] = (s, "Al")
+        parts[k] = (s, "Al" if k.startswith("Jaw") else "steel")
     mass = {k: s.Volume * DENS[m] for k, (s, m) in parts.items()}
     bb = None
     for k, (s, _) in parts.items():
