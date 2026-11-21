@@ -56,22 +56,22 @@ failure needs a self-locking stage or a holding brake in the drive - to be
 decided in the sizing.
 
 The design is industrial: milled aluminium housing, catalogue rack and pinion
-in steel, a 24 V servo drive. The Cartesian Hand is the model for the
+in steel, a 24 V closed-loop stepper with gearbox and zero-backlash brake. The Cartesian Hand is the model for the
 principle, not for material or drive.
 
-**Required gripping force:** 14.3 N per jaw (µ = 0.5 NBR/PA 6, safety factor 2.0,
-path acceleration 2.05 m/s² out of the cycle-time budget).
+**Required gripping force:** 35.7 N per jaw by hand calculation (µ = 0.2 for an oily part, safety factor 2.0,
+path acceleration 2.05 m/s² out of the cycle-time budget); operating setpoint **44.5 N** for the real path
+(4.96 m/s²), with the part's twist checked in `Elias/02_CAD_Body/grip_check.py`. The early 14.3 N (µ = 0.5, dry)
+is superseded.
 
 ---
 
 ## 🤖 The cell
 
-Robot is an **ABB IRB 1600-6/1.45**. The interesting finding from the placement
-study: with the robot centred on the floor the sequence is **not executable** -
-not because of reach, but because of axis 5 (±115°). With the arm extended high
-and far the forearm points steeply up and the tool can no longer be brought
-vertical. The fix is a **500 mm pedestal plus a 100 mm base offset** toward the
-workpiece carrier. That goes into the report as a finding, not hidden.
+Robot is an **ABB IRB 1300-7/1.4** (since 10 Nov 2026; before IRB 1600-6/1.45). With the IRB 1600 the sequence was
+not executable from the floor because of axis 5 (±115°); the IRB 1300 has ±130° and stays below 91°, so a pedestal
+from 200 mm on works (12.5° axis margin, arm 92 % stretched). We keep **500 mm plus a 100 mm base offset** toward the
+workpiece carrier for more margin (20.6°, 74 % stretched). Placement study: `Elias/01_Robot`.
 
 ---
 

@@ -287,6 +287,52 @@ def _(F_cases, deflection, plt, s_a, s_b, s_grid):
 @app.cell
 def _(mo):
     mo.md(r"""
+    ## 5a. Further loads on the jaw (review, section 3)
+
+    Besides the grip force the pad carries the part by friction. Per jaw at the pad centre: the vertical share of
+    the weight and vertical acceleration $F_z = m(g + a_z)/2$, the horizontal share along the pads
+    $F_y = m\,a_y/2$ and the twist of the part $M_t = F_y\,\Delta z$ (centre of mass {dz} mm under the pad centre,
+    `grip_check.py`). In the web at the clamp this gives: an axial stress from $F_z$, bending in the web plane
+    from $F_y \cdot s_F + M_t$ (section modulus $H B^2/6$), and torsion from $F_y$ acting on the pad face, about
+    {ex} mm in front of the web centre ($W_t = eta B H^2$, $eta$ = 0.267 for B/H = 3.1). They are combined with
+    the main bending stress at the clamp (full current) by von Mises.
+    """.replace("{dz}", "10.5").replace("{ex}", "10"))
+    return
+
+
+@app.cell
+def _(B, F_cases, H, P, RP02, mo, stresses):
+    _m, _g, _dz, _ex, _sF = P.B_MASSE, P.G, 10.5, 10.0, 24.0
+    _W_lat, _Wt, _A = H * B**2 / 6, 0.267 * B * H**2, B * H
+    _sig_main = stresses(F_cases["full current"])["clamp (s = 0)"]
+    _rows = ""
+    for _lbl, _ay, _az in (("path, 4.96 m/s² along the pads", P.A_PATH_REAL, 0.0),
+                           ("e-stop V2, 17 m/s² along the pads", 17.0, 0.0),
+                           ("e-stop V2, 17 m/s² vertical", 0.0, 17.0),
+                           ("ABB design value 82 m/s² (as FEM LC4), 45°", 82.0 / 2**0.5, 82.0 / 2**0.5)):
+        _Fy, _Fz = _m * _ay / 2, _m * (_g + _az) / 2
+        _s_ax = _Fz / _A
+        _s_lat = (_Fy * _sF + _Fy * _dz) / _W_lat
+        _tau = _Fy * _ex / _Wt
+        _sv = ((_sig_main + _s_ax + _s_lat) ** 2 + 3 * _tau**2) ** 0.5
+        _rows += (f"| {_lbl} | {_Fy:.1f} / {_Fz:.1f} N | {_s_ax:.3f} | {_s_lat:.2f} | {_tau:.2f} | {_sv:.2f} MPa "
+                  f"(+{(_sv / _sig_main - 1) * 100:.0f} %) | {RP02 / _sv:.0f} |\n")
+    mo.md(f"""
+    | Case | F_y / F_z per jaw | σ axial [MPa] | σ bending in the web plane [MPa] | τ torsion [MPa] | von Mises with the main bending {_sig_main:.2f} MPa | safety |
+    |---|---|---|---|---|---|---|
+    {_rows}
+
+    The further loads add at most 4 % to the main bending stress in operation and in the e-stop, 15 % with ABB's
+    82 m/s² (safety still 70); the FEM
+    load cases LC3 (transport) and LC4 (e-stop, 82 m/s²) carry the same shear loads and agree (S ≥ 12.5 in the
+    holder). They are not governing, but now they are shown.
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
     ## 6. Comparison with the FEM (E5, Elias, F = 63.6 N)
 
     FEM of **this V3 jaw**, read from `Elias/05_FEM/v4_fem_results.json` (written by `v4_check.py`: gmsh C3D10,

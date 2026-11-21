@@ -45,6 +45,16 @@ of the pad friction forces| / (μ ΣF_n), median over the moving phases and 50 m
 
 ## Emergency stop anywhere in the cycle (`e_stop.py`, `out/e_stop.json`, `figures/e_stop.png`)
 
+**Which e-stop deceleration where (review section 2):**
+
+| Value | What it is | Used in |
+|---|---|---|
+| 17 m/s² | ABB stop data axis 1 (p. 91) times the full reach 1.4 m: conservative lever | V2 § 2, hand calculation |
+| 12.1 m/s² | the same axis 1 rate at our largest TCP radius (1.0 m) | `05_FEM/load_cases.A_STOP` (reported) |
+| 22.3 m/s² | part acceleration incl. gravity with every axis braking at its ABB rate, worst instant of the cycle | `e_stop.py`, governing for the grip |
+| 82 m/s² | ABB design value for tool strength (p. 54, nominal load) | FEM LC4 (strength) |
+| 7.0 m/s² | braking along the path, superseded | - |
+
 Review 21 Nov: the e-stop above used to brake along the path (7.0 m/s²), which is milder than a real category 0
 stop, and the ABB stop data (p. 91) hold for max speed, arm stretched and max load, i.e. the *weakest*
 deceleration; with our half-nominal load and the arm pulled in the robot brakes harder. `e_stop.py` starts a

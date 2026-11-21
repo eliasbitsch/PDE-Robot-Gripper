@@ -25,7 +25,7 @@
   "file": "irb1300_product_spec.pdf",
   "page": 54,
   "value": "max TCP acceleration 66 m/s2 (controlled), 82 m/s2 (e-stop) at nominal load",
-  "why": "upper bound; our path needs 4.96 m/s2, the e-stop 12.3 m/s2"
+  "why": "upper bound; our path needs 4.96 m/s2, the e-stop 12.1 m/s2 (axis 1 at 1.0 m), 22 m/s2 at the part with all axes braking"
  },
  {
   "id": "irb_axis_speed",
@@ -46,7 +46,7 @@
   "file": "irb1300_product_spec.pdf",
   "page": 91,
   "value": "category 0 stop: axis 1 55.25 deg in 0.40 s, axis 2 33.39 deg in 0.37 s, axis 3 35.66 deg in 0.27 s",
-  "why": "V2 § 2 and MuJoCo e-stop: axis decelerations -> 12.3 m/s2 at our TCP"
+  "why": "V2 § 2 and MuJoCo e-stop: axis decelerations -> 12.1 m/s2 at our TCP (axis 1), e_stop.py all axes"
  },
  {
   "id": "rexroth_s0",

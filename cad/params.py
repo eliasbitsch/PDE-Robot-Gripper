@@ -58,164 +58,79 @@ _TA = T_EINWEG / 3.0
 A_BAHN = WEG_RAEUMLICH / (_TA * (T_EINWEG - _TA))   # m/s^2
 V_BAHN = A_BAHN * _TA                               # m/s
 
-# ---------------------------------------------------------------- Greifkraft
-S_SICHERHEIT = 2.0                  # -  Sicherheitsbeiwert (VDI 2860)
-N_BACKEN = 2                        # -  Reibflaechen beim Parallelgreifer
-MU_BELAG = 0.50                     # -  PA 6 gegen NBR-Weichbelag
+# ---------------------------------------------------------------- Grip force
+# Updated 21 Nov 2026 (review, section 2) to the current design. The authoritative design values are in
+# Elias/02_CAD_Body/gripper_params.py; the names below are kept for the early scripts in cad/, fem/, sim/, docs/.
+S_SICHERHEIT = 2.0                  # safety against slip (VDI 2860)
+N_BACKEN = 2                        # friction faces of a parallel gripper
+MU_BELAG = 0.20                     # NBR pad on oily PA 6, design value (gripper_params MU_OILY); 0.5 was dry, superseded
 
 # F_N = S * m * (g + a) / (n * mu)
-F_GREIF = S_SICHERHEIT * B_MASSE * (G + A_BAHN) / (N_BACKEN * MU_BELAG)   # N je Backe
+F_GREIF = S_SICHERHEIT * B_MASSE * (G + A_BAHN) / (N_BACKEN * MU_BELAG)   # N per jaw, 35.7 (hand calculation, 2.05 m/s2)
 
-# ---------------------------------------------------------------- Greifer
-M_GREIFER = 2.5                     # kg  Annahme Grundkoerper + Zangen + Wechsler
-FLANSCH_NORM = "ISO 9409-1-50-4-M6"
+# ---------------------------------------------------------------- Gripper
+M_GREIFER = 3.04                    # kg, from the CAD build (02_CAD_Body/out/checks.json, 21 Nov)
+FLANSCH_NORM = "ISO 9409-1-40-4-M6"  # ABB IRB 1300 flange
+GREIFER_TYP = "Own design, rack and pinion, closed-loop stepper with brake"
+FREIGANG = 1.5                      # mm clearance per side (early sizing)
+GREIFER_HUB = 10.0                  # mm stroke per jaw (gripper_params D_OPEN), 86 mm open over the 70 mm grip faces
 
-# EIGENKONSTRUKTION statt Zukaufgreifer.
-# Wirkprinzip aus dem Variantenvergleich in mechanismus.py:
-# Zahnstange-Ritzel, elektrisch ueber Servomotor mit Planetengetriebe.
-#
-# Warum Zahnstange und nicht Spindel:
-#   Fuer 12 mm Backenhub braucht die Zahnstange nur 69 Grad Ritzeldrehung,
-#   eine Trapezspindel Tr10x2 dagegen 6 volle Umdrehungen. Bei 0,30 s
-#   Schliesszeit sind das 1200 1/min - ein einfacher Schrittmotor mit
-#   1000 1/min verfehlt damit die Taktvorgabe. Die Zahnstange schafft es
-#   mit Faktor 20 Reserve.
-#
-# Warum Servo und nicht Pneumatik:
-#   Die Bewertung in mechanismus.py liegt mit 0,66 zu 0,64 praktisch gleich
-#   auf, die Entscheidung faellt also nach Zusatzkriterien: geringere
-#   Geraeuschentwicklung, regelbare Greifkraft, keine Druckluftinfrastruktur.
-#   Energiekosten sind KEIN Argument - nachgerechnet trennen Druckluft und
-#   Strom bei dieser Zylindergroesse weniger als 2 EUR im Jahr.
-#
-# Preis der Entscheidung:
-#   Zahnstange-Ritzel ist NICHT selbsthemmend. Bei Stromausfall wuerde das
-#   Bauteil fallen -> Haltebremse am Motor ist zwingend, nicht optional.
-#   Ausserdem braucht der Schnellwechsler elektrische Kontakte statt einer
-#   Luftkupplung.
-GREIFER_TYP = "Eigenkonstruktion, Zahnstange-Ritzel, Servomotor"
-# Backenhub GEOMETRISCH hergeleitet, nicht geschaetzt:
-# Bauteil B ist B_BBOX[0] = 95 mm breit, gegriffen wird auf GREIF_ABSTAND = 70 mm.
-# Die Backen muessen also ueber die Vorspruenge hinaus oeffnen:
-#     (95 - 70) / 2 = 12,5 mm  plus Freigang
-# Mit den urspruenglichen 12 mm waere der Greifer beim Einfahren angestossen.
-FREIGANG = 1.5                      # mm seitliche Luft je Seite
-GREIFER_HUB = (B_BBOX[0] - GREIF_ABSTAND) / 2.0 + FREIGANG
-
-# Verzahnung. z = 20 liegt ueber der Grenzzaehnezahl 17, damit ist keine
-# Profilverschiebung noetig.
-MODUL = 1.0                         # mm
-Z_RITZEL = 20                       # -
-B_ZAHN = 8.0                        # mm Zahnbreite
+MODUL = 1.0                         # mm, z = 20 above the limit 17: no profile shift
+Z_RITZEL = 20
+B_ZAHN = 10.0                       # mm pinion face width (gripper_params PINION_B)
 R_TEILKREIS = MODUL * Z_RITZEL / 2.0                 # mm
-ETA_GETRIEBE = 0.92                 # - Wirkungsgrad Zahnstange-Ritzel
+ETA_GETRIEBE = 0.97                 # rack and pinion (V2 § 10); the bevel pair 0.98 is separate (gripper_params ETA_BEVEL)
 
-# Antrieb
-# Motorauswahl belegt in nachweise.py: Bedarf 0,069 Nm. Der NEMA 17 Pancake
-# ist die flachste reale Baugroesse, die die geforderte Reserve von 2,0 haelt
-# (NEMA 14 schafft nur 1,4x). Gleicher Flansch wie der Standard-NEMA-17, aber
-# nur 20 statt 34-48 mm Baulaenge - das entscheidet ueber die Gehaeuseform.
-MOTOR_TYP = "Schrittmotor NEMA 17 Pancake mit Planetengetriebe und Haltebremse"
-MOTOR_M_NENN = 0.16                 # Nm Haltemoment (Pancake-Bauform)
-GETRIEBE_I = 5.0                    # - Planetengetriebe
-GETRIEBE_ETA = 0.90                 # -
+# Drive: Nanotec ST4118S1404-B + GP42-S1-7-SR + BRAKE-BKE-0,4-5,0 under the hood, KHK bevel pair 1:1 to the pinion
+MOTOR_TYP = "Stepper ST4118S1404-B, planetary GP42-S1-7-SR, permanent-magnet brake BKE-0,4-5,0"
+MOTOR_M_NENN = 0.20                 # N*m holding torque
+GETRIEBE_I = 7.07
+GETRIEBE_ETA = 0.90
+MOT_L_GETRIEBE = 38.0               # mm
+MOT_L_MOTOR = 30.5                  # mm
+MOT_L_GESAMT = MOT_L_GETRIEBE + MOT_L_MOTOR
+MOT_FLANSCH = 42.0                  # mm, NEMA 17
 
-# Baulaengen der Antriebseinheit. Die Gesamtlaenge bestimmt die Gestaltung des
-# Gehaeuses: je laenger der Antrieb, desto weiter kragt er aus.
-# Gewaehlt ist eine Ausfuehrung mit angebautem Planetengetriebe und
-# elektromagnetischer Federkraftbremse - kompakter als drei Einzelbaugruppen.
-MOT_L_GETRIEBE = 30.0               # mm
-MOT_L_MOTOR = 20.0                  # mm  NEMA 17 Pancake
-MOT_L_GESAMT = MOT_L_GETRIEBE + MOT_L_MOTOR                  # 50 mm, Seite +Y
-MOT_FLANSCH = 42.0                  # mm  NEMA 17
+M_ABTRIEB = MOTOR_M_NENN * GETRIEBE_I * GETRIEBE_ETA          # N*m at the pinion
+BREMSE_M_NOETIG = 2 * F_GREIF * R_TEILKREIS / 1000.0 / ETA_GETRIEBE   # N*m at the pinion
+BREMSE_M_NENN = 0.4                 # N*m at the motor (BKE), x 7.07 at the pinion
+BREMSE_L = 28.9                     # mm
+BREMSE_D = 39.0                     # mm
+GREIFER_F_MAX = M_ABTRIEB * 1000.0 / R_TEILKREIS / 2.0 * ETA_GETRIEBE   # N per jaw
+F_ZANGE_AUSLEGUNG = GREIFER_F_MAX   # load case of the early jaw sizing
 
-# BREMSE AUF DEM FREIEN WELLENENDE, nicht hinter dem Motor.
-# Sass die Bremse hinter dem Motor, lag der gesamte Antrieb auf einer Seite
-# der Ritzelachse: 30 + 20 + 21 = 71 mm. Die Gegenseite blieb leer und wurde
-# von der symmetrischen Aussenform trotzdem mitgebaut - 176 mm Bautiefe fuer
-# 71 mm Antrieb. Auf dem freien Wellenende nutzt die Bremse den leeren Raum.
-#
-# Preis: sie bremst jetzt VOR dem Getriebe und muss deshalb das volle
-# Ritzelmoment halten statt nur ein Fuenftel davon.
+# ---------------------------------------------------------------- Robot
+ROBOTER = "ABB IRB 1300-7/1.4"
+R_ROBOTER = 1400.0                  # mm reach
+M_TRAGLAST = 7.0                    # kg rated payload
 
-# Die Zange muss die volle Kraft aushalten, die der Antrieb aufbringen kann.
-# Sie ergibt sich aus dem Motormoment, nicht aus der Haltekraft.
-M_ABTRIEB = MOTOR_M_NENN * GETRIEBE_I * GETRIEBE_ETA          # Nm am Ritzel
-
-# Haltemoment der Bremse: sie muss die Greifkraft beider Backen halten.
-BREMSE_M_NOETIG = 2 * F_GREIF * R_TEILKREIS / 1000.0 / ETA_GETRIEBE   # Nm
-BREMSE_M_NENN = 0.4                 # Nm, naechste Baugroesse Federkraftbremse
-BREMSE_L = 30.0                     # mm Baulaenge fuer dieses Moment
-BREMSE_D = 40.0                     # mm Aussendurchmesser
-GREIFER_F_MAX = M_ABTRIEB * 1000.0 / R_TEILKREIS / 2.0 * ETA_GETRIEBE   # N je Backe
-
-# MASSGEBLICHER LASTFALL FUER DIE ZANGE
-F_ZANGE_AUSLEGUNG = GREIFER_F_MAX
-
-# ---------------------------------------------------------------- Roboter
-ROBOTER = "ABB IRB 1600-6/1.45"
-R_ROBOTER = 1450.0                  # mm Reichweite
-M_TRAGLAST = 6.0                    # kg Nennlast
-
-# ---------------------------------------------------------------- Greiferzange
-# Geometrie des FEM-/Festigkeitsnachweis-Bauteils. Kragarm, am Schlitten
-# eingespannt, Greifkraft F_GREIF am freien Ende quer zur Armachse.
+# ---------------------------------------------------------------- Early jaw sizing (superseded by V3/V4/FEM)
+# Cantilever from the early concept; kept so cad/ and fem/ still run. The real jaw is Viktoriia's V3.
 ZANGE_WERKSTOFF = "EN AW-7075 T6"
-ZANGE_E = 71000.0                   # MPa  E-Modul
-ZANGE_NU = 0.33                     # -    Querkontraktion
+ZANGE_E = 71000.0                   # MPa
+ZANGE_NU = 0.33
 ZANGE_RHO = 2800.0                  # kg/m^3
-ZANGE_RP02 = 460.0                  # MPa  Streckgrenze
-ZANGE_S_ZUL = 2.0                   # -    Sicherheit gegen Fliessen
+ZANGE_RP02 = 460.0                  # MPa
+ZANGE_S_ZUL = 2.0
 ZANGE_SIGMA_ZUL = ZANGE_RP02 / ZANGE_S_ZUL   # MPa
-
-ZANGE_B = 25.0                      # mm  Breite (quer zur Lastrichtung)
-ZANGE_FILLET = 3.0                  # mm  Ausrundung an der Einspannung
-
-# Lasteinleitung: Weichbacke sitzt in einer Tasche am freien Ende
-BACKE_LAENGE = 60.0                 # mm  Laenge der Backentasche (z-Richtung)
-BACKE_BREITE = ZANGE_B - 10.0       # mm  Breite der Backentasche (y-Richtung)
-BACKE_TIEFE = 1.5                   # mm  Taschentiefe
-
-# ZANGENLAENGE GEOMETRISCH HERGELEITET, nicht gesetzt.
-# Die Greifflaeche von Bauteil B laeuft ueber die volle Bauteilhoehe
-# (B_BBOX[2] = 80 mm, aus analyze_B.py: Flaechen bei x = +-35 mm reichen von
-# z = -40 bis +40). Die Weichbacke wird mittig darauf gesetzt, also bleibt
-# oben und unten je (80 - 60)/2 = 10 mm Rand. Darueber braucht der
-# Zangenkopf Luft zur Bauteiloberseite:
-#
-#     L = Luft + Randmass oben + Backenlaenge
-#
-# Mit 120 mm war die Zange 40 mm laenger als noetig. Das kostete nicht nur
-# Bauhoehe: die Durchbiegung waechst mit dem Quadrat des Kraftarms, die
-# Biegespannung linear damit.
-LUFT_BAUTEIL = 10.0                 # mm Abstand Zangenkopf -> Bauteiloberseite
+ZANGE_B = 25.0                      # mm
+ZANGE_FILLET = 3.0                  # mm
+BACKE_LAENGE = 60.0                 # mm
+BACKE_BREITE = ZANGE_B - 10.0       # mm
+BACKE_TIEFE = 1.5                   # mm
+LUFT_BAUTEIL = 10.0                 # mm
 ZANGE_L = LUFT_BAUTEIL + (B_BBOX[2] - BACKE_LAENGE) / 2.0 + BACKE_LAENGE
-# Kraftangriff = Mitte der Weichbacke, gemessen ab der Einspannung
 ZANGE_A_LAST = ZANGE_L - BACKE_LAENGE / 2.0
-
-# ZANGENDICKE AUS DER STEIFIGKEIT, NICHT AUS DER FESTIGKEIT.
-#
-# Der Festigkeitsnachweis ist hier kein Auslegungskriterium: er liefert
-# Sicherheiten jenseits von 40, die Zange wuerde auch mit 3 mm halten.
-# Massgebend ist etwas anderes - die Zange darf sich unter der Greifkraft
-# nicht staerker verformen als der Weichbelag, auf dem sie aufliegt.
-# Andernfalls bestimmt die Zangenfederung die Greifkraft mit, und die
-# geregelte Kraft des Servoantriebs waere wertlos.
-#
-#   Weichbelag (NBR 70 Shore A, E ~ 5 MPa), Druck auf die Backenflaeche:
-#       f_belag = F / A_backe * t_belag / E
-#   Zange als Kragarm mit Einzelkraft im Abstand a:
-#       f_zange = F a^2 (3L - a) / (6 E I),    I = b h^3 / 12
-#
-# Gleichgesetzt und nach h aufgeloest, auf volle mm aufgerundet.
-NBR_E = 5.0                         # MPa  E-Modul NBR 70 Shore A
-NBR_T = 8.0                         # mm   Dicke des Weichbelags
+# Thickness from stiffness: jaw deflection no larger than the pad compression (free-block estimate of the early
+# sizing; the bonded pad is much stiffer, see Elias/05_FEM/tilt_check.py)
+NBR_E = 5.5                         # MPa, NBR 70 Shore A (Gent from the hardness)
+NBR_T = 3.0                         # mm, as built (V3)
 _f_belag = F_ZANGE_AUSLEGUNG / (BACKE_LAENGE * BACKE_BREITE) * NBR_T / NBR_E
 _h_noetig = (F_ZANGE_AUSLEGUNG * ZANGE_A_LAST ** 2 * (3 * ZANGE_L - ZANGE_A_LAST)
              / (6 * ZANGE_E * _f_belag) * 12 / ZANGE_B) ** (1.0 / 3.0)
-from math import ceil as _ceil
-ZANGE_H = float(_ceil(_h_noetig))   # mm  Dicke (in Lastrichtung = Biegerichtung)
-ZANGE_F_BELAG = _f_belag            # mm  zulaessige Durchbiegung
+from math import ceil as _ceil  # noqa: E402
+ZANGE_H = float(_ceil(_h_noetig))   # mm
+ZANGE_F_BELAG = _f_belag            # mm
 
 if __name__ == "__main__":
     print("GRUPPE %d - BAUTEIL %s (PA 6)" % (GRUPPE, BAUTEIL))

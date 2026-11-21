@@ -23,7 +23,7 @@ J_OUT = 2 * 0.5 * 0.028 * 0.012 ** 2 + 0.5 * 0.035 * 0.005 ** 2   # at the pinio
 # moving mass per jaw: slide, holder, jaw, ball carriage, rack (bom.csv)
 M_JAW = (73 + 29 + 31 + 51 + 65) / 1000.0
 F_FRICTION = 2.5                                  # N per jaw: carriage seals + brush seal along the slot (estimate)
-ETA = GP.GEAR_ETA * 0.92                          # planetary x rack-pinion (cad/params.py ETA_GETRIEBE)
+ETA = GP.GEAR_ETA * GP.ETA_BEVEL * GP.ETA_RP       # planetary x bevel x rack-pinion, as in V2 § 10
 
 R_P = GP.PINION_D / 2 / 1000                      # m
 I_G = GP.GEAR_I

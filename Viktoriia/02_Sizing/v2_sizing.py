@@ -129,7 +129,8 @@ def _(mo):
     CRB 1300-7/1.4 sheet): axis 1: 55.25° in 0.40 s, axis 2: 33.39° in 0.37 s, axis 3: 35.66° in 0.27 s. Assuming constant deceleration,
     $\alpha = 2\varphi / t^2$, times the lever arm to the TCP (1.4 m for axes 1 and 2, about 0.8 m for axis 3)
     gives 12 ... 17 m/s². **Design value 17 m/s² (≈ 1.7 g)**, conservative: 1.4 m is the full reach, in our cell the
-    TCP is at most ≈ 1.0 m from axis 1 (12.3 m/s², the value used in the MuJoCo e-stop simulation, E4).
+    TCP is at most ≈ 1.0 m from axis 1 (12.1 m/s²). The MuJoCo e-stop (E4, `e_stop.py`) brakes every axis at its ABB rate
+    and finds 22.3 m/s² at the part incl. gravity: 34.3 N needed per jaw at S = 1, held with the 44.5 N setpoint (S 1.30).
     Note: the emergency stop button of the controller is configured for **category 0** on delivery
     (3HAC070393, § 1.9.2, p. 71), so the uncontrolled stop with these decelerations is the right load case.
 
@@ -169,6 +170,47 @@ def _(F_max, F_path, F_req, a_stop_s, g, m, math, mo, mu, n_faces):
     extra {m*a_stop:.1f} N on that jaw - inside the {F_max:.1f} N envelope used below.
     """)
     return F_set, a_res, a_stop
+
+
+@app.cell
+def _(F_set, P, mo):
+    import json as _json
+    import os as _os
+    import grip_check as _G
+    _w, _h, _dz = _G.pad(P.PAD_Z, P.PAD_W, P.PART_OFFSET[2])
+    _hull = _G.limit_hull(_w, _h)
+    _wedge = {}
+    _tc = _os.path.join(str(mo.notebook_dir()), "..", "..", "Elias", "05_FEM", "out", "tilt_check.json")
+    if _os.path.exists(_tc):
+        _wedge = _json.load(open(_tc, encoding="utf-8"))["pad"]["E 5.5"]["need"]
+    _rows = ""
+    for _name, _ay, _az, _S in _G.CASES:
+        _load = P.B_MASSE / 2 * __import__("numpy").array([_ay, P.G + _az, _ay * _dz])
+        _n1 = _G.normal_force(_hull, _load, P.MU_OILY)
+        _wt = _wedge.get(_name, [None, None])[1]
+        _s_req = 2.0 if _name.startswith("path") else 1.0
+        _rows += (f"| {_name} | {_n1 * _S:.1f} N (S {_S}) | {F_set / _n1:.2f} | "
+                  f"{(F_set / _wt) if _wt else float('nan'):.2f} | {_s_req:.0f} |\n")
+    mo.md(f"""
+    ## 2a. Twist of the part and vertical e-stop (review, sections 1 and 3)
+
+    § 1 and § 2 treat the part as a point mass in the pad plane. But part B's centre of mass sits {_dz * 1000:.1f} mm
+    under the pad centre, so an acceleration along the pads also twists the part in the jaws, and that moment uses
+    the same friction. `Elias/02_CAD_Body/grip_check.py` checks shear and twist together on the friction limit
+    surface of the {_w * 1000:.1f} × {_h * 1000:.1f} mm pad (Coulomb, instantaneous centre of rotation); the e-stop
+    also downwards (robot lowering). "Tilted pad": the jaw tilt lifts the lower pad edge, the pressure becomes a
+    wedge from the top (`Elias/05_FEM/tilt_check.py`).
+
+    | Case | grip force needed per jaw | safety at the setpoint {F_set:.1f} N, uniform pad | tilted pad | required |
+    |---|---|---|---|---|
+    {_rows}
+
+    The setpoint holds every case with the required safety. The vertical e-stop (17 m/s² downwards, V2 value) is the
+    tightest at S 1.10; the simulated category 0 stop of the real cycle needs 34.3 N (S 1.30, `e_stop.py`).
+    Friction coefficient µ = 0.2: sources and the grooved-pad reserve in `Elias/02_CAD_Body/gripper_params.py`
+    (MU_OILY, MU_PAD_EXPECTED) and the V5 friction test.
+    """)
+    return
 
 
 @app.cell

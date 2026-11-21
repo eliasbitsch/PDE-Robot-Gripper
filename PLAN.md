@@ -71,37 +71,36 @@ and the four **fingertip slides** along the fingers. Part B only has to be
 held, not manipulated in the hand.
 
 It also settles the force question. Their servo (1.39 N·m stall) gives about
-170 N per rack; we need 14.3 N per jaw. Nothing about this concept is
+170 N per rack; we need 35.7 N per jaw (44.5 N setpoint; 14.3 N in the first estimate with µ = 0.5). Nothing about this concept is
 force-limited - the task is limiting the force, not raising it.
 
 The Cartesian Hand is the model for the **principle only**. Our graded design
 is industrial: milled aluminium housing, EN AW-7075 jaws, steel rack and
 pinion from a catalogue, an industrial drive.
 
-### Figures from the preliminary work (to be confirmed, not fixed)
+### Figures from the preliminary work (to be confirmed, not fixed; current values in brackets, 21 Nov 2026)
 
 - Part B: 95 × 100 × 80 mm, 528.5 cm³, PA 6 (ρ = 1140 kg/m³) → **0.602 kg**
 - Grip faces: ±X, jaw distance **70 mm**, 6200 mm² on the smaller side
 - Path acceleration from the cycle-time budget: **2.05 m/s²**
-- Required gripping force: **14.3 N per jaw** (µ = 0.5 NBR/PA 6, S = 2.0)
+- Required gripping force: **14.3 N per jaw** (µ = 0.5 NBR/PA 6, S = 2.0) [now µ = 0.2 for an oily part: 35.7 N, setpoint 44.5 N]
 - Starting geometry of the rack and pinion (to be confirmed in V2): module
   **m = 1**, pinion **z = 20** (d = 20 mm, above the undercut limit), face width 8 mm, stroke
   **14 mm per side** → pinion turns **80°** for the full stroke. Pinion
   torque for 14.3 N on both jaws: T = 2 · F · r = 2 · 14.3 N · 10 mm =
-  **0.29 N·m**.
+  **0.29 N·m**. [now face width 10 mm, stroke 10 mm per side (57°), 0.89 N·m at 44.5 N]
 - Reference Cartesian Hand: 52 mm gripper stroke, ~60 mm/s, servo 1.39 N·m
   stall, ~170 N per rack, whole 7-axis hand 850 g. Force is not the
-  bottleneck - we need 14.3 N.
+  bottleneck - we need 14.3 N [35.7 N].
 - Robot: **ABB IRB 1300-7/1.4** (changed 10 Nov 2026 from the IRB 1600-6/1.45: current generation, OmniCore, axis 5 ±130° instead of ±115°; selection calculation and placement study redone 20 Nov 2026: `Elias/01_Robot`)
-- Most important finding: with the robot centred on the floor the sequence is
-  **not executable** - not because of reach, but because of axis 5 (±115°).
-  Fix: **500 mm pedestal + 100 mm base offset**. That belongs in the report as
-  a finding, not hidden.
+- Finding with the IRB 1600: from the floor the sequence was **not executable** because of axis 5 (±115°); hence
+  **500 mm pedestal + 100 mm base offset**. With the IRB 1300 (±130°) axis 5 stays below 91° and 200 mm would do;
+  500 mm is kept for the larger axis margin (20.6° instead of 12.5°).
 
 ### Vacuum was considered and rejected
 
 Physically it would work: a 50 mm cup at −0.6 bar gives ~118 N normal, ~59 N in
-shear against the needed 14.3 N. It fails on the assignment, not on the
+shear against the needed 35.7 N. It fails on the assignment, not on the
 physics. The assignment prescribes jaws verbatim -
 
 > "Die **Greiferzangen** sind an das jeweilige Bauteil anzupassen und mit einem
@@ -188,7 +187,7 @@ Two halves, each a closed story. Nobody gets leftovers.
 | # | Package | Result | Folder |
 |---|---|---|---|
 | E1 | **Robot selection & placement** | Selection calculation (reach, cycle time, payload), placement study for pedestal/base offset, reachability proof for all waypoints | `Elias/01_Robot` |
-| E2 | **Gripper body** | Housing with dovetail slots for the racks, drive unit (servo + pinion), quick-change coupler, robot flange ISO 9409-1-50-4-M6 | `Elias/02_CAD_Body` |
+| E2 | **Gripper body** | Housing with ball rail for the jaw slides, lying drive (stepper, gearbox, brake, bevel pair, pinion), quick-change coupler, robot flange ISO 9409-1-40-4-M6 | `Elias/02_CAD_Body` |
 | E3 | **Assembly drawing & BOM** | A3 drawing, item numbers, BOM split into bought and made parts | `Elias/03_Drawing` |
 | E4 | **Motion, grip & collision study** | MuJoCo model of the full cell, path pick → place, grip analysis (contact forces, part does not slip), collision log incl. fence, sequence video | `Elias/04_Simulation` |
 | E5 | **FEM of the jaws** | gmsh + CalculiX, scripted: mesh, boundary conditions, mesh convergence, stress and deflection; compared against Viktoriia's analytical result, **deviation ≤ 5 %** (lecture 17 Oct) | `Elias/05_FEM` |
@@ -323,9 +322,10 @@ These need clearing early, because they get expensive later:
    knows groups 1-8 (part B = group 2). Ask the course leader before any
    document is printed with a number in its header.
 2. **Placement orientation on the workpiece carrier.** Per the assignment this
-   is defined at the assignment handout. Currently assumed as a 90° rotation. A
-   different orientation changes the path and possibly the grip direction.
-   **This is the only open point that can still break the design freeze.**
+   is defined at the assignment handout. Implemented (E4, `sim.q_place`): part B lands square on the carrier, turned
+   180° about the vertical against its pose on the belt. Since the part is gripped on the belt (side faces ±X) and
+   any yaw at the carrier is only an axis 6 angle (±400°), another orientation changes A6, not the gripper; only a
+   different orientation **on the belt** could change the grip faces.
 3. **FDM printer.** Clear availability and material (lab or private).
 4. **Holding on power failure.** A rack and pinion is back-drivable; the
    pinion has to resist **0.29 N·m** (times safety) unpowered. In the series
@@ -333,7 +333,7 @@ These need clearing early, because they get expensive later:
    choose which in V2.
 5. **Tilting moment on the jaw guide.** The grip force acts below the rack,
    the dovetail slot takes the moment. Size guide length and clearance so the
-   jaws stay parallel under 14.3 N and under the servo's maximum force.
+   jaws stay parallel under 44.5 N and under the motor's maximum force. [Rail size 12; tilt criterion in `Elias/05_FEM/tilt_check.py`]
 6. ~~**Onshape FEM.**~~ **Cleared 11 Nov 2026:** FEM runs in the scripted
    gmsh + CalculiX chain (`fem/`), not in Onshape.
 7. **Onshape licence.** The free plan makes documents public. For student work

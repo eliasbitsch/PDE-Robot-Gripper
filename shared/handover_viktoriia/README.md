@@ -70,7 +70,7 @@ Y = 0 through the jaws and the flange axis. d = travel per jaw from the closed e
 | Bearings | 2 x DIN 625 608-2Z (8 x 22 x 7), centres at z = 3.5 and z = 13 |
 | Pinion mesh | teeth z = -11 ... -1 (load at z ≈ -6, overhung below the lower bearing) |
 | Bevel mesh | on top of the shaft, contact roughly at z ≈ 24 (check in drive_train.step) |
-| Guide | Bosch Rexroth ball rail size 9, carriage SLS R0444 913 01: C0 = 3150 N, MT0 = 14.5 Nm, ML0 = 14.0 Nm |
+| Guide | Bosch Rexroth ball rail size 9, carriage SLS R0444 913 01: C0 = 3150 N, MT0 = 14.5 Nm, ML0 = 14.0 Nm (superseded: size 12, R0444 213 01, C0 = 5630 N, Mt0 = 33.5, ML0 = 29.2 N·m) |
 | Rail position | y = -32.5, carriage centre roughly z ≈ -8; jaws run at y = 0 |
 
 **Results from my side (please check, do not just copy)**
