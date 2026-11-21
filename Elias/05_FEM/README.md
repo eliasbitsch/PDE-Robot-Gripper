@@ -66,25 +66,29 @@ the slide in y and z only (it runs along x on the rail), the grip force goes int
 (pin bore + the boss the rack sits on) held in x at the pitch line of the pinion mesh. Before, the carriage patch
 was fixed in x too, which put the rack's job on the carriage.
 
-**Results, 19 Nov 2026, ball rail size 12** (`fem_train.py`, 2 mm, 70k C3D10; size 9 before: LC2 tilt 0.094°):
+**Results, 21 Nov 2026, T-shaped jaw** (`fem_train.py`, 2 mm, 77k C3D10). Review 21 Nov: part B's centre of mass
+sat 19 mm under the pad centre, so a path acceleration along the pads twisted the part in the jaws and the friction
+had to carry that moment as well (`02_CAD_Body/grip_check.py`). Part B now sits 15 mm higher (jaws 15 mm shorter),
+the pad is 80.8 x 19.8 mm instead of 21.8 x 33.8 mm, low on the flat zone between the lug and the roof chamfer, on an
+88 mm wide plate under the unchanged 25 mm web:
 
 | Load case | u pad [µm] | tilt [°] | slide [MPa] / S | holder [MPa] / S | jaw V3 [MPa] / S |
 |---|---|---|---|---|---|
-| LC1 setpoint grip | 41.4 | 0.064 | 10.7 / 23.3 | 12.4 / 20.2 | 15.2 / 30.3 |
-| LC2 full current | 59.2 | 0.091 | 15.4 / 16.3 | 17.7 / 14.1 | 21.7 / 21.2 |
-| LC3 transport | 41.8 | 0.064 | 10.8 / 23.2 | 12.8 / 19.5 | 15.4 / 29.9 |
-| LC4 emergency stop | 60.1 | 0.092 | 15.3 / 16.3 | 18.8 / 13.3 | 22.1 / 20.9 |
-| LC5 brake limit | 115.1 | 0.177 | 29.9 / 8.4 | 34.4 / 7.3 | 42.2 / 10.9 |
+| LC1 setpoint grip | 29.2 | 0.041 | 9.6 / 26.1 | 10.8 / 23.2 | 5.8 / 79.8 |
+| LC2 full current | 41.8 | 0.059 | 13.7 / 18.2 | 15.4 / 16.2 | 8.2 / 55.8 |
+| LC3 transport | 29.5 | 0.042 | 9.6 / 25.9 | 11.2 / 22.4 | 6.0 / 76.8 |
+| LC4 emergency stop | 42.5 | 0.060 | 13.7 / 18.2 | 16.4 / 15.3 | 8.7 / 52.6 |
+| LC5 brake limit | 81.3 | 0.114 | 26.7 / 9.4 | 30.0 / 8.3 | 16.0 / 28.7 |
 
-- Strength is far from critical: S ≥ 7.3 everywhere, also at the brake limit.
-- Stiffness drives the design: LC2 tilt 0.091° against 0.1°, carriage still rigid. Its own tilting stiffness
-  (Rexroth catalogue) is the next thing to add.
-- Carriage reactions (LC2): M_y = 4.55 N·m, M_z = 0.64 N·m, no force: identical to V2 § 6 (F · 71.5 mm, F · 10 mm).
+- Strength is far from critical: S ≥ 8.3 everywhere, also at the brake limit.
+- Stiffness drives the design: LC2 tilt 0.059° against 0.1° (0.091° with the old jaw: the shorter lever helps more
+  than the heavier plate costs). The carriage is still rigid in the model; its own tilting stiffness (Rexroth
+  catalogue) is the next thing to add.
 
-**Mesh convergence** (`convergence.py`, LC2, 4 ... 1.2 mm = 26k ... 162k elements, `figures/convergence_train.png`):
-strain energy, pad tilt and pad deflection change by 0.42 / 0.35 / 0.49 % in the last refinement (converged;
-Richardson: 2.012 N·mm, 0.0952°, 63.8 µm). Peak von Mises at hole and support edges keeps growing (singular), so it
-is reported but not used for a verdict; the safety factors above leave room for a factor of 7 on it.
+**Mesh convergence** (`convergence.py`, LC2, down to 1.2 mm = 199k elements, `figures/convergence_train.png`):
+strain energy, pad tilt and pad deflection change by 0.60 / 0.53 / 0.20 % in the last refinement (converged:
+1.308 N·mm, 0.059°, 41.9 µm). Peak von Mises at hole and support edges keeps growing (singular), so it is reported
+but not used for a verdict; the safety factors above leave room for a factor of 8 on it.
 
 ![convergence](figures/convergence_train.png)
 
@@ -93,22 +97,20 @@ is reported but not used for a verdict; the safety factors above leave room for 
 Her notebook is executed as it is; FEM of `jaw_v3.step` at full current, 2.5 / 1.6 / 1.0 mm (deflection changes
 0.3 % in the last step). Interactive with all plots: `marimo edit review_viktoriia_notebook.py`.
 
-| Quantity | V4 | FEM (60k el.) | deviation | ≤ 5 % |
+| Quantity | V4 | FEM (105k el.) | deviation | ≤ 5 % |
 |---|---|---|---|---|
-| bending stress at z = -53.5 | 5.73 MPa | 5.71 MPa | +0.3 % | ✓ |
-| deflection, rigid beam (a+b) vs FEM rigid clamp | 11.58 µm | 15.44 µm | -25.0 % | ✗ |
-| deflection, beam + Weber (a+b+c) vs FEM rigid clamp | 14.43 µm | 15.44 µm | -6.6 % | ✗ (close) |
-| deflection, beam + Weber vs FEM standard support | 14.43 µm | 17.30 µm | -16.6 % | ✗ |
+| bending stress at z = -53.5 (mean over the web width) | 4.18 MPa | 4.07 MPa | +2.6 % | ✓ |
+| deflection, rigid beam (a+b) vs FEM clamped section at z = -47 | 3.64 µm | 4.15 µm | -12.3 % | ✗ |
+| deflection, beam + Weber (a+b+c) vs FEM rigid clamp | 5.43 µm | 5.82 µm | -6.7 % | ✗ |
+| deflection, beam + Weber vs FEM standard support | 5.43 µm | 6.96 µm | -21.9 % | ✗ |
 
-The stress is confirmed. The deflection with Weber's elastic-clamp term misses 5 % by 1.6 points; V4 leaves out the
-two 6.5 x 1 counterbores and the M3 holes of the V3 jaw (checkbox off), both on the outer fibre in the loaded span.
-The standard support adds the holder contact compliance, which only the printed jaw (V5) can settle.
+The stress is confirmed. It is read as the mean over the whole web width: the load enters the 25 mm web from the
+88 mm plate mainly along the web edges, so a strip in the middle reads about 6 % low, while the width mean meets beam
+theory within 0 ... 2 % all along the web (`fem_jaw.py`, check over z = -48 ... -57). The deflection is not within
+5 %: the beam variants give 3.6 ... 5.4 µm against 4.2 ... 5.8 µm in the FEM; the rest is the clamp zone and the
+web-plate junction, which a beam does not see. Weber's term comes from gear-tooth roots and is an estimate of the
+elastic clamp, not a proof. At about 5 µm the jaw deflection is far from mattering; the tilt above is the criterion.
+`jaw_variants.py` is the study for the previous bar-shaped jaw (pocket rims, 20 Nov) and is not rerun.
 
-**Where the last 5 % come from** (`jaw_variants.py`, suggested by Viktoriia, 20 Nov): same FEM (section clamped at
-z = -47) and beam model on three jaws. Plain bar 7.97 vs 8.33 µm (+4.6 %), pocket filled but holes kept 8.12 vs
-8.41 µm (+3.5 %), V3 with pocket 12.74 vs 11.78 µm (-7.5 %); with the 1 mm pocket rims taken as not carrying the beam
-gives 13.68 µm (+7.4 %). The rims work about half: a 3D effect of the pocket, not shear. V4 holds within 5 % on the
-plain bar; for the pocketed jaw the two beam bounds bracket the FEM.
-
-**To run:** `python v3_import.py`, `python fem_train.py 2.0`, `python convergence.py`, `python v4_check.py`, `python jaw_variants.py`;
+**To run:** `python v3_import.py`, `python fem_train.py 2.0`, `python convergence.py`, `python v4_check.py`;
 solver files are deleted after reading (`KEEP_FILES=1` keeps them), the results live in `out/*.json`.

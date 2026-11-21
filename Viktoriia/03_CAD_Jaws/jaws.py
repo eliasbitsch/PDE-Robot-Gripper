@@ -27,10 +27,13 @@ DOWEL_D, DOWEL_DEPTH, DOWEL_Y = 4.0, 6.5, P.DOWEL_Y  # 2 x O4 H7, 6.5 deep, y = 
 DOWEL_Z = Z_TOP - 3.5                                # -32
 PLUNGER_D, PLUNGER_DEPTH = 5.2, 6.0                  # GN 617-5 pin O5 -> O5.2, 6 deep
 PLUNGER_Z = Z_TOP - 10.5                             # -39
-POCKET_D, POCKET_W = 3.0, 23.0
-POCKET_Z = P.PAD_Z                                   # -95 ... -60 (31.5 ... 66.5 below the top)
+POCKET_D, POCKET_W = 3.0, P.PAD_W                   # 82: wide pad against the twist of the part (review 21 Nov)
+POCKET_Z = P.PAD_Z                                   # -81.5 ... -60.5
+W_PAD, Z_PAD_TOP = P.JAW_W_PAD, P.JAW_PAD_TOP          # T-shaped jaw: 88 wide plate under the 25 wide web
+WEB_R = 4.0                                          # fillet web -> plate
 POCKET_R = 1.0                                       # corner radius: milled pocket, removes the FEM notch
-SCREW_Z = (Z_TOP - 39.0, Z_TOP - 59.0)               # -67.5, -87.5, y = 0
+SCREW_ZC = 0.5 * (POCKET_Z[0] + POCKET_Z[1])        # two M3 side by side at y = +-PAD_SCREW_Y
+SCREW_Y = (-P.PAD_SCREW_Y, P.PAD_SCREW_Y)
 SCREW_HOLE = 3.4                                     # M3 clearance, through
 CBORE_D, CBORE_DEPTH = 6.5, 1.0                      # seat for ISO 4762 M3x6 (BOM pos. 25): 2 mm thread engagement
 EDGE = 0.5                                           # break the outer edges, except the top face (dowel wall >= 1.5)
@@ -44,11 +47,14 @@ NBR_INSET = 0.5                                      # rubber 0.5 mm smaller tha
 
 def jaw_left():
     """Left jaw (part side -X): outer face at x = -46, inner face at x = -38."""
-    length = Z_TOP - Z_BOT
-    body = (cq.Workplane("XY")
-            .box(JAW_T, JAW_W, length)
-            .translate((-(X_IN + JAW_T / 2), 0, (Z_TOP + Z_BOT) / 2))
-            .edges("not >Z").chamfer(EDGE))                # top edges sharp (deburred): a chamfer there leaves 1.0 mm over the dowels
+    # T outline in the y-z plane, extruded over the jaw thickness; fillets where the web meets the plate
+    outline = (cq.Workplane("YZ", origin=(-X_OUT, 0, 0))
+               .polyline([(-JAW_W / 2, Z_TOP), (JAW_W / 2, Z_TOP), (JAW_W / 2, Z_PAD_TOP), (W_PAD / 2, Z_PAD_TOP),
+                          (W_PAD / 2, Z_BOT), (-W_PAD / 2, Z_BOT), (-W_PAD / 2, Z_PAD_TOP), (-JAW_W / 2, Z_PAD_TOP)]).close()
+               .extrude(JAW_T))
+    body = outline.edges("|X").edges(cq.selectors.BoxSelector((-X_OUT - 1, -JAW_W / 2 - 0.1, Z_PAD_TOP - 0.1),
+                                                              (-X_IN + 1, JAW_W / 2 + 0.1, Z_PAD_TOP + 0.1))).fillet(WEB_R)
+    body = body.edges("not >Z").chamfer(EDGE)          # top edges sharp (deburred): a chamfer there leaves 1.0 mm over the dowels
     # pad pocket on the inner face
     pocket = (cq.Workplane("XY")
               .box(POCKET_D, POCKET_W, POCKET_Z[1] - POCKET_Z[0])
@@ -61,9 +67,9 @@ def jaw_left():
         body = body.cut(outer.center(y, DOWEL_Z).circle(DOWEL_D / 2).extrude(DOWEL_DEPTH))
     body = body.cut(outer.center(0, PLUNGER_Z).circle(PLUNGER_D / 2).extrude(PLUNGER_DEPTH))
     # pad-plate screws: through holes + shallow counterbore on the outer face
-    for z in SCREW_Z:
-        body = body.cut(outer.center(0, z).circle(SCREW_HOLE / 2).extrude(JAW_T))
-        body = body.cut(outer.center(0, z).circle(CBORE_D / 2).extrude(CBORE_DEPTH))
+    for y in SCREW_Y:
+        body = body.cut(outer.center(y, SCREW_ZC).circle(SCREW_HOLE / 2).extrude(JAW_T))
+        body = body.cut(outer.center(y, SCREW_ZC).circle(CBORE_D / 2).extrude(CBORE_DEPTH))
     return body
 
 
@@ -75,8 +81,8 @@ def pad_left():
     plate = (cq.Workplane("XY").box(PLATE_T, w, h).edges("|X").fillet(PLATE_R)
              .translate((-(X_IN + POCKET_D - PLATE_T / 2), 0, zc)))
     xp = -(X_IN + POCKET_D)                                       # back face of the plate (pocket floor)
-    for z in SCREW_Z:                                             # M3 tapping drill 2.5, thread through
-        plate = plate.cut(cq.Workplane("YZ", origin=(xp, 0, 0)).center(0, z).circle(1.25).extrude(PLATE_T))
+    for y in SCREW_Y:                                             # M3 tapping drill 2.5, thread through
+        plate = plate.cut(cq.Workplane("YZ", origin=(xp, 0, 0)).center(y, SCREW_ZC).circle(1.25).extrude(PLATE_T))
     nbr = (cq.Workplane("XY").box(NBR_T, w - 2 * NBR_INSET, h - 2 * NBR_INSET)
            .edges("|X").fillet(PLATE_R - NBR_INSET)
            .translate((-(X_IN - NBR_T / 2), 0, zc)))

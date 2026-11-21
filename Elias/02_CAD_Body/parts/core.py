@@ -212,16 +212,16 @@ def holder(side):
 
 def pad_screws(side):
     zc = (P.PAD_Z[0] + P.PAD_Z[1]) / 2
-    return [(0.0, zc - P.PAD_SCREW_DZ), (0.0, zc + P.PAD_SCREW_DZ)]
+    return [(-P.PAD_SCREW_Y, zc), (P.PAD_SCREW_Y, zc)]
 
 
 def jaw(side):
     """EN AW-7075 jaw with a pocket for the bought rubber-metal pad plate and quick-change holes at the top."""
     xp, xj0, xj1, _, _ = jaw_x(side)
-    w = P.JAW_W / 2
-    s = box(xj0, xj1, -w, w, P.JAW_Z_BOTTOM, P.JAW_Z_TOP)
+    w, wp, wk = P.JAW_W / 2, P.JAW_W_PAD / 2, P.PAD_W / 2
+    s = box(xj0, xj1, -w, w, P.JAW_PAD_TOP, P.JAW_Z_TOP).fuse(box(xj0, xj1, -wp, wp, P.JAW_Z_BOTTOM, P.JAW_PAD_TOP))
     x_plate = xj0 + side * P.PAD_PLATE_T
-    s = s.cut(box(xj0 - side, x_plate, -w + 1, w - 1, P.PAD_Z[0], P.PAD_Z[1]))
+    s = s.cut(box(xj0 - side, x_plate, -wk, wk, P.PAD_Z[0], P.PAD_Z[1]))
     # one round hole and one slot along the dowel line: two round holes would over-constrain the jaw
     tools = [cylx(P.DOWEL_D / 2, xj1 - side * 6.5, xj1 + side, -P.DOWEL_Y, P.DOWEL_Z)]
     tools += [cylx(P.DOWEL_D / 2, xj1 - side * 6.5, xj1 + side, P.DOWEL_Y + dy, P.DOWEL_Z) for dy in (-0.5, 0.5)]
@@ -229,9 +229,9 @@ def jaw(side):
     tools.append(cylx(P.PLUNGER_PIN_D / 2 + 0.1, xj1 - side * 6, xj1 + side, 0, P.PLUNGER_Z))
     tools += [cylx(1.7, x_plate - side, xj1 + side, y, z) for y, z in pad_screws(side)]   # M3 clearance
     s = cut_all(s, tools)
-    plate = box(xj0, x_plate, -w + 1, w - 1, P.PAD_Z[0], P.PAD_Z[1])
+    plate = box(xj0, x_plate, -wk + 0.1, wk - 0.1, P.PAD_Z[0] + 0.1, P.PAD_Z[1] - 0.1)
     plate = cut_all(plate, [cylx(1.25, xj0 - side, x_plate + side, y, z) for y, z in pad_screws(side)])  # M3 tapped through, rubber covers it
-    rubber = box(xp, xj0, -w + 1.5, w - 1.5, P.PAD_Z[0] + 0.5, P.PAD_Z[1] - 0.5)
+    rubber = box(xp, xj0, -wk + 0.6, wk - 0.6, P.PAD_Z[0] + 0.6, P.PAD_Z[1] - 0.6)
     return s.removeSplitter(), plate, rubber
 
 

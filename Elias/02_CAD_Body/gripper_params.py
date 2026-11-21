@@ -86,12 +86,18 @@ CABLE_SIDE = -1                     # cable window on the -y hood face above the
 
 PAD_T = 3.0                         # NBR 70 Shore A, vulcanised onto the pad plate (oil resistant)
 PAD_PLATE_T = 3.0                   # steel backing plate, sits in a pocket in the jaw, 2 x M3 from the back
-PAD_SCREW_DZ = 10.0
-JAW_T, JAW_W = 8.0, 25.0
+PAD_SCREW_Y = 28.0                  # two M3 side by side at the pad centre height
+JAW_T, JAW_W = 8.0, 25.0            # web from the quick-change seat down to the pad plate
+# Pad (review 21 Nov): part B's centre of mass sits below the grip faces, so a path acceleration along y twists the
+# part in the jaws; the friction has to carry that moment too. A wide, low pad (on the flat zone between the lug and
+# the roof chamfer) keeps the CoG 10.5 mm under the pad centre and gives the friction a long lever (grip_check.py).
+PAD_W = 82.0                        # pocket width along y (NBR face 80.8)
+JAW_W_PAD = 88.0                    # jaw width at the pad (T-shaped jaw)
 # Part B (STEP frame): grip faces x = +-35, top z = 40, lug x -60..-35 up to z = -10 on the -X side.
-PART_OFFSET = (0.0, 1.9, -92.0)     # part top 25 mm under the cover, centre of mass near y = 0
-JAW_Z_BOTTOM = -98.0                # 4 mm above the lug
-PAD_Z = (-95.0, -60.0)              # part z -3..32: flat on both sides
+PART_OFFSET = (0.0, 1.9, -77.0)     # part top 11 mm under the cover (short jaws), centre of mass near y = 0
+JAW_Z_BOTTOM = -84.0                # 3 mm above the lug
+PAD_Z = (-81.5, -60.5)              # part z -4.5..16.5: flat on both sides over y +-46
+JAW_PAD_TOP = PAD_Z[1] + 4.0        # top of the wide jaw plate
 JAW_Z_TOP = -28.5                   # jaw starts just under the cover
 
 # Jaw quick change: holder on the slide reaches through the cover; jaw sits on its inner face.

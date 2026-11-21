@@ -1,8 +1,8 @@
 {
- "sigma_check": 5.71,
- "w_rigid": 15.44,
- "w_std": 17.3,
- "elements": 60124,
+ "sigma_check": 4.068,
+ "w_rigid": 5.82,
+ "w_std": 6.96,
+ "elements": 104701,
  "lc": 1.0,
  "jaw": "Viktoriia V3 (jaw_v3.step)"
 }

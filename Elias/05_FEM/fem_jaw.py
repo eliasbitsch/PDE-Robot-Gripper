@@ -216,7 +216,10 @@ def run(lc=1.5, force=P.F_JAW_MAX, base="jaw", keep_mesh=False, clamp=False):
     # Deflection at the load centre on the outer face, stress on the outer face at the check section.
     zc = 0.5 * (Z_LOAD[0] + Z_LOAD[1])
     sel_u = (np.abs(xyz[:, 0] - X_SUPPORT) < TOL) & (np.abs(xyz[:, 2] - zc) < max(lc, 1.0)) & (np.abs(xyz[:, 1]) < 3)
-    sel_s = (np.abs(xyz[:, 0] - X_SUPPORT) < TOL) & (np.abs(xyz[:, 2] - Z_CHECK) < max(lc, 1.0)) & (np.abs(xyz[:, 1]) < 3)
+    # beam stress = mean over the section width: average over the whole web (the load enters the web from the wide
+    # plate mainly along its edges, a strip in the middle reads ~6 % low)
+    sel_s = ((np.abs(xyz[:, 0] - X_SUPPORT) < TOL) & (np.abs(xyz[:, 2] - Z_CHECK) < max(lc, 1.0))
+             & (np.abs(xyz[:, 1]) < P.JAW_W / 2 - 0.1))
     free = xyz[:, 2] < Z_HOLDER - 2.0           # away from the support singularities
     i_peak = int(np.argmax(np.where(free, vm, 0)))
     res = dict(lc=lc, force=force, nodes=len(nodes), elements=len(elems), load_area=area,

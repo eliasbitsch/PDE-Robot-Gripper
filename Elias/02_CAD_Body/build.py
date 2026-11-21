@@ -485,7 +485,7 @@ def main():
         m_sum += masses[n]
     cog = mom * (1 / m_sum)
     print(f"centre of mass from the flange face: x {cog.x:.1f}, y {cog.y:.1f}, z {cog.z - info['flange_z']:.1f} mm; "
-          f"TCP (grip centre) z {P.PART_OFFSET[2] + 17.5 - info['flange_z']:.1f} mm")
+          f"TCP (pad centre) z {sum(P.PAD_Z) / 2 - info['flange_z']:.1f} mm")
     report["cog_from_flange_mm"] = [cog.x, cog.y, cog.z - info["flange_z"]]
     # inertia about the overall CoG: each part as a homogeneous solid scaled to its mass (vendor parts too)
     J = [[0.0] * 3 for _ in range(3)]
