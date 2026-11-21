@@ -27,8 +27,14 @@ F_BRAKE = P.T_PINION_BRAKE / (2 * R_PINION)     # N per jaw before the brake sli
 
 M_PART = P.B_MASSE
 F_HOLD_Z = M_PART * (P.G + P.A_PATH_REAL) / P.N_BACKEN     # friction each jaw carries: weight + real path acceleration
-F_STOP_Z = M_PART * (P.G + A_STOP) / P.N_BACKEN
-F_STOP_Y = M_PART * A_STOP / P.N_BACKEN
+# Strength in the e-stop: ABB gives 82 m/s2 (incl. gravity) as the maximum Cartesian design acceleration in an
+# emergency stop at nominal load (spec p. 54) - the value for tool strength (review 21 Nov). The part's inertia,
+# m * 82 / 2 per jaw, is put on each pad as a shear load at 45 deg between path direction and vertical; whether the
+# part is still held at that level is e_stop.py's subject, not the strength check's.
+A_STOP_DESIGN = 82.0
+F_STOP_SHEAR = M_PART * A_STOP_DESIGN / P.N_BACKEN
+F_STOP_Y = F_STOP_SHEAR / math.sqrt(2)
+F_STOP_Z = F_STOP_SHEAR / math.sqrt(2)
 
 # (name, Fx, Fy, Fz, safety factor required against Rp0.2, what it stands for)
 LOAD_CASES = [
@@ -37,7 +43,7 @@ LOAD_CASES = [
     ("LC3 transport", P.F_GRIP_SET, M_PART * P.A_PATH_REAL / P.N_BACKEN, -F_HOLD_Z, 2.0,
      "LC1 plus the part's weight and path acceleration carried by friction"),
     ("LC4 emergency stop", P.F_JAW_MAX, F_STOP_Y, -F_STOP_Z, 1.5,
-     "LC2 plus the part decelerating at A_STOP (ABB stop data, axis 1)"),
+     "LC2 plus the part's inertia at 82 m/s2 (ABB e-stop design acceleration, spec p. 54)"),
     ("LC5 brake limit", F_BRAKE, 0.0, 0.0, 1.2,
      "power off, jaw pushed until the brake slips (misuse / collision)"),
 ]

@@ -6,7 +6,7 @@ Cases (force = jaw force limit of the current-limited drive, per jaw):
   required     F = F_GRIP_OILY (S = 2 in the hand calculation, 2.05 m/s2): the part must not slip
   limit        F = F_GRIP_OILY / S: no safety left, slip expected to start
   setpoint     F = F_GRIP_SET (S = 2 with the real 4.96 m/s2), the force the controller is set to
-  e-stop       F nominal, category 0 stop in the middle of the transfer with the ABB axis decelerations; the brake locks the jaws
+  e-stop       F nominal, category 0 stop at the worst instant of e_stop.py, each axis brakes on its own; the brake locks the jaws
 Path: pick on the buffer belt, lift, transfer to the workpiece carrier in T_EINWEG with a trapezoidal profile
 (A_BAHN, V_BAHN from cad/params.py), lower. The robot follows the joint path through stiff position control.
 """
@@ -22,6 +22,8 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "05_FEM"))
 import sim as S  # noqa: E402
 import load_cases as L  # noqa: E402
+import e4_cycle as E  # noqa: E402
+import e_stop as ES  # noqa: E402
 
 GP, MM = S.GP, S.MM
 LIFT = 60.0                                   # mm above pick and place
@@ -100,6 +102,16 @@ def set_force(m, f_jaw):
     m.actuator_forcerange[a] = (-2 * f_jaw, 2 * f_jaw)
 
 
+def estop_instant(t_transfer):
+    """Time into the loaded transfer of the worst category 0 stop (e_stop.py, chain 2), else mid-transfer."""
+    path = os.path.join(S.B.OUT, "e_stop.json")
+    if os.path.exists(path):
+        w = json.load(open(path))["scenarios"]["data sheet"]["chain_2"]
+        t0 = next(x["t_start"] for x in E.timeline(*S.load(), +1)[4] if x["segment"] == "transfer (loaded)")
+        return min(max(w["t"] - t0, 0.0), t_transfer)
+    return 0.5 * t_transfer
+
+
 def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None, creep_ref=None):
     """One cycle. mu: pad friction (default MU_PAD), t_transfer: transfer time (default T_EINWEG, ramps T/3),
     rec: viz.Recorder for the slow-motion video."""
@@ -130,7 +142,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
     t_tr0 = t_lift0 + T_LIFT
     t_low0 = t_tr0 + T_TR
     t_end = t_low0 + T_LIFT + 0.3
-    t_stop = t_tr0 + 0.5 * T_TR if estop else None
+    t_stop = t_tr0 + estop_instant(T_TR) if estop else None
     L_tcp = np.linalg.norm(np.array([GP.X_PLACE if hasattr(GP, "X_PLACE") else S.CP.X_PLACE, S.CP.DY_CHAIN])
                            - np.array([S.CP.X_PICK, 0.0])) * MM          # rough TCP path length per unit s
     log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util", "util_pad", "part_pos", "xaxis", "n")}
@@ -149,30 +161,31 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
             q = q0 + s * (q1 - q0)
         elif t < t_low0 or (estop and t_halt is not None):
             if estop and t >= t_stop:
-                if s_stop is None:                             # e-stop: decelerate the path at A_STOP, brake the jaws
+                if s_stop is None:                             # e-stop: every axis brakes on its own, jaws braked
                     s_stop, sd_stop = transfer(t_stop - t_tr0)
                     # brake: the jaws stay where they are, up to the brake limit (2 x per jaw, see set_force)
                     # the brake locks the drive under load: the elastic preload (the grip force) stays
                     d.ctrl[ja] = d.ten_length[m.tendon("jaws").id] - 2 * force / m.actuator_gainprm[ja, 0]
                     m.actuator_forcerange[ja] = (-2 * L.F_BRAKE, 2 * L.F_BRAKE)
                     t_halt = t
-                    # category 0: every axis brakes at its ABB deceleration; the path stops with the slowest one
-                    dq = np.abs(path(s_stop, 1))                # joint rate per unit path parameter here
-                    alpha = np.array([L.ALPHA_STOP.get(i + 1, L.ALPHA_STOP[3]) for i in range(6)])
-                    sdd_stop = float(np.min(alpha[dq > 1e-6] / dq[dq > 1e-6]))
-                tau = t - t_halt
-                sdd = sdd_stop
-                tau_end = sd_stop / sdd
-                tau = min(tau, tau_end)
-                s = s_stop + sd_stop * tau - 0.5 * sdd * tau * tau
+                    # category 0: each axis decelerates at its own ABB rate and the robot leaves the path (e_stop.py)
+                    q_s, qd_s = path(s_stop), path(s_stop, 1) * sd_stop
+                    alpha = ES.ALPHA
+                    t_ax, sgn_ax = np.abs(qd_s) / alpha, np.sign(qd_s)
+                tau = np.minimum(t - t_halt, t_ax)
+                q = q_s + qd_s * tau - 0.5 * alpha * sgn_ax * tau * tau
+                d.ctrl[:6] = q
+                mujoco.mj_step(m, d)
+                q = None
             else:
                 s, _ = transfer(t - t_tr0)
-            q = path(min(max(s, 0.0), 1.0))
+                q = path(min(max(s, 0.0), 1.0))
         else:
             s, _ = trapezoid(t - t_low0, T_LIFT, T_LIFT / 3)
             q = q2 + s * (q3 - q2)
-        d.ctrl[:6] = q
-        mujoco.mj_step(m, d)
+        if q is not None:
+            d.ctrl[:6] = q
+            mujoco.mj_step(m, d)
         if rec is not None:
             ph = ("grip" if t < t_lift0 else "lift" if t < t_tr0 else
                   ("E-STOP, jaws braked" if t_halt is not None else "transfer") if t < t_low0 or t_halt is not None else "lower")

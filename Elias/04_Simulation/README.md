@@ -25,13 +25,13 @@ from two boxes (body with the flat grip faces, lug) because its convex hull woul
 
 **Path.** Pick on the belt, lift 60 mm in 0.4 s, transfer to the carrier in T_EINWEG = 2.0 s with a trapezoidal
 profile in joint space (MoveJ), lower 60 mm. Axis 1 turns about 160°, so the TCP sees up to 5 m/s², not the 2.05 m/s²
-of a straight 1.8 m line that the hand calculation assumes. E-stop (category 0): in the middle of the transfer every
-axis brakes with its deceleration from the ABB product specification (3HAC070393 rev. M, p. 91: axis 1 55.25° in
-0.40 s, i.e. 12.1 rad/s²), which gives 12.3 m/s² at the TCP; the brake locks the drive with the preload kept.
+of a straight 1.8 m line that the hand calculation assumes. E-stop (category 0) at the worst instant found by
+`e_stop.py`: each axis brakes on its own with its deceleration from the ABB product specification (3HAC070393
+rev. M, p. 91) and the robot leaves the path; 12.7 m/s² at the TCP. The brake locks the drive with the preload kept.
 
-**Results, 20 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`), on the transfer through the vias
-(the 1200 mm enclosure, see below) at the time law with TCP acceleration <= 4.96 m/s2 (the simulated robot
-following it shows peaks of 6.4 m/s2, 7.0 in the e-stop: servo response at the via; the friction use includes it). Friction use = |vector sum
+**Results, 21 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`), wide T-jaw pad, on the transfer
+through the vias (the 1200 mm enclosure, see below) at the time law with TCP acceleration <= 4.96 m/s2 (the
+simulated robot following it shows peaks of 6.5 m/s2: servo response at the via; the friction use includes it). Friction use = |vector sum
 of the pad friction forces| / (μ ΣF_n), median over the moving phases and 50 ms peak.
 
 | Case | Force per jaw | friction use median / peak | part movement (raw / beyond creep base) | |
@@ -39,8 +39,28 @@ of the pad friction forces| / (μ ΣF_n), median over the moving phases and 50 m
 | required (hand calc., 2.05 m/s²) | 35.7 N | 0.42 / 0.81 | 2.37 / +0.02 mm | held |
 | no safety (F / S) | 17.9 N | - / 1.00 | dropped | expected: sized for 2.05 m/s², the path needs 4.96 |
 | **setpoint** (real path 4.96 m/s²) | 44.5 N | 0.34 / 0.72 (S_eff 1.38) | 2.36 / +0.01 mm | held |
-| e-stop at required, ABB category 0 | 35.7 N | 0.41 / 0.81 | 2.35 / +0.02 mm | held |
-| e-stop at setpoint | 44.5 N | 0.33 / 0.72 | 2.35 / +0.01 mm | held |
+| e-stop at required, category 0, axes brake on their own | 35.7 N | 0.40 / 0.80 | 1.89 / +0.02 mm | held |
+| e-stop at setpoint | 44.5 N | 0.32 / 0.72 (0.62 during the stop) | 1.88 / +0.02 mm | held |
+
+## Emergency stop anywhere in the cycle (`e_stop.py`, `out/e_stop.json`, `figures/e_stop.png`)
+
+Review 21 Nov: the e-stop above used to brake along the path (7.0 m/s²), which is milder than a real category 0
+stop, and the ABB stop data (p. 91) hold for max speed, arm stretched and max load, i.e. the *weakest*
+deceleration; with our half-nominal load and the arm pulled in the robot brakes harder. `e_stop.py` starts a
+category 0 stop every 10 ms of the loaded cycle on both chains: each axis decelerates at a constant rate until it
+stands, the robot leaves the path; part B's acceleration (gravity included) and the gripper's angular acceleration
+go through the pad's friction limit surface (shear + twist, `02_CAD_Body/grip_check.py`, shift of normal force
+between the jaws included). Normal force per jaw needed at S = 1:
+
+| Deceleration of the axes | worst instant | part acceleration incl. g | needed per jaw | setpoint 44.5 N |
+|---|---|---|---|---|
+| ABB stop data (p. 91) | loaded transfer, t = 1.15 s | 21.8 m/s² | 35.5 N | held, S 1.25 |
+| twice the ABB rates (sensitivity) | start of the transfer, t = 0.57 s | 42.7 m/s² | 57.5 N | slips |
+| ABB design value 82 m/s² (p. 54, nominal load) | - | 82 m/s² | ~110 N | slips |
+
+The grip force does not rise in an e-stop (the brake holds the preload; the part's inertia goes into the pad
+friction), so the bevel gear sees no extra load; the setpoint itself is capped by the bevel gear's endurance
+(48.5 N). The 82 m/s² are ABB's value for tool strength: FEM load case LC4 uses them (S ≥ 12.5).
 
 **Creep base.** On the via path the part creeps 2.3-2.4 mm along the pads whatever the grip force: 25, 35.7, 44.5,
 48.5 and 100 N per jaw all give the same movement, a finer time step gives more (1 ms 1.72, 0.5 ms 2.38, 0.25 ms
@@ -52,8 +72,8 @@ the pads as the rubber does: before, one pad sat at its friction limit while the
 
 Hand calculation at each instant (`validate_grip.quasi_static`, `friction_check`, `out/friction_check.json`): the
 pads must carry m (a - g) in their plane, with a from the simulated part motion. Median friction use over the
-transfer, quasi-static vs simulated: required 0.420 / 0.420, setpoint 0.338 / 0.338, e-stop 0.332 / 0.332 (within
-0.1 %): the V2 model is validated. Short peaks on the via path: simulation 0.72 ... 0.81 against 0.47 ... 0.58
+transfer, quasi-static vs simulated agree within 0.1 %; note that the quasi-static value uses the simulated
+normal force and part acceleration, so this checks the friction bookkeeping, not V2's inputs. Short peaks on the via path: simulation 0.72 ... 0.81 against 0.47 ... 0.58
 quasi-static; the fast axis 1 turn on the small radius adds dynamics the hand formula does not contain. The setpoint
 covers it (peak 0.72).
 
