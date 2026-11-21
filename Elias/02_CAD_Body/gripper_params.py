@@ -45,7 +45,7 @@ MU_OILY = 0.2
 MU_PAD_EXPECTED = 0.3
 PAD_GROOVE = (1.5, 1.0, 4.0)        # mm: width, depth, pitch of the vertical oil-drain grooves in the NBR
 F_GRIP_OILY = S_SICHERHEIT * B_MASSE * (G + A_BAHN) / (N_BACKEN * MU_OILY)   # required by the hand calculation (2.05 m/s2)
-A_PATH_REAL = 4.96                  # m/s2, TCP peak on the real MoveJ path (MuJoCo, E4): axis 1 turns ~160 deg
+A_PATH_REAL = 4.96                  # m/s2, cap in the robot program (WorldAccLim \On := 4.96 on the loaded moves, review 1.5)
 F_GRIP_SET = S_SICHERHEIT * B_MASSE * (G + A_PATH_REAL) / (N_BACKEN * MU_OILY)   # operating setpoint, also covers the e-stop (V2)
 
 # Ganter GN 617-5-A indexing plunger (steel, knob, no lock nut), ganternorm.com dimension table

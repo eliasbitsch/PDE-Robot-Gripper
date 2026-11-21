@@ -47,15 +47,17 @@ def q_place(lift=0.0, side=+1, square=True):
 
 
 # Transfer through the 1200 mm wide enclosure: a plain joint swing pick -> place takes the forearm 318 mm through
-# the fence (clearance.py). One via in the middle of the swing, where the arm points at the fence: wrist pulled in
-# to VIA_R at VIA_Z, axis 1 at VIA_A1. Axis 1 keeps turning through it, the arm pulls in and reaches out again on
-# the way (via search 21 Nov: fence >= 96 mm, axis margin >= 20 deg, loaded 1.52 s). Two retracted vias with a stop
-# at each cost 2.5 s, a cubic spline through them overshot axis 5 to 7 deg from its limit.
-VIA_R, VIA_Z, VIA_A1 = 350.0, 1700.0, 90.0
+# the fence (clearance.py). One via mid-swing, where the arm points at the fence: wrist pulled in to VIA_R at VIA_Z,
+# axis 1 at VIA_A1, passed in a corner path of VIA_ZONE mm (zVIA in RAPID) without a stop. The path between the
+# targets is what the ABB controller runs (abb_path.py, review 1.5): straight MoveJ lines in joint space. The old
+# via (R 350, Z 1700) only cleared the fence on a PCHIP curve; on the real MoveJ line it cut 4.9 mm into it. Via
+# search 21 Nov on the MoveJ path (A1 75 ... 120, R 200 ... 500, Z 1250 ... 1800, zone 100 / 200): fence >= 101 mm
+# on both chains, axis margin >= 16 deg.
+VIA_R, VIA_Z, VIA_A1, VIA_ZONE = 200.0, 1450.0, 90.0, 200.0
 
 
 def transfer_vias(lift=60.0, side=+1):
-    """Joint waypoints pick (lifted) -> retracted mid-swing -> place (lifted), rad; chain 1 (side -1) is the mirror
+    """Joint targets pick (lifted) -> retracted mid-swing -> place (lifted), rad; chain 1 (side -1) is the mirror
     image (via at A1 = -VIA_A1)."""
     q1, _ = q_pick(lift)
     q2, _ = q_place(lift, side)
@@ -65,15 +67,22 @@ def transfer_vias(lift=60.0, side=+1):
     return [q1, np.radians(q), q2]
 
 
-def transfer_path(lift=60.0, side=+1):
-    """q(u), u in 0 ... 1: shape-preserving (PCHIP) interpolation through the vias, knots spaced by the time each
-    segment needs at the axis speeds; no overshoot of any axis between the waypoints."""
-    from scipy.interpolate import PchipInterpolator
-    qs = np.array(transfer_vias(lift, side))
-    vmax = np.radians([249.0, 180.0, 247.0, 500.0, 415.0, 720.0])
-    seg = [np.max(np.abs(b - a) / vmax) for a, b in zip(qs[:-1], qs[1:])]
-    u = np.concatenate([[0.0], np.cumsum(seg)]) / sum(seg)
-    return PchipInterpolator(u, qs)
+def tcp_fn(m=None, d=None):
+    if m is None:
+        m, d = load()
+    site, adr = m.site("tcp").id, [m.joint(f"A{i + 1}").qposadr[0] for i in range(6)]
+
+    def tcp(q):
+        d.qpos[adr] = q
+        mujoco.mj_kinematics(m, d)
+        return d.site_xpos[site].copy()
+    return tcp
+
+
+def transfer_path(lift=60.0, side=+1, zone=VIA_ZONE):
+    """q(u), u in 0 ... 1: MoveJ pick -> via (corner path, zone mm) -> place, as the ABB controller interpolates."""
+    import abb_path
+    return abb_path.MoveJPath(transfer_vias(lift, side), [zone], tcp_fn())
 
 
 class TimeLaw:
@@ -110,11 +119,19 @@ class TimeLaw:
         self.t = np.concatenate([[0.0], np.cumsum(dt)])
         self.T = float(self.t[-1])
         self.u, self.du = u, v / np.maximum(dsig, 1e-9)
+        self.sig, self.v, self.dsig = sig, v, dsig
+        self.acc = np.diff(v) / np.maximum(dt, 1e-12)               # constant tangential acceleration per step
         self.v_tcp_max, self.length = float(v.max()), float(sig[-1])
 
     def __call__(self, t):
+        # constant acceleration inside each step: interpolating u(t) linearly made the speed jump where steps are
+        # long (up to 40 ms at the start), a spurious 9 m/s2 in the replay (review 1.5)
         t = min(max(t, 0.0), self.T)
-        return float(np.interp(t, self.t, self.u)), float(np.interp(t, self.t, self.du))
+        i = min(int(np.searchsorted(self.t, t, side="right")) - 1, len(self.acc) - 1)
+        tau = t - self.t[i]
+        s = self.sig[i] + self.v[i] * tau + 0.5 * self.acc[i] * tau * tau
+        u = float(np.interp(s, self.sig, self.u))
+        return u, float((self.v[i] + self.acc[i] * tau) / max(np.interp(u, self.u, self.dsig), 1e-9))
 
 
 def set_robot(m, d, q, jaw=GP.D_OPEN * MM):

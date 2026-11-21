@@ -23,24 +23,24 @@ gearbox, brake and bevel pair sit on the slides as armature (3.2 kg reflected on
 PA 6 with μ = 0.2 (oily part), elliptic friction cone, noslip solver. Part B as a free body, 0.602 kg, contact shape
 from two boxes (body with the flat grip faces, lug) because its convex hull would touch the left pad.
 
-**Path.** Pick on the belt, lift 60 mm in 0.4 s, transfer to the carrier in T_EINWEG = 2.0 s with a trapezoidal
-profile in joint space (MoveJ), lower 60 mm. Axis 1 turns about 160°, so the TCP sees up to 5 m/s², not the 2.05 m/s²
+**Path.** Pick on the belt, lift 60 mm in 0.4 s, transfer to the carrier on the ABB MoveJ path through the via
+(see "Enclosure and transfer path"), lower 60 mm. Axis 1 turns about 160°, so the TCP sees up to 5 m/s², not the 2.05 m/s²
 of a straight 1.8 m line that the hand calculation assumes. E-stop (category 0) at the worst instant found by
 `e_stop.py`: each axis brakes on its own with its deceleration from the ABB product specification (3HAC070393
-rev. M, p. 91) and the robot leaves the path; 12.7 m/s² at the TCP. The brake locks the drive with the preload kept.
+rev. M, p. 91) and the robot leaves the path; 14.2 m/s² at the TCP. The brake locks the drive with the preload kept.
 
 **Results, 21 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`), wide T-jaw pad, on the transfer
-through the vias (the 1200 mm enclosure, see below) at the time law with TCP acceleration <= 4.96 m/s2 (the
-simulated robot following it shows peaks of 6.5 m/s2: servo response at the via; the friction use includes it). Friction use = |vector sum
+through the via (the 1200 mm enclosure, see below) at the time law with TCP acceleration <= 4.96 m/s2 (the
+simulated robot following it shows peaks of 5.35 m/s2: servo response at the corner path; the friction use includes it). Friction use = |vector sum
 of the pad friction forces| / (μ ΣF_n), median over the moving phases and 50 ms peak.
 
 | Case | Force per jaw | friction use median / peak | part movement (raw / beyond creep base) | |
 |---|---|---|---|---|
-| required (hand calc., 2.05 m/s²) | 35.7 N | 0.42 / 0.81 | 2.37 / +0.02 mm | held |
+| required (hand calc., 2.05 m/s²) | 35.7 N | 0.41 / 0.80 | 2.18 / +0.02 mm | held |
 | no safety (F / S) | 17.9 N | - / 1.00 | dropped | expected: sized for 2.05 m/s², the path needs 4.96 |
-| **setpoint** (real path 4.96 m/s²) | 44.5 N | 0.34 / 0.72 (S_eff 1.38) | 2.36 / +0.01 mm | held |
-| e-stop at required, category 0, axes brake on their own | 35.7 N | 0.40 / 0.80 | 1.89 / +0.02 mm | held |
-| e-stop at setpoint | 44.5 N | 0.32 / 0.72 (0.62 during the stop) | 1.88 / +0.02 mm | held |
+| **setpoint** (path 4.96 m/s², WorldAccLim) | 44.5 N | 0.33 / 0.72 (S_eff 1.39) | 2.17 / +0.02 mm | held |
+| e-stop at required, category 0, axes brake on their own | 35.7 N | 0.41 / 0.80 | 0.58 / +0.00 mm | held |
+| e-stop at setpoint | 44.5 N | 0.33 / 0.72 | 0.58 / +0.00 mm | held |
 
 ## Emergency stop anywhere in the cycle (`e_stop.py`, `out/e_stop.json`, `figures/e_stop.png`)
 
@@ -54,11 +54,11 @@ between the jaws included). Normal force per jaw needed at S = 1:
 
 | Deceleration of the axes | worst instant | part acceleration incl. g | needed per jaw | setpoint 44.5 N |
 |---|---|---|---|---|
-| ABB stop data (p. 91) | loaded transfer, t = 1.15 s | 21.8 m/s² | 35.5 N | held, S 1.25 |
-| twice the ABB rates (sensitivity) | start of the transfer, t = 0.57 s | 42.7 m/s² | 57.5 N | slips |
+| ABB stop data (p. 91) | loaded transfer, t = 0.95 s | 22.3 m/s² | 34.3 N | held, S 1.30 |
+| twice the ABB rates (sensitivity) | start of the transfer, t = 0.58 s | 42.7 m/s² | 57.5 N | slips |
 | ABB design value 82 m/s² (p. 54, nominal load) | - | 82 m/s² | ~110 N | slips |
-| ABB stop data, grooved pad µ 0.3 (expected, V5) | t = 1.14 s | 21.8 m/s² | 24.4 N | held, S 1.8 |
-| twice the ABB rates, grooved pad µ 0.3 | t = 0.57 s | 42.7 m/s² | 41.5 N | held, S 1.07 |
+| ABB stop data, grooved pad µ 0.3 (expected, V5) | t = 0.55 s | 23.7 m/s² | 24.2 N | held, S 1.8 |
+| twice the ABB rates, grooved pad µ 0.3 | t = 0.58 s | 42.7 m/s² | 41.5 N | held, S 1.07 |
 
 Decision 21 Nov: more friction, not more force. The force chain is at its limit (bevel gear endurance 48.5 N, motor
 60.5 N); a higher friction coefficient costs nothing in loads and weight. The pads get vertical oil-drain grooves;
@@ -90,11 +90,34 @@ covers it (peak 0.72).
 
 Abb. 1: the enclosure is 1200 mm wide (y = ±600) and 2100 mm high. A plain joint swing pick -> place takes the
 forearm 318 mm through the fence. One via in the middle of the swing, where the arm points at the fence (axis 1 at
-90°, wrist pulled in to 350 mm at 1700 mm height); axis 1 keeps turning through it while the arm pulls in and
-reaches out again, interpolated shape-preserving (PCHIP, no axis overshoots between the waypoints). Rejected: two
-retracted vias with a cubic spline (axis 5 overshot to 7° from its limit) and with PCHIP (a stop at each via,
-cycle 5.3 s). The time law is the fastest with the TCP acceleration (tangential + centripetal) below 4.96 m/s2
-loaded / 15 m/s2 empty and every axis below 80 % of its speed.
+90°, wrist pulled in to 200 mm from axis 1 at 1450 mm height), passed in a 200 mm corner path without a stop.
+
+**The path is the one the ABB controller runs** (review 1.5, `abb_path.py`; RobotStudio is not used): MoveJ moves
+straight lines in joint space between the targets and blends them in the zone (corner path from where the TCP comes
+within the zone radius of the via to where it leaves it, quadratic Bezier in joint space with the via as control
+point, tangent to both lines, no axis overshoot). The earlier model interpolated a PCHIP curve through the via
+(R 350 mm, Z 1700 mm); on the real MoveJ line to that via the forearm cut **4.9 mm into the fence**, the curve had
+hidden it. New via search on the MoveJ path (A1 60 ... 120°, R 200 ... 500 mm, Z 1250 ... 1800 mm, zone 100 /
+200 mm, both chains): R 200, Z 1450, z200 gives 101.7 mm to the fence on both chains.
+
+**Acceleration as programmed, not assumed.** The 4.96 m/s² the grip force is sized for are a cap in the robot
+program, not a property of MoveJ: the loaded moves run with `WorldAccLim \On := 4.96;` (acceleration of tool and
+payload in the world frame, tangential and centripetal; `PathAccLim` would only cap the tangential part), the empty
+way back with `WorldAccLim \Off`. The time law (`sim.TimeLaw`) stands for this: fastest motion with the TCP
+acceleration below 4.96 m/s² loaded / 15 m/s² empty and every axis below 80 % of its speed. Checked on the replayed
+joint path (part B's centre of mass, Savitzky-Golay, 2 ms): 4.96 m/s² in lift and lower, 5.19 m/s² peak in the
+transfer where the corner path starts (the curvature jumps there), 15.0 m/s² empty. A bug in the replay was found on
+the way: u(t) was interpolated linearly between the time law's steps (up to 40 ms long at the start), the speed
+jumped and the replay showed 8.9 m/s² loaded (the "6.4 m/s² servo response" in MuJoCo was mostly this). Fixed with
+constant acceleration inside each step; MuJoCo now shows 5.35 m/s².
+
+```
+WorldAccLim \On := 4.96;
+MoveJ pPickUp,   v1000, fine, tGripper;
+MoveJ pVia2,     v1000, z200, tGripper;
+MoveJ pPlaceUp2, v1000, fine, tGripper;
+WorldAccLim \Off;
+```
 
 ## E4: the full cycle measured (`e4_cycle.py`, `out/e4_cycle.json`, `out/e4_collision_log[_chain1].csv`)
 
@@ -107,20 +130,20 @@ checked; they are identical in time.
 |---|---|
 | close on the belt (two-stage, grip force stands after 0.263 s) | 0.30 s |
 | lift 60 mm (loaded) | 0.22 s |
-| transfer through the via (loaded) | 1.54 s |
+| transfer through the via (loaded) | 1.86 s |
 | lower onto the carrier | 0.22 s |
 | open | 0.20 s |
 | lift (empty) | 0.13 s |
-| transfer back (empty) | 1.18 s |
+| transfer back (empty) | 1.33 s |
 | lower around the next part | 0.13 s |
-| **cycle** | **3.91 s of 5.0 s** |
+| **cycle** | **4.38 s of 5.0 s** |
 
 Collision log every 10 ms, robot links 2-6 and the gripper against every obstacle (convex hulls, on the safe side):
-no contact anywhere, on either chain. Closest: fence 100 mm (chain 2) / 117 mm (chain 1), both on the empty way
-back near the via (the gripper is not mirror-symmetric), production line 153 mm, chain / carrier on the other chain
-453 mm, pedestal 434 mm, belt 94 mm while carrying the part off; the 34 mm to belt and carrier are the jaws at the part while picking and
-placing, 64 mm the jaw to the near chain. Axes: smallest margin to a limit 20.3° (axis 5) and 20.6° (axis 1 at the
-place position), speeds at most 80 % of the data sheet (axes 1 and 2 on the empty way back).
+no contact anywhere, on either chain. Closest: fence 101.7 mm (both chains, loaded way and empty way back near the
+via), production line 153 mm, chain / carrier on the other chain 423 mm, pedestal 434 mm, belt 93 mm while carrying
+the part off; the 33 mm to belt and carrier are the jaws at the part while picking and placing, 63 mm the jaw to the
+near chain. Axes: smallest margin to a limit 16.1° (axis 3, arm pulled in at the via) and 20.6° (axis 1 at the
+place position), speeds at most 80 % of the data sheet (axes 1 and 2).
 
 ![clearance](figures/e4_clearance.png)
 

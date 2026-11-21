@@ -54,7 +54,7 @@ def pad(pad_z, pad_w, part_z):
 
 CASES = [   # (name, a_y along the pad, a_z vertical, safety factor)
     ("path, hand calculation 4.96 m/s2", P.A_PATH_REAL, 0.0, P.S_SICHERHEIT),
-    ("path peak in MuJoCo 6.4 m/s2", 6.4, 0.0, P.S_SICHERHEIT),
+    ("path peak in MuJoCo 5.35 m/s2", 5.35, 0.0, P.S_SICHERHEIT),
     ("e-stop 17.1 m/s2 horizontal", 17.1, 0.0, 1.5),
     ("e-stop 17.1 m/s2 vertical (lowering)", 0.0, 17.1, 1.5),
 ]

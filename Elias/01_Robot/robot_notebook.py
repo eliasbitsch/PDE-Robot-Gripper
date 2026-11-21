@@ -69,7 +69,7 @@ through the fence (`04_Simulation/clearance.py`). One via in the middle of the s
 fence (wrist pulled in to {R['transfer']['via_r']:.0f} mm at {R['transfer']['via_z']:.0f} mm, axis 1 keeps turning): ≥ 96 mm to the fence,
 ≥ 20° axis margin. Along this path the fastest time law with the TCP acceleration ≤ 4.96 m/s² (what the grip
 force is sized for) and every axis ≤ 80 % of its speed takes **{R['transfer']['t_loaded']:.2f} s**; the empty way back
-{R['transfer']['t_empty']:.2f} s. With lifting, lowering, closing and opening the measured cycle is **3.91 s of 5 s**
+{R['transfer']['t_empty']:.2f} s. With lifting, lowering, closing and opening the measured cycle is **4.38 s of 5 s**
 (`04_Simulation/e4_cycle.py`). (Plain MoveJ without the fence: {_c['t_move']:.2f} s.)
 The robot allows {R['a_tcp_max']:.0f} m/s² at the TCP.
 
