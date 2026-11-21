@@ -9,7 +9,7 @@ import os
 # (designation, standard / supplier, qty, why)
 CABINET_BOM = [
     ("Closed-loop stepper controller, 12-58 V, 3 A / 6 A peak, encoder input, brake output, 4 DI / 2 DO, NanoJ",
-     "Nanotec CL4-E-1-12", 1, "drives motor, encoder and brake; current limit = grip force (48.5 N max per jaw)"),
+     "Nanotec CL4-E-1-12", 1, "drives motor, encoder and brake; current limit = grip force (setpoint 44.5 N per jaw, calibrated at commissioning)"),
     ("Power supply 24 V DC, 5 A (120 W), DIN rail", "Mean Well SDR-120-24", 1,
      "about 2.5x the peak load, recharges the buffer"),
     ("Buffer module 24 V, >= 200 ms at 20 A (> 1 s at the 2 A of the gripper), capacitive", "PULS UF20.241", 1,

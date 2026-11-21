@@ -153,7 +153,7 @@ def plot(out):
             rows = np.array(sc["_rows"][c])
             ax.plot(rows[:, 0], rows[:, 1], ls, color=col, lw=1.5, label=f"{c.replace('_', ' ')}, alpha {tag}")
     ax.axhline(out["setpoint"], color="#C2410C", lw=1.2, label=f"setpoint {out['setpoint']:.1f} N")
-    ax.axhline(out["current_limit"], color="k", lw=1.0, ls=":", label=f"bevel gear limit {out['current_limit']:.1f} N")
+    ax.axhline(out["current_limit"], color="k", lw=1.0, ls=":", label=f"current limit (motor) {out['current_limit']:.1f} N")
     ax.set_xlabel("instant of the category 0 stop in the cycle [s] (loaded part of the cycle)")
     ax.set_ylabel("normal force per jaw to hold, S 1 [N]")
     ax.set_title("emergency stop anywhere in the cycle (design mu 0.2; grooved pad mu 0.3 expected, V5)", fontsize=10)

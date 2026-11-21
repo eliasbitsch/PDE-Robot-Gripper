@@ -60,16 +60,15 @@ between the jaws included). Normal force per jaw needed at S = 1:
 | ABB stop data, grooved pad µ 0.3 (expected, V5) | t = 0.55 s | 23.7 m/s² | 24.2 N | held, S 1.8 |
 | twice the ABB rates, grooved pad µ 0.3 | t = 0.58 s | 42.7 m/s² | 41.5 N | held, S 1.07 |
 
-Decision 21 Nov: more friction, not more force. The force chain is at its limit (bevel gear endurance 48.5 N, motor
-60.5 N); a higher friction coefficient costs nothing in loads and weight. The pads get vertical oil-drain grooves;
+Decision 21 Nov: more friction, not more force. More force would mean a bigger motor (60.5 N per jaw at full current); a higher friction coefficient costs nothing in loads and weight. The pads get vertical oil-drain grooves;
 the design proof keeps µ = 0.2, the grooved pad's expected µ ≥ 0.3 (oil-resistant NBR gripper pads 0.3 ... 0.4,
 HKI) is the reserve for hard stops and is measured in V5 (`Viktoriia/05_Print_Check/friction_test.md`). The 82 m/s²
 case is not held by any reasonable friction grip (it would need 123 N at µ 0.2); there the closed enclosure keeps a
 slipping part inside the cell, and the brake keeps the jaws closed.
 
 The grip force does not rise in an e-stop (the brake holds the preload; the part's inertia goes into the pad
-friction), so the bevel gear sees no extra load; the setpoint itself is capped by the bevel gear's endurance
-(48.5 N). The 82 m/s² are ABB's value for tool strength: FEM load case LC4 uses them (S ≥ 12.5).
+friction), so the drive sees no extra load. Bevel pair, key and overloads: `02_CAD_Body/drive_margin.py`
+(review 1.7: m 1.5 pair since 21 Nov). The 82 m/s² are ABB's value for tool strength: FEM load case LC4 uses them (S ≥ 12.5).
 
 **Creep base.** On the via path the part creeps 2.3-2.4 mm along the pads whatever the grip force: 25, 35.7, 44.5,
 48.5 and 100 N per jaw all give the same movement, a finer time step gives more (1 ms 1.72, 0.5 ms 2.38, 0.25 ms
@@ -162,17 +161,17 @@ has to be laid over it.
 
 | Profile | contact | grip force within 5 % | peak pad force | motor peak |
 |---|---|---|---|---|
-| direct, trapezoid 0.25 s | 177 ms at 51 mm/s | 195 ms | 73.0 N (1.4 ×) | 324 rpm, 0.018 of 0.136 N·m |
-| direct, trapezoid 0.12 s | 86 ms at 109 mm/s | 100 ms | 138.7 N (3.0 ×) | 675 rpm, 0.030 of 0.136 N·m |
-| two-stage: 0.12 s to 1 mm before the part, then 10 mm/s | 173 ms at 10 mm/s | 263 ms | 45.3 N (1.0 ×) | 591 rpm, 0.028 of 0.136 N·m |
+| direct, trapezoid 0.25 s | 177 ms at 52 mm/s | 195 ms | 66.5 N (1.5 ×) | 324 rpm, 0.018 of 0.136 N·m |
+| direct, trapezoid 0.12 s | 86 ms at 111 mm/s | 101 ms | 159.8 N (3.6 ×) | 675 rpm, 0.030 of 0.136 N·m |
+| two-stage: 0.12 s to 1 mm before the part, then 10 mm/s | 173 ms at 10 mm/s | 266 ms | 45.9 N (1.0 ×) | 591 rpm, 0.028 of 0.136 N·m |
 
 - Torque is not the limit: the motor could cover the 8 mm in 45 ms. The motor uses at most a quarter of its torque.
 - The limit is the impact. Rotor, gearbox and brake act like 3.2 kg on the jaws, seven times the jaws themselves
   (0.47 kg), and the current limit cannot stop this inertia before the pads hit: driving straight in at 50 mm/s
-  gives 77 N, more than the FEM's full-current case (63.6 N); the undamped estimate with a 3 mm NBR pad is even
+  gives 67 N, more than the FEM's full-current case (63.6 N); the undamped estimate with a 3 mm NBR pad is even
   higher (`impact_estimate`, no damping, upper bound).
 - **Recommendation:** two-stage profile, fast to 1 mm before the part and the last millimetre at 10 mm/s
-  (NanoJ program or two position records in the CL4-E). Meets 0.3 s with 45 ms to spare, no force overshoot.
+  (NanoJ program or two position records in the CL4-E). Meets 0.3 s with 34 ms to spare, no force overshoot.
 - The MuJoCo contact stiffness is not calibrated to the pad; the peaks are a comparison between the profiles,
   the order of magnitude is backed by the estimate.
 

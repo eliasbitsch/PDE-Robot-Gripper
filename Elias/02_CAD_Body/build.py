@@ -95,7 +95,7 @@ def build_static(gear_pin, gear_racks, bev):
             "Bevel_Wheel": (D.wheel(bev), "steel", "rot"),
             "Bevel_Pinion": (D.bevel_pinion(bev), "steel", "rotx"),
             "Setscrew_ISO4029-M4x4_Wheel": (F.iso4029_x(4, 4, xp - P.BEVEL_HUB_D / 2, 0, D.hub_z0() + 3, 1), "steel", "rot"),
-            "Key_DIN6885-A2x2x8": (D.key(), "steel", "rot"),
+            "Key_DIN6885-A2x2x12": (D.key(), "steel", "rot"),
             "Shim_DIN988-8x14": (D.shim(), "steel", "rot"),
             "Window_Plate": (D.window_plate(), "EN AW-6082", 0),
             "Cable_Gland_Lapp_SKINTOP_M16": (D.gland(), "vendor", 0),
@@ -335,8 +335,8 @@ BOM_INFO = {
     "Hood": ("Drive hood", "own part, milled", "EN AW-6082 T6"),
     "Bracket": ("Drive bracket", "own part, milled", "EN AW-6082 T6"),
     "Pinion_Shaft": ("Pinion shaft m = 1, z = 20", "own part, turned + hobbed", "16MnCr5 case hardened"),
-    "Bevel_Wheel": ("Spiral miter gear m = 1, z = 20, left hand; rebored 8 H7 + key 2, hub faced to mounting dist. 16", "KHK SMSG1-20L", "S45C, teeth induction hardened"),
-    "Bevel_Pinion": ("Spiral miter gear m = 1, z = 20, right hand; rebored 8 H7, hub faced to mounting dist. 16", "KHK SMSG1-20R", "S45C, teeth induction hardened"),
+    "Bevel_Wheel": ("Spiral miter gear m = 1.5, z = 20, left hand; bore 8 H7 + key 2, hub turned to D16, faced to mounting dist. 19", "KHK SMSG1.5-20L", "S45C, teeth induction hardened"),
+    "Bevel_Pinion": ("Spiral miter gear m = 1.5, z = 20, right hand; bore 8 H7, hub turned to D16 x 5", "KHK SMSG1.5-20R", "S45C, teeth induction hardened"),
     "Bearing_608_lower": ("Deep groove ball bearing 608-2Z", "DIN 625 (Schaeffler / SKF)", "steel"),
     "Bearing_608_upper": ("Deep groove ball bearing 608-2Z", "DIN 625 (Schaeffler / SKF)", "steel"),
     "Adapter_ISO9409": ("Robot adapter ISO 9409-1-40-4-M6", "own part, turned", "EN AW-6082 T6"),
@@ -364,7 +364,7 @@ BOM_INFO = {
     "Spring_Guide": ("Spring guide pin d 9 h7, pressed into the driver", "own part, turned", "C45"),
     "Fitting_QSM-M5-4": ("Push-in fitting QSM-M5-4 (cylinder ports)", "Festo", "-"),
     "Bulkhead_QSS-4": ("Push-in bulkhead fitting QSS-4 (riser wall, tubes PUN-4 to the valve)", "Festo", "-"),
-    "Key_DIN6885-A2x2x8": ("Parallel key DIN 6885 A 2 x 2 x 8 (bevel wheel)", "standard part", "C45+C"),
+    "Key_DIN6885-A2x2x12": ("Parallel key DIN 6885 A 2 x 2 x 12 (bevel wheel)", "standard part", "C45+C"),
     "Shim_DIN988-8x14": ("Shim ring DIN 988 8 x 14 x 0.1 / 0.2 / 0.5 (set the bevel mesh)", "standard part", "spring steel"),
     "Circlip_DIN471-8": ("Retaining ring DIN 471 8 x 0.8 (fixed bearing, shaft)", "standard part", "spring steel"),
     "Circlip_DIN472-22": ("Retaining ring DIN 472 22 x 1 (fixed bearing, bore)", "standard part", "spring steel"),
@@ -504,7 +504,7 @@ def main():
     report["inertia_cog_kgm2"] = [[v * 1e-6 for v in row] for row in J]
     print(f"inertia about the CoG [kg*m2]: Jxx {J[0][0] * 1e-6:.5f}, Jyy {J[1][1] * 1e-6:.5f}, Jzz {J[2][2] * 1e-6:.5f}")
     print(f"grip force per jaw: required {P.F_GRIP_OILY:.1f} N (hand calc.), setpoint {P.F_GRIP_SET:.1f} N (real path), "
-          f"current limit {P.F_JAW_LIMIT:.1f} N (bevel), available {P.F_JAW_AVAIL:.1f} N, strength case {P.F_JAW_MAX:.1f} N; "
+          f"current limit {P.F_JAW_LIMIT:.1f} N, available {P.F_JAW_AVAIL:.1f} N, strength case {P.F_JAW_MAX:.1f} N; "
           f"brake {P.T_PINION_BRAKE:.2f} N*m at the pinion")
     print(f"flange face z = {info['flange_z']:.1f}, cover underside z = {P.POCKET_Z - P.COVER_T:.1f}, "
           f"build height {info['flange_z'] - (P.POCKET_Z - P.COVER_T):.1f} mm above the jaws")

@@ -14,7 +14,7 @@ def bevel_gears(doc):
     from freecad.gears.bevelgear import BevelGear
     g = doc.addObject("Part::FeaturePython", "_bevel_gen")
     BevelGear(g)
-    g.num_teeth, g.module, g.height, g.pitch_angle = P.BEVEL_Z, P.MODUL, P.BEVEL_B, 45
+    g.num_teeth, g.module, g.height, g.pitch_angle = P.BEVEL_Z, P.BEVEL_M, P.BEVEL_B, 45
     doc.recompute()
     s = g.Shape.copy()
     doc.removeObject(g.Name)
@@ -54,7 +54,7 @@ def key_z():
 
 
 def key():
-    """DIN 6885 A 2x2x8 in the shaft (t1 = 1.2) and the wheel hub (t2 = 1.0)."""
+    """DIN 6885 A 2x2x12 in the shaft (t1 = 1.2) and the wheel hub (t2 = 1.0)."""
     k0, k1 = key_z()
     x0 = XP + P.BEARING[0] / 2 - P.KEY_T1 + 0.05
     return box(x0, x0 + P.KEY_H, -P.KEY_B / 2, P.KEY_B / 2, k0, k1)
@@ -81,9 +81,9 @@ def circlip_bore():
 def wheel(bev):
     """Bevel wheel on the pinion shaft: large end down, apex on the drive axis."""
     s = bev.copy()
-    s.translate(V(XP, 0, ZA - P.BEVEL_Z * P.MODUL / 2 + P.BEVEL_WHEEL_DZ))
+    s.translate(V(XP, 0, ZA - P.BEVEL_Z * P.BEVEL_M / 2 + P.BEVEL_WHEEL_DZ))
     z_hub = hub_z0()
-    s = s.fuse(cylz(P.BEVEL_HUB_D / 2, z_hub, ZA - P.BEVEL_Z * P.MODUL / 2 + 0.1, XP, 0))
+    s = s.fuse(cylz(P.BEVEL_HUB_D / 2, z_hub, ZA - P.BEVEL_Z * P.BEVEL_M / 2 + 0.1, XP, 0))
     s = s.cut(cylz(P.BEARING[0] / 2, z_hub - 1, ZA + 1, XP, 0))
     s = s.cut(box(XP + P.BEARING[0] / 2 - 1, XP + P.BEARING[0] / 2 + P.KEY_T2, -P.KEY_B / 2, P.KEY_B / 2, z_hub - 1, ZA + 1))   # keyway
     s = s.cut(cylx(1.65, XP - P.BEVEL_HUB_D / 2 - 1, XP - P.BEARING[0] / 2 + 0.5, 0, z_hub + 3))   # M4 set screw, axial only
@@ -92,7 +92,7 @@ def wheel(bev):
 
 def bevel_pinion(bev):
     """Bevel pinion on the gearbox shaft: axis along X, apex at the pinion shaft axis."""
-    r = P.BEVEL_Z * P.MODUL / 2
+    r = P.BEVEL_Z * P.BEVEL_M / 2
     s = bev.copy()
     s = s.fuse(cylz(P.BEVEL_HUB_D / 2, -P.BEVEL_HUB_L, 0.1))
     s = s.cut(cylz(P.BEARING[0] / 2, -P.BEVEL_HUB_L - 1, r + 1))
@@ -103,7 +103,7 @@ def bevel_pinion(bev):
 
 
 def gearbox_flange_x():
-    return XP + P.BEVEL_Z * P.MODUL / 4 + P.GEAR_SHAFT_L    # shaft end reaches the small end of the bevel pinion
+    return XP + 5.0 + P.GEAR_SHAFT_L    # shaft end 5 mm from the pinion shaft axis, inside the m 1.5 bevel pinion's bore
 
 
 def bracket_screws():  # M3

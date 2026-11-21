@@ -11,7 +11,7 @@ Status: 10 Nov 2026, proposal. Replaces "Onshape is the leading CAD model" in PL
 | D3 | Standard parts | **Standard or catalogue part wherever one exists**, from large, well-known (preferably German) manufacturers, metric; own parts only where the geometry is specific to part B or to our layout | Shorter BOM, ratings come from datasheets instead of own proofs, cheaper to justify. |
 | D4 | Guide | **Miniature ball rail size 9, one rail, two carriages** (Bosch Rexroth: carriage SLS **R0444 913 01**, rail **R0445**, L = 110), rail on a 3 mm land that is also the reference shoulder; C0 = 3150 N, Mt0 = 14.5 N·m, ML0 = 14.0 N·m (catalogue R999001206). Worst case 63.6 N × ≈ 70 mm ≈ 4.5 N·m → S0 ≈ 3 (≈ 2 with the yaw moment added); normal operation (≈ 36 N) S0 ≈ 4 | Catalogue part with rated static moments; size 9 instead of 12 since 10 Nov to slim the housing. One shared rail keeps both jaws parallel by construction. |
 | D5 | Gear | **m = 1, pinion z = 20 (d = 20 mm), steel racks, both catalogue** | z = 20 is above the undercut limit (17), no profile shift. 14 mm stroke = 80° pinion rotation. Pinion torque for 14.3 N per jaw: 2 · 14.3 N · 10 mm = **0.29 N·m**. `cad/params.py` already says z = 20; PLAN.md still says z = 16 and gets corrected. |
-| D6 | Drive | **Lying drive under a flat hood** (variant 4, decided 10 Nov 2026): Nanotec ST4118S1404-B + GP42-S1-7-SR + BRAKE-BWA-0,35-5 along X; a 1:1 bevel pair (Maedler m = 1, z = 20) turns it onto a pinion shaft (own part, two DIN 625 608-2Z) at x = -56. Racks of 35 and 14 teeth keep jaws, hood and flange centred because both racks always run at the same speed in opposite directions. | Stem 63 mm instead of 124 mm, flange to grip centre 148 mm instead of 208 mm, nothing overhangs; COG 3 mm off the flange axis. GPLE22 rejected: 20 N permissible shaft load against ≈ 30 N from the bevel pinion. Static torque at the pinion 1.27 N·m (63.6 N per jaw), brake 2.5 N·m. |
+| D6 | Drive | **Lying drive under a flat hood** (variant 4, decided 10 Nov 2026): Nanotec ST4118S1404-B + GP42-S1-7-SR + BRAKE-BWA-0,35-5 along X; a 1:1 bevel pair (KHK SMSG1.5-20 R/L since 21 Nov, ground spiral teeth, m = 1.5, z = 20) turns it onto a pinion shaft (own part, two DIN 625 608-2Z) at x = -56. Racks of 35 and 14 teeth keep jaws, hood and flange centred because both racks always run at the same speed in opposite directions. | Stem 63 mm instead of 124 mm, flange to grip centre 148 mm instead of 208 mm, nothing overhangs; COG 3 mm off the flange axis. GPLE22 rejected: 20 N permissible shaft load against ≈ 30 N from the bevel pinion. Static torque at the pinion 1.27 N·m (63.6 N per jaw), brake 2.5 N·m. |
 | D7 | Jaw quick change | **2 dowel pins ISO 8734 + 1 indexing plunger (catalogue, e.g. GN 617) per jaw** on the carriage plate | The assignment requires quick-change jaws ("Greiferzangen ... mit einem Schnellwechselsystem"), not a tool changer. Pins locate, the plunger locks, no tool needed. |
 | D8 | Robot interface | **Round adapter Ø76 to ISO 9409-1-40-4-M6** (ABB IRB 1300-7/1.4), fixed to the motor housing lid from the top with 4 × ISO 10642 M4 on PCD 62 | Prescribed by the robot; screw heads stay reachable outside the robot flange. |
 | D9 | Visuals | **Blender** (glTF from FreeCAD) for materials, renders and the open/close animation | FreeCAD has no proper material rendering. Same parameters drive the Blender rig. |
@@ -244,6 +244,31 @@ for the load, thread engagement by material, sealing, fits). Found and fixed in 
    gripper). Now 2 mm bosses (1.7 × d), HELICOIL inserts for bracket and adapter (1.5 × d with insert; a 2 × d thread would come within 1 mm of the pocket edge).
 6. Holder slots in the cover open to oil and chips: brush seal strips (BOM).
 7. Fits and tolerances missing: section 9.
+
+## 11. Drive chain margins (review 1.7, 21 Nov 2026, `drive_margin.py`, `out/drive_margin.json`)
+
+The setpoint 44.5 N per jaw puts 0.94 N·m on the bevel teeth (driving side, after the losses of bevel and rack).
+The m 1 pair KHK SMSG1-20 is rated 0.97 N·m (flank) / 1.17 N·m (root), so it only held at K_A = 1 and with no
+scatter of the current setting. Life: one load cycle per grip on the same few teeth, 2.9e7 in 10 years (2 shifts).
+
+| | current set from data sheets (k_T ±10 %, driver ±3 %, η ranges) | calibrated at commissioning (force gauge, ±5 %) |
+|---|---|---|
+| lowest jaw force (needed 35.9 N: path with twist, S 2) | 35.6 N ✗ | **42.3 N** ✓ |
+| highest bevel torque | 1.12 N·m | 1.01 N·m |
+| SMSG1-20 (m 1): K_A·T / T_root, K_A·T / T_flank | 1.20, 1.44 ✗ | 1.08, 1.31 ✗ |
+| **SMSG1.5-20 (m 1.5, built)** | 0.34, 0.40 ✓ | **0.31, 0.37** ✓ |
+
+Rare overloads against the static capacity (ISO 6336 life factors, induction hardened: flank Z_NT 1.6, root
+Y_NT 2.5) with the m 1.5 pair: full current if the current limit is lost 1.48 N·m (use 0.17), direct close in 0.12 s
+without the two-stage profile, 160 N impact (`closing_time.py`) 3.36 N·m (0.38), LC5 jaw pushed with the power off until the brake slips 2.47 N·m (0.28, the
+m 1 pair was at 1.00). Key DIN 6885 A 2×2×12 in the S45C hub: 32 MPa in operation, 77 MPa at LC5 (static limit
+310 MPa).
+
+Consequences: bevel pair m 1.5 (bore 8 as bought, hubs turned to Ø16, wheel faced to mounting distance 19), drive
+axis 32.5 → 36 mm, hood 2 mm higher, gearbox shaft reaches 5 mm from the pinion shaft axis so motor, brake and
+encoder stay where they were; gripper 3.053 kg. The grip force is calibrated once at commissioning with a grip
+force gauge (current setting from the data sheets alone may give 35.6 N). The current limit is now the motor at full
+current (60.5 N per jaw), no longer the bevel pair.
 
 ## Second version: pneumatic drive (21 Nov 2026, `GRIPPER_DRIVE=pneumatic`, output `out_pneumatic/`)
 

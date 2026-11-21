@@ -65,7 +65,7 @@ SHEETS = [
      [("row", "7,8", 0)]),
     ("khk_smsg", os.path.join(CAD_V, "khk_smsg_p260.pdf"), 1,
      "SMSG1-20R/L: allowable torque 1.17 N m (bending), 0.97 N m (surface), teeth induction hardened",
-     "bevel pair after V2 § 5; 0.97 N m sets the current limit 48.5 N per jaw",
+     "bevel pair after V2 § 5; m 1 pair replaced by SMSG1.5-20 (4.1 / 3.47 N m) on 21 Nov, drive_margin.py",
      [("row", "0.97", 0), ("first", "Teeth induction hardened")]),
 ]
 

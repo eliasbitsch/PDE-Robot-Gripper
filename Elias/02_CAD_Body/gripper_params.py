@@ -134,15 +134,19 @@ BACKLASH_SHIFT = 0.05               # racks 0.05 mm further out -> about 0.036 m
 # Motor, gearbox and brake lie along X under a flat hood; a bevel pair 1:1 turns the drive down onto a pinion shaft
 # at x = PINION_X. The racks have different lengths so the jaws, the hood and the flange all stay centred.
 PINION_X = -56.0
-DRIVE_Z = 32.5                      # drive axis height: NEMA 17 (42.3 square) clears the top plate
+DRIVE_Z = 36.0                      # drive axis height: room for the m 1.5 bevel wheel above the upper bearing
 PINION_Z0 = -11.0                   # pinion teeth z -11..-1, 1 mm above the rack bosses on the slides
-# KHK SMSG1-20R / SMSG1-20L: ground spiral miter gears, S45C teeth induction hardened 50-60 HRC, allowable torque
-# 0.97 N*m (surface) / 1.17 N*m (bending). C45 straight bevels carried only 0.70 N*m (V2 § 5, flank at the limit).
-# Reworked: bore 6 -> 8 H7 (+ key 2 on the wheel), hub faced from mounting distance 20 to 16 (tooth area untouched).
-# Modelled with straight teeth as a stand-in, same pitch diameter, face width and hub.
-BEVEL_Z, BEVEL_B, BEVEL_HUB_D, BEVEL_HUB_L = 20, 5.0, 16.0, 6.0
-BEVEL_T_ALLOW = 0.97                # N*m, KHK surface durability (600 rpm, 1e7 cycles): caps the grip force at 48 N
-F_JAW_LIMIT = BEVEL_T_ALLOW / (2 * PINION_D / 2 / 1000)   # N per jaw: current limit in the controller, never above
+# KHK SMSG1.5-20R / SMSG1.5-20L: ground spiral miter gears m 1.5, S45C teeth induction hardened, allowable torque
+# 4.1 N*m (bending) / 3.47 N*m (surface). The m 1 pair (1.17 / 0.97 N*m) carried the setpoint only at K_A 1 and with
+# no tolerance: with K_A 1.25 and the scatter of the current setting it was loaded to 108 ... 144 % (drive_margin.py,
+# review 1.7, 21 Nov). Bore 8 as bought (+ key 2 on the wheel), hubs turned down to 16 (the wheel hub sits inside the
+# DIN 472 ring), the wheel hub faced to mounting distance 19. Modelled with straight teeth, same pitch cone and hub.
+BEVEL_M, BEVEL_Z, BEVEL_B, BEVEL_HUB_D, BEVEL_HUB_L = 1.5, 20, 8.0, 16.0, 5.0
+BEVEL_T_ALLOW, BEVEL_T_BEND = 3.47, 4.1     # N*m, KHK surface durability / bending (catalogue, 600 rpm)
+K_A_DRIVE = 1.25                            # application factor (V2)
+# Current limit = the highest grip force the controller may be set to: the motor at full current (the bevel pair,
+# with K_A and +5 % calibration scatter, would allow about 130 N per jaw).
+F_JAW_LIMIT = min(F_JAW_AVAIL, BEVEL_T_ALLOW / K_A_DRIVE * ETA_BEVEL * ETA_RP / (2 * PINION_D / 2 / 1000) / 1.05)
 assert F_GRIP_SET <= F_JAW_LIMIT <= F_JAW_AVAIL, (F_GRIP_SET, F_JAW_LIMIT, F_JAW_AVAIL)
 BEARING = (8.0, 22.0, 7.0)          # DIN 625 608-2Z
 BEARING_LOWER_Z, BEARING_UPPER_Z = 0.0, 9.5
@@ -151,14 +155,14 @@ BOSS_TOP = BEARING_UPPER_Z + BEARING[2] + 2.0   # 2 mm above the upper bearing f
 SHOULDER_D = 15.0                   # housing shoulder under the outer rings only (608 inner ring OD ~12, outer ring ID ~18.6)
 SHIM_T = 0.5                        # DIN 988 8x14 under the bevel wheel hub, 0.1-0.5 picked at assembly to set the mesh
 COLLAR_D = 10.5                     # shaft collar under the lower inner ring (loose bearing, inner ring k6 on the shaft)
-KEY_B, KEY_H, KEY_T1, KEY_T2, KEY_L = 2.0, 2.0, 1.2, 1.0, 8.0   # DIN 6885 A 2x2x8 for d = 6...8
-SHAFT_TOP = 27.0
+KEY_B, KEY_H, KEY_T1, KEY_T2, KEY_L = 2.0, 2.0, 1.2, 1.0, 12.0  # DIN 6885 A 2x2x12 for d = 6...8
+SHAFT_TOP = 30.0                     # carries the 12 mm key inside the m 1.5 wheel
 BEVEL_WHEEL_DZ = -0.25              # 0.25 mm lower than nominal: interference-free mesh with a little backlash (fitted)
 GEAR_SHAFT_L = 22.6                 # GP42 output shaft beyond the flange (STEP)
 BRACKET_T, BRACKET_FOOT_Y, BRACKET_FOOT_W = 6.0, 25.25, 6.5   # feet beside the gearbox, M3
 HOOD_Y, HOOD_WALL, HOOD_R = 38.0, 3.0, 12.0     # hood y = +-38: symmetric, flush with the flange (D76) and the +y face
 BRAKE_TURN_X = 95.0                 # brake leads stay inside the hood (the STEP has open lead stubs)
-HOOD_TOP, HOOD_TOP_T, HOOD_SEAT = 63.0, 5.0, 3.0   # 3 mm seat ring under the adapter carries the M4 threads
+HOOD_TOP, HOOD_TOP_T, HOOD_SEAT = 65.0, 5.0, 3.0   # 3 mm seat ring under the adapter carries the M4 threads
 HOOD_SCREW_X, HOOD_SCREW_Y = 69.5, (-25.0, 25.0)   # M4 from below into bosses in the hood corners
 RACK_SPAN = {1: (-72.5, 37.5), -1: (-61.98, -18.0)}     # x at d = 0
 RACK_TEETH_SIDE = {1: 35, -1: 14}

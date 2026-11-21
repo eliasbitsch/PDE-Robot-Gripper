@@ -19,7 +19,7 @@ POLE_PAIRS = 50                                   # 1.8 deg step
 K_M = GP.MOTOR_T_HOLD / I_RATED                   # N*m/A = V*s/rad
 # Not on the datasheets, estimated: GP42 1-stage input side, BWA friction disc (~8 g, d 30), bevel pair + pinion shaft
 J_GEAR_IN, J_BRAKE = 1.5e-6, 1.0e-6
-J_OUT = 2 * 0.5 * 0.012 * 0.010 ** 2 + 0.5 * 0.035 * 0.005 ** 2   # at the pinion: bevel gears + shaft
+J_OUT = 2 * 0.5 * 0.028 * 0.012 ** 2 + 0.5 * 0.035 * 0.005 ** 2   # at the pinion: m 1.5 bevel gears (CAD 26 + 29 g) + shaft
 # moving mass per jaw: slide, holder, jaw, ball carriage, rack (bom.csv)
 M_JAW = (73 + 29 + 31 + 51 + 65) / 1000.0
 F_FRICTION = 2.5                                  # N per jaw: carriage seals + brush seal along the slot (estimate)
