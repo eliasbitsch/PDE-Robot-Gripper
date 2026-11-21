@@ -219,9 +219,11 @@ def balloons(sh, view, o, positions, box, gap=10.0):
     x0, y0, x1, y1 = box
     cx, cy = 0.5 * (x0 + x1), 0.5 * (y0 + y1)
     hw, hh = x1 - x0, y1 - y0
-    per = 2 * (hw + hh)
-    segs = [((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0)), ((x0, y0), (x1, y0))]   # ccw from bottom right
-    lens = [hh, hw, hh, hw]
+    c = 8.0                                          # corners stay free: no balloon pair half on each side of a corner
+    segs = [((x1, y0 + c), (x1, y1 - c)), ((x1 - c, y1), (x0 + c, y1)), ((x0, y1 - c), (x0, y0 + c)),
+            ((x0 + c, y0), (x1 - c, y0))]            # ccw from bottom right
+    lens = [hh - 2 * c, hw - 2 * c, hh - 2 * c, hw - 2 * c]
+    per = sum(lens)
 
     def at(t):
         s_ = (t % 1.0) * per
@@ -233,17 +235,21 @@ def balloons(sh, view, o, positions, box, gap=10.0):
         return segs[0][0]
 
     def t_of_ray(a):
+        """Point where the ray from the centre through a meets the rectangle, as the nearest spot on the side pieces."""
         dx, dy = a[0] - cx, a[1] - cy
         if abs(dx) < 1e-9 and abs(dy) < 1e-9:
             dx = 1e-3
         k = min((hw / 2) / abs(dx) if dx else 1e9, (hh / 2) / abs(dy) if dy else 1e9)
         px, py = cx + k * dx, cy + k * dy
-        acc = 0.0
+        best, acc = None, 0.0
         for ((ax_, ay), (bx, by)), L in zip(segs, lens):
-            if abs((bx - ax_) * (py - ay) - (by - ay) * (px - ax_)) < 1e-6 * per * per and                     min(ax_, bx) - 1e-6 <= px <= max(ax_, bx) + 1e-6 and min(ay, by) - 1e-6 <= py <= max(ay, by) + 1e-6:
-                return (acc + math.hypot(px - ax_, py - ay)) / per
+            r = max(0.0, min(1.0, ((px - ax_) * (bx - ax_) + (py - ay) * (by - ay)) / (L * L)))
+            qx, qy = ax_ + r * (bx - ax_), ay + r * (by - ay)
+            dist = math.hypot(px - qx, py - qy)
+            if best is None or dist < best[0]:
+                best = (dist, (acc + r * L) / per)
             acc += L
-        return 0.0
+        return best[1]
     items = []
     for p in positions:
         cand = an.get(str(p))
