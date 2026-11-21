@@ -287,6 +287,69 @@ if mode == "anim":
     sc.render.filepath = os.path.join(HERE, "out", "frames", "f_")
     bpy.ops.render.render(animation=True)
     print("anim done")
+elif mode == "flight":
+    # one flowing camera move through the approved views (review 21 Nov): hero -> three-quarter high -> top -> side
+    # -> jaw macro -> drive close-up (shell hidden). Catmull-Rom through the waypoints, eased per segment.
+    # env ENGINE=EEVEE for quick previews, STEP (frame step), FRAMES (end frame, default 270)
+    zp = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) * MM
+    drive_t = Vector((-42, -5, 2)) * MM
+    wps = [  # frame, target, direction, distance, lens
+        (1, c, (0.85, -1.6, -0.04), 0.98, 85),
+        (55, c, (1.0, -1.0, 0.65), 1.05, 70),
+        (100, c, (0.08, -0.35, 1.0), 1.05, 70),
+        (145, c, (-1.0, -0.12, 0.05), 0.95, 85),
+        (195, Vector((0, 0, zp)), (0.35, -1.0, 0.12), 0.36, 100),
+        (270, drive_t, (-0.9, -1.5, 0.75), 0.47, 85)]
+    root.animation_data_clear()
+    root.rotation_euler = (0, 0, 0)
+    for name, ob in objs.items():                    # shell disappears while the camera is at the jaws
+        if name.startswith(SHELL) and ob.animation_data:
+            ob.animation_data_clear()
+            for f, hide in ((1, False), (205, True)):
+                ob.hide_render = hide
+                ob.keyframe_insert("hide_render", frame=f)
+    sc.timeline_markers.clear()
+    cam = camera("CamFlight", c, wps[0][2], wps[0][3], wps[0][4], 5.6)
+    cam.constraints.clear()
+    foc = cam.data.dof.focus_object
+
+    def cr(p0, p1, p2, p3, t):
+        return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3)
+
+    pos = [w[1] + Vector(w[2]).normalized() * w[3] for w in wps]
+    tgt = [w[1].copy() for w in wps]
+    lens = [float(w[4]) for w in wps]
+    for f in range(1, wps[-1][0] + 1):
+        k = max(i for i in range(len(wps) - 1) if wps[i][0] <= f) if f < wps[-1][0] else len(wps) - 2
+        t = (f - wps[k][0]) / (wps[k + 1][0] - wps[k][0])
+        t = t * t * (3 - 2 * t)                       # ease in and out of every waypoint
+        ip = lambda arr: cr(arr[max(k - 1, 0)], arr[k], arr[k + 1], arr[min(k + 2, len(arr) - 1)], t)
+        cam.location, foc.location = ip(pos), ip(tgt)
+        cam.data.lens = lens[k] + (lens[k + 1] - lens[k]) * t
+        d = foc.location - cam.location
+        cam.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+        cam.keyframe_insert("location", frame=f)
+        cam.keyframe_insert("rotation_euler", frame=f)
+        cam.data.keyframe_insert("lens", frame=f)
+        foc.keyframe_insert("location", frame=f)
+    sc.camera = cam
+    if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
+        for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
+            try:
+                sc.render.engine = eng
+                break
+            except TypeError:
+                continue
+        try:
+            sc.eevee.use_raytracing = True
+            sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
+        except AttributeError:
+            pass
+    sc.frame_start, sc.frame_end = 1, int(os.environ.get("FRAMES", wps[-1][0]))
+    sc.frame_step = int(os.environ.get("STEP", "1"))
+    sc.render.filepath = os.path.join(HERE, "out", "flight", "f_")
+    bpy.ops.render.render(animation=True)
+    print("flight done", sc.render.engine)
 elif mode == "preview":
     # quick look: short clips at 480p and few samples (env CLIPS="a:40-100,b:170-230", STEP=2 -> 15 fps)
     step = int(os.environ.get("STEP", "2"))
