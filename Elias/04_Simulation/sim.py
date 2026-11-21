@@ -2,6 +2,7 @@
 
 python sim.py   ->  out/pose_pick.png, out/pose_place.png (static check of the flange and the part position)
 """
+import math
 import os
 import sys
 
@@ -33,8 +34,15 @@ def q_pick(lift=0.0):
     return np.radians(q), bad
 
 
-def q_place(lift=0.0):
-    q, bad = CP.ik_tool_down((CP.X_PLACE, CP.DY_CHAIN, CP.H_PLACE + wrist_above_part_bottom() + lift))
+def q_place(lift=0.0, side=+1, square=True):
+    """Place pose on chain 2 (side +1, y = +DY_CHAIN) or chain 1 (side -1). square: A6 turns the tool so part B lands
+    square on the carrier (yaw 180 deg, as on the belt turned by the swing); with A6 = 0 it would land skewed by
+    180 deg - |A1| (20.6 deg)."""
+    w = (CP.X_PLACE, side * CP.DY_CHAIN, CP.H_PLACE + wrist_above_part_bottom() + lift)
+    q, bad = CP.ik_tool_down(w)
+    if square:
+        a6 = q[0] - math.copysign(180.0, q[0])
+        q, bad = CP.ik_tool_down(w, a6=a6)
     return np.radians(q), bad
 
 
@@ -46,22 +54,22 @@ def q_place(lift=0.0):
 VIA_R, VIA_Z, VIA_A1 = 350.0, 1700.0, 90.0
 
 
-def transfer_vias(lift=60.0):
-    """Joint waypoints pick (lifted) -> retracted mid-swing -> place (lifted), rad."""
-    import math
+def transfer_vias(lift=60.0, side=+1):
+    """Joint waypoints pick (lifted) -> retracted mid-swing -> place (lifted), rad; chain 1 (side -1) is the mirror
+    image (via at A1 = -VIA_A1)."""
     q1, _ = q_pick(lift)
-    q2, _ = q_place(lift)
-    a = math.radians(VIA_A1)
+    q2, _ = q_place(lift, side)
+    a = math.radians(side * VIA_A1)
     q, bad = CP.ik_tool_down((CP.BASE[0] + VIA_R * math.cos(a), CP.BASE[1] + VIA_R * math.sin(a), VIA_Z))
     assert not bad, bad
     return [q1, np.radians(q), q2]
 
 
-def transfer_path(lift=60.0):
+def transfer_path(lift=60.0, side=+1):
     """q(u), u in 0 ... 1: shape-preserving (PCHIP) interpolation through the vias, knots spaced by the time each
     segment needs at the axis speeds; no overshoot of any axis between the waypoints."""
     from scipy.interpolate import PchipInterpolator
-    qs = np.array(transfer_vias(lift))
+    qs = np.array(transfer_vias(lift, side))
     vmax = np.radians([249.0, 180.0, 247.0, 500.0, 415.0, 720.0])
     seg = [np.max(np.abs(b - a) / vmax) for a, b in zip(qs[:-1], qs[1:])]
     u = np.concatenate([[0.0], np.cumsum(seg)]) / sum(seg)

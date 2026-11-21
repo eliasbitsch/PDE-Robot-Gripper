@@ -34,13 +34,13 @@ def line(qa, qb):
     return CubicSpline([0.0, 1.0], np.array([qa, qb]), bc_type="clamped")
 
 
-def segments():
-    """(name, path q(u) or a fixed q, a_lim or a duration, jaw opening [mm], loaded)."""
+def segments(side=+1):
+    """(name, path q(u) or a fixed q, a_lim or a duration, jaw opening [mm], loaded); side +1 chain 2, -1 chain 1."""
     q0, _ = S.q_pick()
     q1, _ = S.q_pick(LIFT)
-    q2, _ = S.q_place(LIFT)
-    q3, _ = S.q_place()
-    fwd = S.transfer_path(LIFT)
+    q2, _ = S.q_place(LIFT, side)
+    q3, _ = S.q_place(0.0, side)
+    fwd = S.transfer_path(LIFT, side)
     def back(u, nu=0):                                  # the same path backwards
         return fwd(1.0 - np.asarray(u), nu) * (-1) ** nu
     return [("close on the belt", q0, T_CLOSE, GP.D_GRIP, True),
@@ -53,11 +53,11 @@ def segments():
             ("lower around the next part", line(q1, q0), A_EMPTY, GP.D_OPEN, False)]
 
 
-def timeline(m, d):
+def timeline(m, d, side=+1):
     """Sampled cycle: t, q (rad), jaw [mm], segment index."""
     ts, qs, jaws, seg, table = [], [], [], [], []
     t0 = 0.0
-    for k, (name, path, lim, jaw, loaded) in enumerate(segments()):
+    for k, (name, path, lim, jaw, loaded) in enumerate(segments(side)):
         if isinstance(path, np.ndarray):
             T = lim
             for t in np.arange(0.0, T, DT):
@@ -74,9 +74,11 @@ def timeline(m, d):
     return np.array(ts), np.array(qs), np.array(jaws), np.array(seg), table, t0
 
 
-def main():
-    m, d = S.load()
-    t, q, jaw, seg, table, t_cycle = timeline(m, d)
+CHAINS = ((+1, "chain_2", "carrier", ""), (-1, "chain_1", "carrier_1", "_chain1"))
+
+
+def run_chain(m, d, side, chain, carrier, suffix):
+    t, q, jaw, seg, table, t_cycle = timeline(m, d, side)
     names = [s["segment"] for s in table]
     rg = C.robot_geoms(m)
     obs = {o: m.geom(o).id for o in C.OBSTACLES if mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, o) >= 0}
@@ -99,35 +101,43 @@ def main():
         for o in obs:
             i = int(np.argmin(np.where(w, dist[o], np.inf)))
             log.append(dict(segment=n, obstacle=o, min_mm=float(dist[o][i]), t=float(t[i])))
-    expected = {("close on the belt", "belt"), ("lift", "belt"), ("lower onto the carrier", "carrier"),
-                ("open", "carrier"), ("lift (empty)", "carrier"), ("lower around the next part", "belt"),
-                ("lower onto the carrier", "chain_2"), ("open", "chain_2"), ("lift (empty)", "chain_2")}
+    # where the jaws are meant to be close: at the part on the belt, at the target carrier and its chain
+    expected = {("close on the belt", "belt"), ("lift", "belt"), ("lower around the next part", "belt")}
+    expected |= {(sg, o) for sg in ("lower onto the carrier", "open", "lift (empty)") for o in (carrier, chain)}
     worst = min((r for r in log if (r["segment"], r["obstacle"]) not in expected), key=lambda r: r["min_mm"])
-    with open(os.path.join(S.B.OUT, "e4_collision_log.csv"), "w", newline="") as fh:
+    with open(os.path.join(S.B.OUT, f"e4_collision_log{suffix}.csv"), "w", newline="") as fh:
         w = csv.writer(fh, delimiter=";")
         w.writerow(["t [s]", "segment", "jaw [mm]"] + [f"{o} [mm]" for o in obs] + [f"A{j + 1} [deg]" for j in range(6)])
         for i in range(len(t)):
             w.writerow([f"{t[i]:.2f}", names[seg[i]], f"{jaw[i]:.1f}"] + [f"{dist[o][i]:.1f}" for o in obs]
                        + [f"{v:.2f}" for v in qdeg[i]])
-    out = dict(cycle_time=t_cycle, budget=CYCLE, segments=table, collision_log=log, worst_unexpected=worst,
-               axis_margin_min=[float(v) for v in margin.min(axis=0)], axis_speed_use_max=[float(v) for v in speed_use.max(axis=0)],
+    out = dict(chain=chain, a6_place_deg=float(qdeg[seg == 4][0, 5]), cycle_time=t_cycle, budget=CYCLE, segments=table,
+               collision_log=log, worst_unexpected=worst, axis_margin_min=[float(v) for v in margin.min(axis=0)],
+               axis_speed_use_max=[float(v) for v in speed_use.max(axis=0)],
                any_contact=bool(min(r["min_mm"] for r in log) <= 0.0))
-    json.dump(out, open(os.path.join(S.B.OUT, "e4_cycle.json"), "w"), indent=1)
-
-    print(f"cycle {t_cycle:.2f} s of {CYCLE:.1f} s")
-    for s in table:
-        print(f"  {s['segment']:28s} {s['t_start']:5.2f} + {s['duration']:4.2f} s")
+    print(f"--- {chain}: cycle {t_cycle:.2f} s of {CYCLE:.1f} s, A6 at the place {out['a6_place_deg']:+.1f} deg")
+    for s_ in table:
+        print(f"  {s_['segment']:28s} {s_['t_start']:5.2f} + {s_['duration']:4.2f} s")
     print("closest approach per obstacle (whole cycle):")
     for o in obs:
         i = int(np.argmin(dist[o]))
         print(f"  {o:12s} {dist[o][i]:7.1f} mm  at t {t[i]:.2f} s ({names[seg[i]]})")
     print(f"closest unexpected: {worst['obstacle']} {worst['min_mm']:.1f} mm in '{worst['segment']}'")
     print("axis margin min [deg]:", np.round(margin.min(axis=0), 1), " speed use max:", np.round(speed_use.max(axis=0), 2))
-    plots(t, dist, seg, names, margin, speed_use, t_cycle)
+    plots(t, dist, seg, names, margin, speed_use, t_cycle, suffix, chain)
     return out
 
 
-def plots(t, dist, seg, names, margin, speed_use, t_cycle):
+def main():
+    m, d = S.load()
+    res = {chain: run_chain(m, d, side, chain, carrier, suffix) for side, chain, carrier, suffix in CHAINS}
+    out = dict(cycle_time=max(r["cycle_time"] for r in res.values()), budget=CYCLE,
+               any_contact=any(r["any_contact"] for r in res.values()), **res)
+    json.dump(out, open(os.path.join(S.B.OUT, "e4_cycle.json"), "w"), indent=1)
+    return out
+
+
+def plots(t, dist, seg, names, margin, speed_use, t_cycle, suffix="", chain="chain_2"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -153,7 +163,8 @@ def plots(t, dist, seg, names, margin, speed_use, t_cycle):
     ax.set_ylabel("smallest distance robot + gripper [mm]")
     ax.legend(ncol=5, fontsize=7.5, frameon=False, loc="upper left", bbox_to_anchor=(0, -0.16))
     fig.tight_layout()
-    fig.savefig(os.path.join(HERE, "figures", "e4_clearance.png"), dpi=130)
+    ax.set_title(f"place on {chain.replace('_', ' ')}", fontsize=9, loc="right")
+    fig.savefig(os.path.join(HERE, "figures", f"e4_clearance{suffix}.png"), dpi=130)
 
     fig, ax = plt.subplots(2, 1, figsize=(11, 5.2), sharex=True)
     for a in ax:
@@ -169,7 +180,8 @@ def plots(t, dist, seg, names, margin, speed_use, t_cycle):
     ax[1].set_xlabel("t in the cycle [s]")
     ax[0].legend(ncol=6, fontsize=8, frameon=False, loc="lower right")
     fig.tight_layout()
-    fig.savefig(os.path.join(HERE, "figures", "e4_axes.png"), dpi=130)
+    ax[0].set_title(f"place on {chain.replace('_', ' ')}", fontsize=9, loc="right")
+    fig.savefig(os.path.join(HERE, "figures", f"e4_axes{suffix}.png"), dpi=130)
 
 
 if __name__ == "__main__":

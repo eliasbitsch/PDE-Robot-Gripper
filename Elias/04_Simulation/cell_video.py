@@ -3,9 +3,8 @@ index into the machine. Kinematic replay of the E4 motion (e4_cycle.segments, Ti
 
 python cell_video.py [n_cycles]  ->  figures/cell_takt.mp4
 
-Takt 5.0 s (Angabe), robot cycle from E4; the robot waits at the pick for the rest of the takt. Chain 2 (+y) is the
-E4 path, chain 1 (-y) its mirror image (enclosure symmetric). A6 turns the tool so part B lands square on the
-carrier (yaw 180 deg) on both chains; with A6 = 0 it would sit 20.6 deg skewed.
+Takt 5.0 s (Angabe), robot cycle from E4 (same poses and paths, sim.q_place / sim.transfer_path, both chains); the
+robot waits at the pick for the rest of the takt.
 """
 import math
 import os
@@ -34,39 +33,10 @@ NAMES_DE = ["Greifen", "Anheben", "Transfer (beladen)", "Absenken auf Werkstück
             "Rückfahrt (leer)", "Absenken zum nächsten Teil"]
 
 
-def place_q(side, lift, a6):
-    q, bad = CP.ik_tool_down((CP.X_PLACE, side * CP.DY_CHAIN, CP.H_PLACE + S.wrist_above_part_bottom() + lift), a6=a6)
-    assert not bad, bad
-    return np.radians(q)
-
-
-def transfer(side, a6):
-    from scipy.interpolate import PchipInterpolator
-    a = math.radians(side * S.VIA_A1)
-    qv, bad = CP.ik_tool_down((CP.BASE[0] + S.VIA_R * math.cos(a), CP.BASE[1] + S.VIA_R * math.sin(a), S.VIA_Z))
-    qs = np.array([S.q_pick(E.LIFT)[0], np.radians(qv), place_q(side, E.LIFT, a6)])
-    vmax = np.radians(E.VMAX)
-    seg = [np.max(np.abs(b - a_) / vmax) for a_, b in zip(qs[:-1], qs[1:])]
-    return PchipInterpolator(np.concatenate([[0.0], np.cumsum(seg)]) / sum(seg), qs)
-
-
-def square_a6(m, d, side):
-    """A6 offset that puts part B at yaw 180 deg on the carrier."""
-    best = None
-    for a6 in np.arange(-60.0, 60.01, 0.1):
-        S.set_robot(m, d, place_q(side, 0.0, a6))
-        R = d.xmat[m.body("gripper_frame").id].reshape(3, 3)
-        yaw = math.degrees(math.atan2(R[1, 0], R[0, 0]))
-        err = abs((yaw - 180.0 + 180.0) % 360.0 - 180.0)
-        if best is None or err < best[0]:
-            best = (err, a6)
-    return best[1]
-
-
-def timeline(m, d, side, a6):
+def timeline(m, d, side):
     q0, q1 = S.q_pick()[0], S.q_pick(E.LIFT)[0]
-    q2, q3 = place_q(side, E.LIFT, a6), place_q(side, 0.0, a6)
-    fwd = transfer(side, a6)
+    q2, q3 = S.q_place(E.LIFT, side)[0], S.q_place(0.0, side)[0]
+    fwd = S.transfer_path(E.LIFT, side)
     back = lambda u, nu=0: fwd(1.0 - np.asarray(u), nu) * (-1) ** nu
     segs = [(q0, E.T_CLOSE, GP.D_GRIP), (E.line(q0, q1), E.A_LOADED, GP.D_GRIP), (fwd, E.A_LOADED, GP.D_GRIP),
             (E.line(q2, q3), E.A_LOADED, GP.D_GRIP), (q3, E.T_OPEN, GP.D_OPEN), (E.line(q3, q2), E.A_EMPTY, GP.D_OPEN),
@@ -143,10 +113,9 @@ def main(n_cycles=4):
     m, d = build(os.path.join(S.B.OUT, "cell.xml"))
     sides = {+1: None, -1: None}
     for side in sides:
-        a6 = square_a6(m, d, side)
-        tl, T = timeline(m, d, side, a6)
-        sides[side] = (tl, T, a6)
-        print(f"chain {'2' if side > 0 else '1'}: A6 {a6:+.1f} deg, robot cycle {T:.2f} s")
+        tl, T = timeline(m, d, side)
+        sides[side] = (tl, T, None)
+        print(f"chain {'2' if side > 0 else '1'}: robot cycle {T:.2f} s")
     S.set_robot(m, d, S.q_pick()[0])
     S.place_part_in_gripper(m, d)
     belt_pos, belt_quat = d.body("part").xpos.copy(), d.body("part").xquat.copy()

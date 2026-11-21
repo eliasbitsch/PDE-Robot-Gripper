@@ -67,7 +67,12 @@ retracted vias with a cubic spline (axis 5 overshot to 7° from its limit) and w
 cycle 5.3 s). The time law is the fastest with the TCP acceleration (tangential + centripetal) below 4.96 m/s2
 loaded / 15 m/s2 empty and every axis below 80 % of its speed.
 
-## E4: the full cycle measured (`e4_cycle.py`, `out/e4_cycle.json`, `out/e4_collision_log.csv`)
+## E4: the full cycle measured (`e4_cycle.py`, `out/e4_cycle.json`, `out/e4_collision_log[_chain1].csv`)
+
+The robot loads both chains in turn: chain 2 (y = +300) through the via at axis 1 = +90°, chain 1 (y = -300) through
+its mirror image at -90°. At the place, axis 6 turns by -20.6° (chain 2) / +20.6° (chain 1) so part B lands square
+on the carrier (yaw 180°); with axis 6 at 0 it would land 20.6° skewed (`sim.q_place`). Both cycles are timed and
+checked; they are identical in time.
 
 | Phase | Duration |
 |---|---|
@@ -82,14 +87,19 @@ loaded / 15 m/s2 empty and every axis below 80 % of its speed.
 | **cycle** | **3.91 s of 5.0 s** |
 
 Collision log every 10 ms, robot links 2-6 and the gripper against every obstacle (convex hulls, on the safe side):
-no contact anywhere. Closest: fence 96 mm (loaded transfer, at the via), production line 150 mm, chains / carriers
-on the far chain 450 mm, pedestal 434 mm; the 34 mm to belt and carrier are the jaws at the part while picking and
+no contact anywhere, on either chain. Closest: fence 100 mm (chain 2) / 117 mm (chain 1), both on the empty way
+back near the via (the gripper is not mirror-symmetric), production line 153 mm, chain / carrier on the other chain
+453 mm, pedestal 434 mm, belt 94 mm while carrying the part off; the 34 mm to belt and carrier are the jaws at the part while picking and
 placing, 64 mm the jaw to the near chain. Axes: smallest margin to a limit 20.3° (axis 5) and 20.6° (axis 1 at the
 place position), speeds at most 80 % of the data sheet (axes 1 and 2 on the empty way back).
 
 ![clearance](figures/e4_clearance.png)
 
+![clearance chain 1](figures/e4_clearance_chain1.png)
+
 ![axes](figures/e4_axes.png)
+
+![axes chain 1](figures/e4_axes_chain1.png)
 
 ## Closing time (`closing_time.py`, `out/closing_results.json`, `figures/closing.png`)
 
@@ -147,12 +157,11 @@ scales and places them onto the exact cell geometry). They are visual only: the 
 the plain boxes from `cell_params.py` (Abb. 1), which stay underneath. Without the downloaded assets the model falls
 back to the boxes. The buffer belt is the flat belt `warehouse_conveyorBelt_a06`; the catalogue only has chain
 modules with legs at one end, so `derived.py` mirrors the leg pair and cuts the posts at the belt top. Fence
-`wire_machineGuard_a04`, floor `environment_floor_a01`, � NVIDIA, https://huggingface.co/datasets/nvidia/simready-assets.
+`wire_machineGuard_a04`, floor `environment_floor_a01`, © NVIDIA, https://huggingface.co/datasets/nvidia/simready-assets.
 Own visual parts (`cell_parts.py`): a CNC machining centre (finishes slot and bore of part B) closes the place
 side and takes both carrier chains through inlets; the chains run as in Abb. 1 (carriers fixed to the chain, top
 run into the machine, return underneath, end sprocket). The buffer line housing closes the pick side, the belt leaves
 it through an 850 mm hood (ISO 13857: no reach through the 110 mm slot). Mesh panels fill the gaps, so the
 enclosure is closed all round; the door with guard locking sits on the operator side next to the switch cabinet.
-With A6 = 0, part B lands 20.6 deg skewed on the carrier; the video turns A6 by -20.6 / +20.6 deg (chain 2 / 1) so
-it lands square. E4 (clearance, axis margins) still uses A6 = 0 and has to be rerun with this. The switch cabinet with the OmniCore C30 on top (449 x 443 x 170 mm per the ABB brochure) is modelled in
+E4 and the grip validation use the same poses (`sim.q_place`). The switch cabinet with the OmniCore C30 on top (449 x 443 x 170 mm per the ABB brochure) is modelled in
 `derived.py` with drawn front textures (C30 front, door with warning sign, labels, pilot lights, E-stop, main switch).
