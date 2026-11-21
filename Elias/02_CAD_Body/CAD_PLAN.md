@@ -9,7 +9,7 @@ Status: 10 Nov 2026, proposal. Replaces "Onshape is the leading CAD model" in PL
 | D1 | CAD tool | **FreeCAD 1.1, built by Python scripts** (headless `freecadcmd`) | The assignment does not prescribe a tool. Scripts read one parameter file, so a change in sizing is one edit plus a rebuild. STEP is the exchange format to Onshape/Viktoriia. |
 | D2 | Mechanism | **One pinion, two opposed racks, one jaw per rack** (half of the Cartesian Hand) | Parallel jaws, constant jaw force over the stroke, one gear mesh to prove. |
 | D3 | Standard parts | **Standard or catalogue part wherever one exists**, from large, well-known (preferably German) manufacturers, metric; own parts only where the geometry is specific to part B or to our layout | Shorter BOM, ratings come from datasheets instead of own proofs, cheaper to justify. |
-| D4 | Guide | **Miniature ball rail size 9, one rail, two carriages** (Bosch Rexroth: carriage SLS **R0444 913 01**, rail **R0445**, L = 110), rail on a 3 mm land that is also the reference shoulder; C0 = 3150 N, Mt0 = 14.5 N·m, ML0 = 14.0 N·m (catalogue R999001206). Worst case 63.6 N × ≈ 70 mm ≈ 4.5 N·m → S0 ≈ 3 (≈ 2 with the yaw moment added); normal operation (≈ 36 N) S0 ≈ 4 | Catalogue part with rated static moments; size 9 instead of 12 since 10 Nov to slim the housing. One shared rail keeps both jaws parallel by construction. |
+| D4 | Guide | **Miniature ball rail size 12, one rail, two carriages** (Bosch Rexroth: carriage SLS long **R0444 213 01**, rail **R0445 203 31**, L = 125), carriages hang under the base plate, rail aligned to a straightedge; C0 = 5630 N, Mt0 = 33.5 N·m, ML0 = 29.2 N·m (catalogue R999001206). V2 § 6: S0 = 8.4 at the 44.5 N setpoint, 5.7 at full current plus the sideways e-stop load (size 9 gave 2.5 ... 3.7). Open: Rexroth asks S0 ≥ 12 for overhead hanging arrangements (review 1.9) | Catalogue part with rated static moments; changed from size 9 back to size 12 for the tilting moment of the long jaw. One shared rail keeps both jaws parallel by construction. |
 | D5 | Gear | **m = 1, pinion z = 20 (d = 20 mm), steel racks, both catalogue** | z = 20 is above the undercut limit (17), no profile shift. 14 mm stroke = 80° pinion rotation. Pinion torque for 14.3 N per jaw: 2 · 14.3 N · 10 mm = **0.29 N·m**. `cad/params.py` already says z = 20; PLAN.md still says z = 16 and gets corrected. |
 | D6 | Drive | **Lying drive under a flat hood** (variant 4, decided 10 Nov 2026): Nanotec ST4118S1404-B + GP42-S1-7-SR + BRAKE-BWA-0,35-5 along X; a 1:1 bevel pair (KHK SMSG1.5-20 R/L since 21 Nov, ground spiral teeth, m = 1.5, z = 20) turns it onto a pinion shaft (own part, two DIN 625 608-2Z) at x = -56. Racks of 35 and 14 teeth keep jaws, hood and flange centred because both racks always run at the same speed in opposite directions. | Stem 63 mm instead of 124 mm, flange to grip centre 148 mm instead of 208 mm, nothing overhangs; COG 3 mm off the flange axis. GPLE22 rejected: 20 N permissible shaft load against ≈ 30 N from the bevel pinion. Static torque at the pinion 1.27 N·m (63.6 N per jaw), brake 2.5 N·m. |
 | D7 | Jaw quick change | **2 dowel pins ISO 8734 + 1 indexing plunger (catalogue, e.g. GN 617) per jaw** on the carriage plate | The assignment requires quick-change jaws ("Greiferzangen ... mit einem Schnellwechselsystem"), not a tool changer. Pins locate, the plunger locks, no tool needed. |
@@ -35,7 +35,7 @@ Standard / catalogue parts:
 
 | Part | Standard / source |
 |---|---|
-| Miniature ball rail size 9 R0445 + 2 carriages SLS R0444 913 01 | Bosch Rexroth |
+| Miniature ball rail size 12 R0445 203 31 + 2 carriages SLS long R0444 213 01 | Bosch Rexroth |
 | Rack m = 1, steel, 10 × 12 mm (pitch line 11 mm), cut to length x2 | Mädler |
 | Pinion m = 1, z = 20, d = 20 mm, b = 10 mm, bored to the gearbox shaft | Mädler |
 | Stepper ST4118S1404-B + gearbox GP42-S1-5-SR + brake BRAKE-BWA-0,35-5 | Nanotec (supplied assembled) |
@@ -225,7 +225,7 @@ General tolerances ISO 2768-mK. Fits:
 | Dowel holes in the jaw | Ø4 F7 round hole, 4 F7 × 5 slot along the dowel line | quick change without jamming |
 | Plunger pin hole in the jaw | Ø5.2 (pin Ø5) | locking only, not locating |
 | Rack dowel | Ø3 H7 / m6, drilled and reamed at assembly | after aligning the jaws |
-| Rail reference edge | parallelism 0.01 to the rail axis over 110 mm, flatness of the land 0.01 | Rexroth mounting tolerances for size 9 |
+| Rail reference edge | parallelism 0.01 to the rail axis over 125 mm, flatness of the land 0.01 | Rexroth mounting tolerances for size 12 [verify table] |
 | Pinion / rack centre distance | ±0.02 via the slots, set at assembly | backlash |
 | Robot adapter spigot | ISO 9409-1-40 centring Ø25 H7 / the robot flange | as prescribed by the standard |
 

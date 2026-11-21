@@ -24,7 +24,12 @@ def _(mo):
     # V2 - Gripping force and drive sizing
 
     **Robot gripper, part B (PA 6) - group 10 - Ovdiienko / Bitsch**
-    Status 18 Nov 2026, against CAD state E2 of 11 Nov 2026 (commit `707c09b`).
+    Status 21 Nov 2026, against the CAD state after the drive-chain review (bevel pair KHK SMSG1.5-20, commit `c0cc291`).
+
+    **Changes 21 Nov:** § 5 now checks the built bevel pair (KHK SMSG1.5-20, hardened ground *spiral* teeth) instead of
+    the Mädler C45 straight pair; §§ 7 and 8 use the spiral bevel forces (axial / radial force up to 3× the straight
+    value, see my review response); § 6 text follows the CAD (rail size 12, T-shaped jaw); § 3 uses the wide grooved pad;
+    the setpoint is the CAD value 44.5 N (real path 4.96 m/s²), which also covers the e-stop with S = 1.5.
 
     All geometry and catalogue values are imported from `Elias/02_CAD_Body/gripper_params.py`,
     so a change in the CAD parameters flows through this notebook. Values that are *mine*
@@ -76,6 +81,7 @@ def _(P, S_s, mo, mu_s):
     F_req = S * m * (g + a_path) / (n_faces * mu)          # N per jaw
     F_max = P.F_JAW_MAX                                     # N per jaw at full motor current (Elias)
     F_req_mu01 = S * m * (g + a_path) / (n_faces * 0.1)
+    F_path = S * m * (g + P.A_PATH_REAL) / (n_faces * mu)   # real path, acceleration capped in the robot program
     mo.md(f"""
     | Quantity | Value |
     |---|---|
@@ -86,9 +92,9 @@ def _(P, S_s, mo, mu_s):
     | available at full motor current (Elias) | {F_max:.1f} N |
     | utilisation | {F_req/F_max*100:.0f} % |
     | same with µ = 0.1 (steel/steel catalogue value) | {F_req_mu01:.1f} N {'⚠ above motor limit' if F_req_mu01 > F_max else ''} |
-    | same with the real path acceleration 4.96 m/s² (MuJoCo, MoveJ with axis 1 turning ≈ 160°, E4) | {S * m * (g + 4.96) / (n_faces * mu):.1f} N |
+    | same with the real path acceleration {P.A_PATH_REAL:.2f} m/s² (ABB MoveJ path, capped with WorldAccLim, E4) | {F_path:.1f} N |
     """)
-    return F_max, F_req, S, a_path, g, m, mu, n_faces
+    return F_max, F_path, F_req, S, a_path, g, m, mu, n_faces
 
 
 @app.cell
@@ -134,7 +140,7 @@ def _(mo):
 
 
 @app.cell
-def _(F_max, F_req, a_stop_s, g, m, math, mo, mu, n_faces):
+def _(F_max, F_path, F_req, a_stop_s, g, m, math, mo, mu, n_faces):
     _stops = {"axis 1": (55.25, 0.40, 1.4), "axis 2": (33.39, 0.37, 1.4), "axis 3": (35.66, 0.27, 0.8)}
     _rows = ""
     for _k, (_phi, _t, _r) in _stops.items():
@@ -144,7 +150,7 @@ def _(F_max, F_req, a_stop_s, g, m, math, mo, mu, n_faces):
     a_res = math.hypot(g, a_stop)
     F_stop_S1 = 1.0 * m * a_res / (n_faces * mu)
     F_stop_S15 = 1.5 * m * a_res / (n_faces * mu)
-    F_set = max(F_req, F_stop_S15)                 # recommended grip-force setpoint
+    F_set = max(F_req, F_path, F_stop_S15)         # recommended grip-force setpoint (= P.F_GRIP_SET at µ 0.2, S 2)
     mo.md(f"""
     | CRB 1300-7/1.4, cat. 0 | angle | time | α = 2φ/t² | lever | a at TCP |
     |---|---|---|---|---|---|
@@ -157,7 +163,7 @@ def _(F_max, F_req, a_stop_s, g, m, math, mo, mu, n_faces):
     | required grip force, $S_{{stop}}$ = 1.0 | {F_stop_S1:.1f} N |
     | required grip force, $S_{{stop}}$ = 1.5 | {F_stop_S15:.1f} N |
     | safety of the regular setting {F_req:.1f} N against slip in an E-stop | **{F_req/F_stop_S1:.2f}** |
-    | **recommended grip-force setpoint** max(regular, E-stop with 1.5) | **{F_set:.1f} N** ({F_set/F_max*100:.0f} % of the motor limit) |
+    | **recommended grip-force setpoint** max(regular, real path, E-stop with 1.5) | **{F_set:.1f} N** ({F_set/F_max*100:.0f} % of the motor limit) |
 
     If the deceleration acts along the grip axis instead, one jaw takes it in compression (form fit):
     extra {m*a_stop:.1f} N on that jaw - inside the {F_max:.1f} N envelope used below.
@@ -170,15 +176,19 @@ def _(mo):
     mo.md(r"""
     ## 3. Surface pressure pad / PA 6
 
-    The pad plate (steel 3 mm + NBR 70 Shore A 3 mm) sits in the 23 × 35 mm pocket; the NBR face is 0.5 mm smaller
-    all round (V3). The contact area is the **pad**, not the 6200 mm² side face of the part.
+    The pad plate (steel 3 mm + NBR 70 Shore A 3 mm) sits in the pocket of the T-shaped jaw; the NBR face is 0.5 mm
+    smaller all round than the plate (V3). Vertical oil-drain grooves in the NBR take away part of the face.
+    The contact area is the **pad** without the grooves, not the 6200 mm² side face of the part.
     """)
     return
 
 
 @app.cell
-def _(F_max, F_req, F_set, mo):
-    A_pad = 21.8 * 33.8                       # mm², NBR contact face of the V3 pad (0.5 mm vulcanising edge on the 22.8 x 34.8 plate)
+def _(F_max, F_req, F_set, P, mo):
+    _w = P.PAD_W - 0.2 - 1.0                  # 80.8 mm: plate 0.1 mm clearance per side in the pocket, NBR 0.5 mm edge
+    _h = P.PAD_Z[1] - P.PAD_Z[0] - 0.2 - 1.0  # 19.8 mm
+    _gw, _gd, _gp = P.PAD_GROOVE
+    A_pad = _w * _h * (1 - _gw / _gp)         # mm², grooves 1.5 mm wide every 4 mm carry nothing
     E_nbr = 5.0                               # MPa, NBR 70 Shore A (same value as cad/params.py)
     t_nbr = 3.0                               # mm
     sigma_pa6 = 70.0                          # MPa, PA 6 yield 60-80 MPa (Röchling / Ensinger data sheets)
@@ -187,7 +197,7 @@ def _(F_max, F_req, F_set, mo):
         _p = _F / A_pad
         _rows += f"| {_lbl} | {_F:.1f} N | {_p:.3f} MPa | {sigma_pa6/_p:.0f} | {_p/E_nbr*t_nbr*1000:.0f} µm |\n"
     mo.md(f"""
-    Pad area $A$ = 21.8 × 33.8 = {A_pad:.0f} mm² (V3 pad)
+    Pad area $A$ = {_w:.1f} × {_h:.1f} mm × (1 − {_gw}/{_gp}) = {A_pad:.0f} mm² (V3 pad, grooves taken off)
 
     | Load | F | p = F/A | safety vs. PA 6 yield ({sigma_pa6:.0f} MPa) | NBR compression |
     |---|---|---|---|---|
@@ -292,110 +302,147 @@ def _(F_max, F_req, KA, KFb, KHb, KV, MAT, P, SF_min, SH_min, Y_ST, ZE, ZH, cont
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 5. Bevel pair (Mädler m = 1, z = 20, i = 1, b = 5 mm, C45) - DIN 3991 via virtual spur gears
+    ## 5. Bevel pair (KHK SMSG1.5-20 R/L, spiral, i = 1) - catalogue rating and DIN 3991 cross-check
 
-    The bevel pair sits **after** the gearbox, so it carries the full pinion torque
-    $T = 2\,F_G\,r$ (i = 1). Mean diameter $d_m = d - b\sin\delta$, virtual spur gear
-    $z_v = z/\cos\delta$, $d_v = d_m/\cos\delta$, $u_v = u^2 = 1$, bevel factor $Z_K$ = 0.85.
+    The bevel pair sits **after** the gearbox, so it carries the full pinion torque. On the driving side, before the
+    bevel and rack losses: $T = 2\,F_G\,r / (\eta_\mathrm{bevel}\,\eta_\mathrm{rp})$.
+
+    **Built pair** (KHK catalogue, SMSG module 1.5 page): m = 1.5, z = 20, d = 30 mm, b = 8 mm, Gleason spiral teeth,
+    α = 20°, β = 35°, S45C teeth induction hardened, ground. Allowable torque **surface durability 3.47 N·m**,
+    **bending 4.1 N·m**. Until 21 Nov the CAD had the SMSG1-20 (m = 1, 0.97 / 1.17 N·m); with $K_A$ = 1.25 the setpoint
+    alone loaded its flank to 120 % of the catalogue value, so Elias changed to the next size (drive axis 36 mm,
+    `Elias/02_CAD_Body/drive_margin.py`). The old Mädler C45 straight pair of the first V2 version is gone.
+
+    **Check 1, catalogue:** $K_A\,T \le T_\mathrm{cat}$. The catalogue values are KHK's own calculation for their assumed
+    usage conditions; as in my review response they are the binding limit.
+
+    **Check 2, DIN 3991 via virtual helical gears** (same method as my review response, now with m = 1.5, b = 8):
+    $d_m = d - b\sin\delta$, $m_{mn} = m\,(d_m/d)\cos\beta_m$, $d_v = d_m/\cos\delta$,
+    $\tan\alpha_{vt} = \tan\alpha_n/\cos\beta_m$, overlap ratio $\varepsilon_{v\beta} > 1$ →
+    $Z_\varepsilon = \sqrt{1/\varepsilon_{v\alpha}}$, $Y_\varepsilon$ = 0.625, $Z_\beta = \sqrt{\cos\beta_m}$, $Z_K$ = 0.85.
+    Conservative DIN 3991 load factors: $b_e$ = 0.85 b, $K_{H\beta} = K_{F\beta}$ = 1.875 (one gear overhung).
+    σHlim = 1000 MPa (lower end for 50 HRC), σFlim = 220 MPa (root taken as not hardened) **[verify: ISO 6336-5]**.
     """)
     return
 
 
 @app.cell
-def _(F_max, F_req, F_set, KA, KFb, KHb, KV, MAT, P, SF_min, Y_ST, ZE, ZH, contact_ratio_pair, math, mo):
-    z_b, b_b, d_b = P.BEVEL_Z, P.BEVEL_B, P.MODUL * P.BEVEL_Z
-    delta = math.radians(45.0)
+def _(F_max, F_req, F_set, KA, KV, P, SF_min, Y_ST, ZE, math, mo):
+    m_e, z_b, b_b = P.BEVEL_M, P.BEVEL_Z, P.BEVEL_B
+    T_cat_H, T_cat_F = P.BEVEL_T_ALLOW * 1000, P.BEVEL_T_BEND * 1000     # N·mm, KHK catalogue
+    _eta_b, _eta_rp = P.ETA_BEVEL, P.ETA_RP
+    delta, beta_m, alpha_n = math.radians(45.0), math.radians(35.0), math.radians(20.0)
+    d_b = m_e * z_b
     d_m = d_b - b_b * math.sin(delta)
-    m_m = P.MODUL * d_m / d_b
-    z_v = z_b / math.cos(delta)
+    m_mt = m_e * d_m / d_b
+    m_mn = m_mt * math.cos(beta_m)
     d_v = d_m / math.cos(delta)
-    eps_v = contact_ratio_pair(m_m, z_v, z_v)
-    Ye_b = 0.25 + 0.75 / eps_v
-    Ze_b = math.sqrt((4 - eps_v) / 3)
-    YFS_b = 2.57 * 1.62                       # z_v ≈ 28, x = 0 [chart]
-    Z_K = 0.85
+    z_v = z_b / math.cos(delta)
+    alpha_vt = math.atan(math.tan(alpha_n) / math.cos(beta_m))
+    beta_vb = math.asin(math.sin(beta_m) * math.cos(alpha_n))
+    _r = d_v / 2
+    _ra, _rb = _r + m_mn, _r * math.cos(alpha_vt)
+    eps_va = (2 * math.sqrt(_ra**2 - _rb**2) - 2 * _r * math.sin(alpha_vt)) / (math.pi * m_mt * math.cos(alpha_vt))
+    eps_vb = b_b * math.sin(beta_m) / (math.pi * m_mn)
+    Z_Hb = math.sqrt(2 * math.cos(beta_vb) / (math.cos(alpha_vt)**2 * math.sin(alpha_vt)))
+    Z_eps_b, Z_beta, Z_K = math.sqrt(1 / eps_va), math.sqrt(math.cos(beta_m)), 0.85
+    Y_eps_b = 0.625
+    Y_beta = max(1 - min(eps_vb, 1.0) * math.degrees(beta_m) / 120, 0.75)
+    YFS_b = 2.35 * 1.68                       # z_vn ≈ 49, x = 0 [DIN 3990-3 chart, ± 3 %]
+    KHb_b, b_e = 1.875, 0.85 * b_b
+    sig_Hlim_b, sig_Flim_b = 1000.0, 220.0
     r_p = P.PINION_D / 2
 
+    def bevel_torque(F):
+        return 2 * F * r_p / (_eta_b * _eta_rp)          # N·mm, driving side
+
     def bevel(F):
-        T = 2 * F * r_p                       # N·mm at the pinion = at the bevel wheel
+        T = bevel_torque(F)
         Ft = 2 * T / d_m
-        sF = Ft / (b_b * m_m) * YFS_b * Ye_b * KA * KV * KFb
-        sH = ZE * ZH * Ze_b * Z_K * math.sqrt(Ft / (b_b * d_v) * 2) * math.sqrt(KA * KV * KHb)
-        return T, Ft, sF, sH
+        sH = Z_Hb * ZE * Z_eps_b * Z_beta * Z_K * math.sqrt(Ft / (d_v * b_e) * 2 * KA * KV * KHb_b)
+        sF = Ft / (b_b * m_mn) * YFS_b * Y_eps_b * Y_beta * KA * KV * KHb_b
+        return T, Ft, sH, sF
 
     def bevel_forces(F):
-        T, Ft, _, _ = bevel(F)
-        al = math.radians(20.0)
-        Fr = Ft * math.tan(al) * math.cos(delta)    # radial on the bevel wheel
-        Fa = Ft * math.tan(al) * math.sin(delta)    # axial on the bevel wheel (= radial on the bevel pinion)
-        return Ft, Fr, Fa
+        """Spiral bevel forces at the mean diameter (KHK / Gleason), i = 1. The sign depends on hand and direction of
+        rotation (closing / opening), so both sets are returned: (Ft, [(Fa, Fr) on the bevel wheel, ...])."""
+        Ft = 2 * bevel_torque(F) / d_m
+        k = Ft / math.cos(beta_m)
+        ta, sb = math.tan(alpha_n), math.sin(beta_m)
+        sets = [(k * (ta * math.sin(delta) + sb * math.cos(delta)), k * (ta * math.cos(delta) - sb * math.sin(delta))),
+                (k * (ta * math.sin(delta) - sb * math.cos(delta)), k * (ta * math.cos(delta) + sb * math.sin(delta)))]
+        return Ft, [(abs(a), abs(r)) for a, r in sets]
 
-    # torque at which the flank reaches S_H = 1 (sigma_H ~ sqrt(T))
-    _T1, _, _, _sH1 = bevel(F_max)
-    T_allow_H = _T1 * (MAT["C45 N"][1] / _sH1) ** 2
-    F_allow_H = T_allow_H / (2 * r_p)
+    # torque at which the flank reaches S_H = 1 and the root S_F = 1.5 (sigma_H ~ sqrt(T), sigma_F ~ T)
+    _T1, _, _sH1, _sF1 = bevel(F_max)
+    T_DIN_H = _T1 * (sig_Hlim_b / _sH1) ** 2
+    T_DIN_F = _T1 * sig_Flim_b * Y_ST / SF_min / _sF1
 
     _rows = ""
     for _lbl, _F in (("regular", F_req), ("setpoint", F_set), ("full current", F_max)):
-        _T, _Ft, _sF, _sH = bevel(_F)
-        _SF = MAT["C45 N"][0] * Y_ST / _sF
-        _SH = MAT["C45 N"][1] / _sH
-        _rows += (f"| {_lbl} ({_F:.1f} N) | {_T/1000:.3f} Nm | {_Ft:.0f} N | {_sF:.0f} MPa / {_SF:.2f} {'✓' if _SF >= SF_min else '✗'} "
-                  f"| {_sH:.0f} MPa / {_SH:.2f} {'✓' if _SH >= 1 else '✗'} |\n")
+        _T, _Ft, _sH, _sF = bevel(_F)
+        _uH, _uF = KA * _T / T_cat_H, KA * _T / T_cat_F
+        _SH, _SF = sig_Hlim_b / _sH, sig_Flim_b * Y_ST / _sF
+        _rows += (f"| {_lbl} ({_F:.1f} N) | {_T/1000:.3f} Nm | {_uH*100:.0f} % / {_uF*100:.0f} % {'✓' if max(_uH, _uF) <= 1 else '✗'} "
+                  f"| {_Ft:.0f} N | {_sH:.0f} MPa / {_SH:.2f} {'✓' if _SH >= 1 else '✗'} "
+                  f"| {_sF:.0f} MPa / {_SF:.2f} {'✓' if _SF >= SF_min else '✗'} |\n")
     mo.md(f"""
-    $d_m$ = {d_m:.2f} mm, $m_m$ = {m_m:.3f} mm, $z_v$ = {z_v:.1f}, $\\varepsilon_{{\\alpha v}}$ = {eps_v:.2f}
+    $d_m$ = {d_m:.2f} mm, $m_{{mn}}$ = {m_mn:.3f} mm, $d_v$ = {d_v:.2f} mm, $z_v$ = {z_v:.1f},
+    $\\varepsilon_{{v\\alpha}}$ = {eps_va:.2f}, $\\varepsilon_{{v\\beta}}$ = {eps_vb:.2f}
 
-    | Load case | Torque | $F_{{tm}}$ | root σF / S_F | flank σH / S_H |
-    |---|---|---|---|---|
+    | Load case | Torque T | $K_A T$ / catalogue (flank / root) | $F_{{mt}}$ | DIN flank σH / S_H | DIN root σF / S_F |
+    |---|---|---|---|---|---|
     {_rows}
 
-    **⚠ The bevel flank is the weak point of the drive train.** With C45 (σHlim = 590 MPa) the flank reaches
-    $S_H$ = 1 at about **{T_allow_H/1000:.2f} Nm**, i.e. **{F_allow_H:.0f} N per jaw**. The regular grip is right at that limit,
-    full motor current is clearly above it. Since every grip loads the same two or three teeth, this is a
-    fatigue problem, not a static one.
+    DIN 3991 capacity: flank **{T_DIN_H/1000:.1f} N·m** at S_H = 1 ({T_DIN_H/T_cat_H:.1f} × catalogue),
+    root {T_DIN_F/1000:.1f} N·m at S_F = 1.5. The catalogue value stays the binding limit.
 
-    Options (to decide together with Elias, E2):
-    1. **Hardened bevel gears** (induction-hardened teeth or case-hardened steel; σHlim ≥ 1000 MPa) - simplest, no layout change.
-    2. **Bevel stage before the gearbox** (on the motor shaft): torque 7× smaller, all checks pass by far - layout change.
-    3. **Limit the motor current** so the grip force stays ≤ {F_allow_H:.0f} N - conflicts with the recommended setpoint {F_set:.1f} N.
+    **The bevel pair is no longer the weak point.** Even full motor current (63.6 N, gearbox loss only) uses
+    {KA*bevel_torque(F_max)/T_cat_H*100:.0f} % of the catalogue flank rating with $K_A$. The current limit is now set by the
+    motor ({P.F_JAW_LIMIT:.1f} N per jaw with all losses), not by the bevels.
 
-    Cross-check: compare with the permissible torque printed in the Mädler catalogue for this article.
+    Tolerances (motor $k_T$ ± 10 %, driver ± 3 %, efficiencies) are in `Elias/02_CAD_Body/drive_margin.py`: highest
+    flank use 40 % with the current set from data sheet values; but then the *lowest* grip force can drop to 35.6 N,
+    just under the 35.9 N needed (path with the part's twist, `grip_check.py`). **Therefore the grip force is set once
+    at commissioning with a force gauge** (± 5 %): lowest 42.3 N ✓. Rare overloads (brake slipping, closing without the
+    two-stage profile, 160 N impact) stay ≤ 38 % of the static capacity.
     """)
-    return bevel_forces, r_p
+    return bevel_forces, d_m, r_p
 
 
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 6. Tilting moment on the ball rail guide (Bosch Rexroth size 9, carriage SLS R0444 913 01)
+    ## 6. Tilting moment on the ball rail guide (Bosch Rexroth size 12, carriage SLS R0444 213 01)
 
-    Each jaw sits on one slide with one carriage on the common rail (y = -32.5). The grip force acts at the
-    pad centre (z = -77.5, y = 0) along the rail (X). It is reacted by the rack at the pinion mesh
-    (z ≈ -6, rack pitch line at y = ±10). The carriage itself carries no X force - it carries the **couple**:
+    Each jaw sits on one slide under one carriage on the common rail (the carriages hang under the base plate).
+    The grip force acts at the pad centre (y = 0) along the rail (X). It is reacted by the rack at the pinion mesh
+    (middle of the pinion teeth, rack pitch line at y = ±10). The carriage itself carries no X force - it carries the
+    **couple**:
 
     - pitch moment $M_y = F_G \cdot (z_\mathrm{mesh} - z_\mathrm{pad})$,
     - yaw moment $M_z = F_G \cdot \Delta y_\mathrm{rack}$,
-    - plus the share of the part load $F_z = m(g+a)/2$ at y = 0 → roll $M_x = F_z \cdot 32.5$ mm,
-    - in the e-stop the sideways deceleration in the pad plane $F_y = m\,a_\mathrm{stop}/2$ at the pad, 64.5 mm below
-      the carriage → adds $F_y$ and roll $F_y \cdot 64.5$ mm.
+    - plus the share of the part load $F_z = m(g+a)/2$ at y = 0 → roll $M_x = F_z \cdot |y_\mathrm{rail}|$,
+    - in the e-stop the sideways deceleration in the pad plane $F_y = m\,a_\mathrm{stop}/2$ at the pad, $\Delta z_c$ below
+      the carriage → adds $F_y$ and roll $F_y \cdot \Delta z_c$.
 
     Combined equivalent static load (Rexroth catalogue R999001206):
     $F_\mathrm{comb} = |F_y| + |F_z| + C_0\frac{|M_x|}{M_{t0}} + C_0\frac{|M_y|}{M_{L0}} + C_0\frac{|M_z|}{M_{L0}}$,
-    static safety $S_0 = C_0 / F_\mathrm{comb}$.
+    static safety $S_0 = C_0 / F_\mathrm{comb}$. All lever arms are read from the CAD parameters.
     """)
     return
 
 
 @app.cell
 def _(F_max, F_req, F_set, P, a_path, a_stop, g, m, mo):
-    z_pad = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1])         # -77.5
-    z_mesh = P.PINION_Z0 + P.PINION_B / 2            # -6, middle of the pinion teeth
-    dz_tilt = abs(z_mesh - z_pad)                    # 71.5 mm
-    dy_rack = P.PINION_D / 2                          # 10 mm
-    dy_rail = abs(P.RAIL_Y)                           # 32.5 mm
+    z_pad = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1])          # pad centre
+    z_mesh = P.PINION_Z0 + P.PINION_B / 2             # middle of the pinion teeth
+    dz_tilt = abs(z_mesh - z_pad)
+    dy_rack = P.PINION_D / 2
+    dy_rail = abs(P.RAIL_Y)
     C0, MT0, ML0 = P.CARRIAGE_C0, P.CARRIAGE_MT0 * 1000, P.CARRIAGE_ML0 * 1000   # N, N·mm
 
-    dz_carr = abs(P.SLIDE_Z_TOP - z_pad)              # 64.5 mm, pad centre to the carriage
+    dz_carr = abs(P.SLIDE_Z_TOP - z_pad)              # pad centre to the carriage underside
     def guide(F, a_vert, a_side=0.0):
         """a_side: deceleration across the rail in the pad plane (e-stop), carried by the pads as Fy."""
         Fz, Fy = m * a_vert / 2, m * a_side / 2
@@ -404,68 +451,97 @@ def _(F_max, F_req, F_set, P, a_path, a_stop, g, m, mo):
         return My, Mz, Mx, Fc, C0 / Fc
 
     _rows = ""
+    S0_cases = {}
     for _lbl, _F, _a, _as in (("regular", F_req, g + a_path, 0.0), ("setpoint", F_set, g + a_path, 0.0),
                               ("full current + E-stop", F_max, g, a_stop)):
         _My, _Mz, _Mx, _Fc, _S0 = guide(_F, _a, _as)
+        S0_cases[_lbl] = _S0
         _rows += f"| {_lbl} | {_F:.1f} N | {_My/1000:.2f} Nm | {_Mz/1000:.2f} Nm | {_Mx/1000:.2f} Nm | {_Fc:.0f} N | **{_S0:.2f}** |\n"
     mo.md(f"""
-    Lever arms: Δz = {dz_tilt:.1f} mm (pad centre to mesh), Δy = {dy_rack:.0f} mm, rail offset {dy_rail:.1f} mm.
-    Elias' note used the carriage centre z ≈ -8 (Δz = 69.5 mm); the mesh is the correct reaction point, 3 % more conservative.
-    FEM check (E5, rack as rigid body at the pitch line, full current): carriage M_y = 4.55 N·m, M_z = 0.64 N·m - identical.
+    Lever arms: pad centre z = {z_pad:.1f}, mesh z = {z_mesh:.1f} → Δz = {dz_tilt:.1f} mm; Δy = {dy_rack:.0f} mm;
+    rail offset {dy_rail:.1f} mm; pad centre to carriage Δz_c = {dz_carr:.1f} mm.
+    Carriage size 12: C0 = {C0:.0f} N, Mt0 = {MT0/1000:.1f} N·m, ML0 = {ML0/1000:.1f} N·m.
+    The FEM (E5) uses the same support: rack held at the pitch line, carriage patch free along X.
 
     | Load case | F_G | M_y (pitch) | M_z (yaw) | M_x (roll) | F_comb | S0 |
     |---|---|---|---|---|---|---|
     {_rows}
 
-    The pitch moment from the 71.5 mm long jaw dominates (ML0 = 14 Nm). S0 ≈ 2.5 in the worst case (full current
-    plus the sideways e-stop load). **[verify]** the minimum S0 Rexroth recommends for operation with shocks in
-    catalogue R999001206 - if it is above 2.5, the full-current case needs a current limit.
+    The pitch moment of the jaw still dominates, but the size 12 carriage (ML0 {ML0/1000:.1f} instead of 14 N·m) and the
+    shorter T-shaped jaw give **S0 = {S0_cases['setpoint']:.1f} at the setpoint and {S0_cases['full current + E-stop']:.1f} in the
+    worst case** (full current plus the sideways e-stop load). But Rexroth asks
+    **S0 ≥ 12 for overhead hanging arrangements with a hazard potential** (R999001206, p. 9), and our
+    carriages hang under the plate. **[open, with Elias]** whether that row applies here: the load on the carriage is
+    almost only moment, the part is not hanging on the carriage itself.
     """)
-    return
+    return (S0_cases,)
 
 
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 7. Bearings 608-2Z of the pinion shaft (DIN ISO 76, static)
+    ## 7. Bearings 608-2Z of the pinion shaft (DIN ISO 76, static) - with the spiral bevel forces
 
     **The pinion mesh is self-balancing:** the two racks sit on opposite sides, so their tangential and radial
     forces on the pinion cancel. The shaft bearings only see the **bevel wheel** forces at the top of the
-    shaft (contact z ≈ 24, overhung above the upper bearing). Bearing centres z = 3.5 (A) and 13 (B).
+    shaft (mean contact $z = z_\mathrm{drive} - d_m/2$, overhung above the upper bearing). Bearing centres from the CAD.
     The shaft only swings ≈ 46° per grip, so the static rating is decisive.
 
-    $P_0 = \max(F_r,\; 0.6F_r + 0.5F_a)$, $s_0 = C_0/P_0$, $C_0$ = 1370 N (SKF 608-2Z).
+    **Spiral bevel forces** (KHK / Gleason, mean diameter, i = 1, δ = 45°, β = 35°):
+
+    $$F_a = \frac{F_t}{\cos\beta_m}\left(\tan\alpha_n\sin\delta \pm \sin\beta_m\cos\delta\right),\qquad
+      F_r = \frac{F_t}{\cos\beta_m}\left(\tan\alpha_n\cos\delta \mp \sin\beta_m\sin\delta\right)$$
+
+    The sign depends on the hand (R/L) and the direction of rotation (closing / opening), so both sets are checked
+    and the worse one is shown. With straight teeth (first V2 version) both were only $F_t\tan\alpha\sin\delta$ ≈ 0.26 $F_t$;
+    with the spiral teeth one of them is ≈ 0.81 $F_t$.
+
+    $P_0 = \max(F_r,\; 0.6F_r + 0.5F_a)$, $s_0 = C_0/P_0$, $C_0$ = 1370 N (SKF 608-2Z). SKF asks **s0 ≥ 2** for ball
+    bearings with uncertain peak loads and no permanent deformation allowed (my review response, point 3).
     """)
     return
 
 
 @app.cell
-def _(F_max, F_req, F_set, P, bevel_forces, math, mo):
-    z_A = P.BEARING_LOWER_Z + P.BEARING[2] / 2          # 3.5, bearing centres from the CAD
-    z_B = P.BEARING_UPPER_Z + P.BEARING[2] / 2          # 13.0
-    z_bev = P.DRIVE_Z - 8.23                            # 24.3, mean contact of the bevel wheel
-    C0_608, C_608 = 1370.0, 3450.0
+def _(F_max, F_req, F_set, P, bevel_forces, d_m, math, mo):
+    z_A = P.BEARING_LOWER_Z + P.BEARING[2] / 2          # bearing centres from the CAD
+    z_B = P.BEARING_UPPER_Z + P.BEARING[2] / 2
+    z_bev = P.DRIVE_Z - d_m / 2                         # mean contact of the bevel wheel (cone apex on the drive axis)
+    C0_608, S0_REQ = 1370.0, 2.0
+
+    def bearing_B(Ft, Fa, Fr):
+        F_rad = math.hypot(Ft, Fr)                       # radial force on the shaft at the bevel wheel
+        F_B = (F_rad * (z_bev - z_A) + Fa * d_m / 2) / (z_B - z_A)   # axial force at the mean radius adds a moment
+        return F_rad, F_B, F_B - F_rad
+
     _rows = ""
+    s0_608 = {}
     for _lbl, _F in (("regular", F_req), ("setpoint", F_set), ("full current", F_max)):
-        _Ft, _Fr, _Fa = bevel_forces(_F)
-        _Frad = math.hypot(_Ft, _Fr)                       # radial force on the shaft at the bevel wheel
-        _r_mean = 8.23                                     # mm, mean radius of the bevel wheel (d_m / 2)
-        _M_ax = _Fa * _r_mean                              # moment from the axial force at the mean radius
-        _FB = (_Frad * (z_bev - z_A) + _M_ax) / (z_B - z_A)
-        _FA = _FB - _Frad
-        _P0 = max(_FB, 0.6 * _FB + 0.5 * _Fa)
-        _rows += f"| {_lbl} ({_F:.1f} N) | {_Frad:.0f} N | {_Fa:.0f} N | {_FB:.0f} N | {abs(_FA):.0f} N | {_P0:.0f} N | **{C0_608/_P0:.1f}** |\n"
+        _Ft, _sets = bevel_forces(_F)
+        _worst = None
+        for _Fa, _Fr in _sets:
+            _Frad, _FB, _FA = bearing_B(_Ft, _Fa, _Fr)
+            _P0 = max(_FB, 0.6 * _FB + 0.5 * _Fa)
+            if _worst is None or _P0 > _worst[4]:
+                _worst = (_Frad, _Fa, _FB, _FA, _P0)
+        _Frad, _Fa, _FB, _FA, _P0 = _worst
+        s0_608[_lbl] = C0_608 / _P0
+        _rows += (f"| {_lbl} ({_F:.1f} N) | {_Frad:.0f} N | {_Fa:.0f} N | {_FB:.0f} N | {abs(_FA):.0f} N | {_P0:.0f} N "
+                  f"| **{C0_608/_P0:.1f}** {'✓' if C0_608/_P0 >= S0_REQ else '✗'} |\n")
     mo.md(f"""
-    | Load case | radial at bevel | axial | bearing B | bearing A | P0 (B) | s0 |
+    Bearing centres z = {z_A:.1f} (A) and {z_B:.1f} (B), bevel contact z = {z_bev:.1f}, mean radius {d_m/2:.2f} mm.
+
+    | Load case | radial at bevel | axial | bearing B | bearing A | P0 (B) | s0 (req. ≥ {S0_REQ:.0f}) |
     |---|---|---|---|---|---|---|
     {_rows}
 
-    s0 > 3.5 even at full current - well above the s0 ≈ 1 ... 2 that bearing makers ask for under shock loads
-    **[verify against the SKF table]**.
+    s0 = {s0_608['setpoint']:.1f} at the setpoint and {s0_608['full current']:.1f} at full current ✓. The spiral forces cost about
+    15 % of s0; the larger m = 1.5 bevel (mean diameter {d_m:.1f} instead of 16.5 mm) gives it back, because the same
+    torque needs a smaller tooth force; the contact height stays about the same (z {z_bev:.1f} instead of 24.3).
     Dynamic life (one sentence): with ≈ 0.26 equivalent revolutions per grip cycle and P ≈ 0.2 kN, L10 = (C/P)³ is
     in the order of 10⁹ revolutions - thousands of years at 720 grips per hour, so it is irrelevant.
     """)
-    return
+    return (s0_608,)
 
 
 @app.cell
@@ -473,20 +549,22 @@ def _(F_max, F_req, F_set, bevel_forces, math, mo):
     Fr_adm, Fa_adm = 305.0, 890.0                    # Nanotec GP42-S1-7-SR
     _rows = ""
     for _lbl, _F in (("regular", F_req), ("setpoint", F_set), ("full current", F_max)):
-        _Ft, _Fr, _Fa = bevel_forces(_F)
-        # on the bevel PINION (gearbox shaft, horizontal) radial = Ft and the wheel's axial force; axial = wheel's radial force
-        _rad = math.hypot(_Ft, _Fa)
-        _ax = _Fr
+        _Ft, _sets = bevel_forces(_F)
+        # on the bevel PINION (gearbox shaft, horizontal): radial = Ft and the wheel's axial force; axial = wheel's radial force
+        _rad = max(math.hypot(_Ft, _Fa) for _Fa, _Fr in _sets)
+        _ax = max(_Fr for _Fa, _Fr in _sets)
         _rows += f"| {_lbl} | {_rad:.0f} N | {_rad/Fr_adm*100:.0f} % | {_ax:.0f} N | {_ax/Fa_adm*100:.1f} % |\n"
     mo.md(f"""
     ## 8. Gearbox output shaft load (GP42-S1-7-SR: 305 N radial / 890 N axial)
+
+    Spiral bevel forces, worse of the two sign sets for each column.
 
     | Load case | radial | of 305 N | axial | of 890 N |
     |---|---|---|---|---|
     {_rows}
 
     OK. Nanotec rates the radial load at a defined distance from the flange; the bevel pinion sits on the
-    22.6 mm shaft stub - keep it close to the flange.
+    22.6 mm shaft stub, with the shaft reaching deep into the pinion hub - close to the flange.
     """)
     return
 
@@ -537,7 +615,7 @@ def _(mo):
 
 @app.cell
 def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
-    i_g, eta_g, eta_bev, eta_rp = P.GEAR_I, P.GEAR_ETA, 0.98, 0.97
+    i_g, eta_g, eta_bev, eta_rp = P.GEAR_I, P.GEAR_ETA, P.ETA_BEVEL, P.ETA_RP
     T_hold = P.MOTOR_T_HOLD * 1000                       # N·mm
     eta_tot = eta_g * eta_bev * eta_rp
 
@@ -552,10 +630,10 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
     phi_m = phi_p * i_g
     w_m = 2 * phi_m / t_close                            # peak motor speed, rad/s
     al_m = 4 * phi_m / t_close**2                        # motor acceleration, rad/s²
-    m_side = (31 + 29 + 73 + 37 + 65 + 19) / 1000        # kg: jaw, holder, slide, carriage, rack, pad plate (BOM)
+    m_side = (54 + 29 + 81 + 74 + 65 + 40 + 6) / 1000   # kg: jaw, holder, slide, carriage, rack, pad plate, NBR (BOM 21 Nov)
     J_rotor = 38e-7                                       # kg m²
     J_load = 2 * m_side * (r_p / 1000) ** 2 / i_g**2      # translating masses reflected to the motor
-    J_gear = 0.5e-6                                       # kg m², gearbox + bevel gears, estimate
+    J_gear = 1.5e-6 + 1.0e-6 + 0.5 * 0.055 * 0.012**2 / i_g**2   # kg m²: gearbox input, brake disc, m 1.5 bevels (drive.py)
     T_acc = (J_rotor + J_load + J_gear) * al_m * 1000     # N·mm
     rpm = w_m * 60 / (2 * math.pi)
 
@@ -582,10 +660,13 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
       acceleration {al_m:.0f} rad/s² → inertia torque **{T_acc:.2f} N·mm** - negligible. Speed is no limit either:
       the pull-out torque cannot exceed the 0.20 Nm holding torque, and at 24 V it stays at ≈ 0.19 Nm up to ≈ 800 rpm
       (model from R, L and holding torque, `Elias/04_Simulation/drive.py`; Nanotec curve to be laid over).
-    - Seen from the jaws, rotor + gearbox + brake act like **≈ 3.2 kg** (J·(i/r)², vs 0.47 kg of jaws): the current
-      limit cannot stop that before the pads hit. MuJoCo (E4): driving straight into the part at 50 mm/s gives a
-      pad force peak of ≈ 77 N; a **two-stage close** (fast to 1 mm before the part, then 10 mm/s) meets 0.3 s
-      (255 ms) without overshoot - that is the recommended motion profile.
+    - Seen from the jaws, rotor + gearbox + brake act like **≈ 3.2 kg** (J·(i/r)², vs {2*m_side:.2f} kg of jaws): the
+      current limit cannot stop that before the pads hit. MuJoCo (E4, `closing_time.py`): driving straight into the
+      part gives a pad force peak of ≈ 67 N at 50 mm/s and ≈ 160 N at 110 mm/s; a **two-stage close** (fast to 1 mm
+      before the part, then 10 mm/s) meets 0.3 s (266 ms) with 46 N, no overshoot - that is the recommended motion
+      profile. The 160 N case is checked as a rare overload on the bevel pair in § 5 (38 % of the static capacity).
+    - Current limit: {P.F_JAW_LIMIT:.1f} N per jaw with all losses, set by the motor (the bevels allow more, § 5).
+      The setpoint is calibrated once at commissioning with a force gauge (§ 5).
     - The grip itself happens at standstill, so the holding torque is the relevant limit: margin
       **{T_hold/T_motor(F_req):.2f}** at the regular force and **{T_hold/T_motor(F_set):.2f}** at the recommended setpoint.
       Run the stepper in closed-loop mode (encoder) so a short overload cannot cost steps.
@@ -594,22 +675,22 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
 
 
 @app.cell
-def _(F_max, F_req, F_set, mo):
+def _(F_max, F_req, F_set, P, S0_cases, mo, s0_608):
     mo.md(f"""
     ## Summary for the interim report
 
     | # | Check | Result |
     |---|---|---|
     | 1 | Grip force, µ = 0.2, S = 2 | {F_req:.1f} N per jaw ✓ (µ = 0.1 would need twice that - above the motor) |
-    | 2 | Emergency stop (17 m/s², S = 1.5; IRB 1300 stop data) | recommended setpoint **{F_set:.1f} N** ✓ - also covers the real path (4.96 m/s² → ≈ 44 N) |
+    | 2 | Emergency stop (17 m/s², S = 1.5; IRB 1300 stop data) and real path ({P.A_PATH_REAL} m/s²) | recommended setpoint **{F_set:.1f} N** ✓, calibrated at commissioning |
     | 3 | Surface pressure | < 0.1 MPa ✓ not critical |
     | 4 | Rack and pinion, root + flank | ✓ large reserves |
-    | 5 | **Bevel pair, flank** | **✗ at the limit (regular) / over (full current) → hardened bevels or bevel before the gearbox** |
-    | 6 | Ball rail, tilting | S0 ≥ 2.5 ✓ (verify min. S0); FEM gives the same carriage moments |
-    | 7 | Bearings 608-2Z | s0 > 3.5 ✓ |
-    | 8 | Gearbox shaft load | ≈ 50 % of 305 N ✓ |
+    | 5 | Bevel pair KHK SMSG1.5-20 (spiral, hardened) | $K_A T$ ≤ 34 % (setpoint) / 48 % (full current) of the catalogue flank rating ✓ |
+    | 6 | Ball rail size 12, tilting | S0 = {S0_cases['setpoint']:.1f} (setpoint) / {S0_cases['full current + E-stop']:.1f} (full current + e-stop) - **open: Rexroth S0 ≥ 12 for overhead arrangements?** |
+    | 7 | Bearings 608-2Z, spiral bevel forces | s0 = {s0_608['setpoint']:.1f} (setpoint) / {s0_608['full current']:.1f} (full current) ✓ (SKF ≥ 2) |
+    | 8 | Gearbox shaft load, spiral bevel forces | ≤ 46 % of 305 N ✓ |
     | 9 | Brake on power failure | holds ≈ 124 N per jaw ✓ |
-    | 10 | Motor | margin ≈ 1.7 (regular) / 1.4 (setpoint) ✓, max ≈ 60 N with all efficiencies; two-stage close against the impact |
+    | 10 | Motor | margin ≈ 1.7 (regular) / 1.4 (setpoint) ✓, max ≈ 60 N with all efficiencies = current limit; two-stage close against the impact |
 
     Envelope for all part checks: {F_max:.1f} N (full motor current).
     """)
