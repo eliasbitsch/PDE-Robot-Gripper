@@ -29,16 +29,17 @@ axis brakes with its deceleration from the ABB product specification (3HAC070393
 0.40 s, i.e. 12.1 rad/s²), which gives 12.3 m/s² at the TCP; the brake locks the drive with the preload kept.
 
 **Results, 20 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`), on the transfer through the vias
-(the 1200 mm enclosure, see below) at the time law with TCP acceleration <= 4.96 m/s2. Friction use = |vector sum
+(the 1200 mm enclosure, see below) at the time law with TCP acceleration <= 4.96 m/s2 (the simulated robot
+following it shows peaks of 6.4 m/s2, 7.0 in the e-stop: servo response at the via; the friction use includes it). Friction use = |vector sum
 of the pad friction forces| / (μ ΣF_n), median over the moving phases and 50 ms peak.
 
 | Case | Force per jaw | friction use median / peak | part movement (raw / beyond creep base) | |
 |---|---|---|---|---|
-| required (hand calc., 2.05 m/s²) | 35.7 N | 0.43 / 0.81 | 2.39 / +0.06 mm | held |
+| required (hand calc., 2.05 m/s²) | 35.7 N | 0.42 / 0.81 | 2.37 / +0.02 mm | held |
 | no safety (F / S) | 17.9 N | - / 1.00 | dropped | expected: sized for 2.05 m/s², the path needs 4.96 |
-| **setpoint** (real path 4.96 m/s²) | 44.5 N | 0.34 / 0.72 (S_eff 1.38) | 2.38 / +0.04 mm | held |
-| e-stop at required, ABB category 0 | 35.7 N | 0.41 / 0.81 | 1.92 / +0.04 mm | held |
-| e-stop at setpoint | 44.5 N | 0.33 / 0.72 | 1.91 / +0.03 mm | held |
+| **setpoint** (real path 4.96 m/s²) | 44.5 N | 0.34 / 0.72 (S_eff 1.38) | 2.36 / +0.01 mm | held |
+| e-stop at required, ABB category 0 | 35.7 N | 0.41 / 0.81 | 2.35 / +0.02 mm | held |
+| e-stop at setpoint | 44.5 N | 0.33 / 0.72 | 2.35 / +0.01 mm | held |
 
 **Creep base.** On the via path the part creeps 2.3-2.4 mm along the pads whatever the grip force: 25, 35.7, 44.5,
 48.5 and 100 N per jaw all give the same movement, a finer time step gives more (1 ms 1.72, 0.5 ms 2.38, 0.25 ms
@@ -50,40 +51,44 @@ the pads as the rubber does: before, one pad sat at its friction limit while the
 
 Hand calculation at each instant (`validate_grip.quasi_static`, `friction_check`, `out/friction_check.json`): the
 pads must carry m (a - g) in their plane, with a from the simulated part motion. Median friction use over the
-transfer, quasi-static vs simulated: required 0.428 / 0.429, setpoint 0.344 / 0.345, e-stop 0.332 / 0.332 (within
-0.4 %): the V2 model is validated. Short peaks on the via path: simulation 0.72 ... 0.81 against 0.48 ... 0.60
+transfer, quasi-static vs simulated: required 0.420 / 0.420, setpoint 0.338 / 0.338, e-stop 0.332 / 0.332 (within
+0.1 %): the V2 model is validated. Short peaks on the via path: simulation 0.72 ... 0.81 against 0.47 ... 0.58
 quasi-static; the fast axis 1 turn on the small radius adds dynamics the hand formula does not contain. The setpoint
 covers it (peak 0.72).
 
 ## Enclosure and transfer path (`clearance.py`, `sim.transfer_path`, `sim.TimeLaw`)
 
 Abb. 1: the enclosure is 1200 mm wide (y = ±600) and 2100 mm high. A plain joint swing pick -> place takes the
-forearm 318 mm through the fence. The arm is pulled in to a wrist radius of 400 mm at 1700 mm height, axis 1 turns,
-then it reaches out (spline through the four joint waypoints). Smallest distances along the whole cycle (convex
-hulls, so on the safe side): fence 57 mm, chain 227 mm, carrier / belt 34 mm (jaws at the part while placing /
-picking), pedestal 434 mm. The time law is the fastest with the TCP acceleration (tangential + centripetal) below
-4.96 m/s2 and every axis below its speed: loaded way 1.84 s, empty way back (15 m/s2) 1.47 s, 3.31 of the 4.0 s
-travel budget of the 5 s cycle.
+forearm 318 mm through the fence. One via in the middle of the swing, where the arm points at the fence (axis 1 at
+90°, wrist pulled in to 350 mm at 1700 mm height); axis 1 keeps turning through it while the arm pulls in and
+reaches out again, interpolated shape-preserving (PCHIP, no axis overshoots between the waypoints). Rejected: two
+retracted vias with a cubic spline (axis 5 overshot to 7° from its limit) and with PCHIP (a stop at each via,
+cycle 5.3 s). The time law is the fastest with the TCP acceleration (tangential + centripetal) below 4.96 m/s2
+loaded / 15 m/s2 empty and every axis below 80 % of its speed.
 
-Grip forces per jaw (`gripper_params.py`): required 35.7 N (hand calculation), **setpoint 44.5 N** (real path),
-**current limit 48.5 N** (KHK bevel pair, 0.97 N·m), available 60.5 N (motor, all losses), 63.6 N strength case
-(current limit set wrong). Since 19 Nov: rail size 12, gripper 2.915 kg.
+## E4: the full cycle measured (`e4_cycle.py`, `out/e4_cycle.json`, `out/e4_collision_log.csv`)
 
-- The hand calculation is confirmed: with S = 2 it expects 0.5 at its design acceleration; the simulation gives a
-  median of 0.42 and scales with 1/F as it should (full current 0.23).
-- Without the safety factor the part sits at the friction limit already at rest (weight alone 0.83) and creeps
-  at every acceleration peak: the safety factor is needed.
-- Peaks of 0.85 come from the real path (axis 1 accelerating while the lift ends, 5 m/s²) and from the
-  trapezoidal profile's jumps in acceleration. A real ABB path is jerk-limited, so the peaks are lower.
-- Recommendation for V2: take the path acceleration of the real motion (about 5 m/s²) instead of 2.05 m/s², or set
-  the grip force for it: S · m · (g + a) / (2 μ) = 2 · 0.602 · (9.81 + 4.96) / 0.4 ≈ 44 N per jaw, which the motor
-  gives (63.6 N).
-- Per pad, one pad always shows 1.0 (`util_pad_max`): two pads on a rigid part are statically indeterminate, and
-  the solver locks in an internal shear (one pad pushes up, the other down) that depends on how the jaws closed. It
-  cancels in the net force and does not move the part; it is a property of the rigid model, not a finding.
-- Soft contacts creep a few tenths of a millimetre near the friction limit; part movement below 2 mm is counted as
-  held, a dropped part ends below the carrier.
-- The cycle starts with the jaws 0.3 mm before the part; the closing stroke itself is the next section.
+| Phase | Duration |
+|---|---|
+| close on the belt (two-stage, grip force stands after 0.263 s) | 0.30 s |
+| lift 60 mm (loaded) | 0.22 s |
+| transfer through the via (loaded) | 1.54 s |
+| lower onto the carrier | 0.22 s |
+| open | 0.20 s |
+| lift (empty) | 0.13 s |
+| transfer back (empty) | 1.18 s |
+| lower around the next part | 0.13 s |
+| **cycle** | **3.91 s of 5.0 s** |
+
+Collision log every 10 ms, robot links 2-6 and the gripper against every obstacle (convex hulls, on the safe side):
+no contact anywhere. Closest: fence 96 mm (loaded transfer, at the via), production line 150 mm, chains / carriers
+on the far chain 450 mm, pedestal 434 mm; the 34 mm to belt and carrier are the jaws at the part while picking and
+placing, 64 mm the jaw to the near chain. Axes: smallest margin to a limit 20.3° (axis 5) and 20.6° (axis 1 at the
+place position), speeds at most 80 % of the data sheet (axes 1 and 2 on the empty way back).
+
+![clearance](figures/e4_clearance.png)
+
+![axes](figures/e4_axes.png)
 
 ## Closing time (`closing_time.py`, `out/closing_results.json`, `figures/closing.png`)
 

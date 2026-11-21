@@ -65,11 +65,12 @@ def _(R, mo):
 ## 2. Cycle time
 
 The enclosure is only 1200 mm wide (Abb. 1): a plain joint swing pick → place would take the forearm 318 mm
-through the fence (`04_Simulation/clearance.py`). The arm is pulled in to a wrist radius of {R['transfer']['via_r']:.0f} mm at
-{R['transfer']['via_z']:.0f} mm height, axis 1 turns, then the arm reaches out (≥ 57 mm to the fence). Along this path
-the fastest time law with the TCP acceleration ≤ 4.96 m/s² (what the grip force is sized for) takes
-**{R['transfer']['t_loaded']:.2f} s**; the empty way back {R['transfer']['t_empty']:.2f} s → **{R['transfer']['t_loaded'] + R['transfer']['t_empty']:.2f} s of
-{R['transfer']['t_budget']:.1f} s** travel budget in the 5 s cycle. (Plain MoveJ without the fence: {_c['t_move']:.2f} s.)
+through the fence (`04_Simulation/clearance.py`). One via in the middle of the swing, where the arm points at the
+fence (wrist pulled in to {R['transfer']['via_r']:.0f} mm at {R['transfer']['via_z']:.0f} mm, axis 1 keeps turning): ≥ 96 mm to the fence,
+≥ 20° axis margin. Along this path the fastest time law with the TCP acceleration ≤ 4.96 m/s² (what the grip
+force is sized for) and every axis ≤ 80 % of its speed takes **{R['transfer']['t_loaded']:.2f} s**; the empty way back
+{R['transfer']['t_empty']:.2f} s. With lifting, lowering, closing and opening the measured cycle is **3.91 s of 5 s**
+(`04_Simulation/e4_cycle.py`). (Plain MoveJ without the fence: {_c['t_move']:.2f} s.)
 The robot allows {R['a_tcp_max']:.0f} m/s² at the TCP.
 
 ## 3. Placement

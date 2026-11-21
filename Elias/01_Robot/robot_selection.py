@@ -145,8 +145,9 @@ def main():
               f"stretch {best['stretch'] * 100:.0f} %, MoveJ {best['t_move']:.2f} s")
     import sim as S
     path = S.transfer_path(LIFT)
-    t_loaded = S.TimeLaw(path, S.GP.A_PATH_REAL).T          # TCP acceleration the grip force is sized for
-    t_empty = S.TimeLaw(path, 15.0).T                       # empty way back: robot limits only (here 15 m/s2)
+    v80 = tuple(0.8 * np.array(AXIS_SPEED))                 # axes at most 80 % of the data sheet speed
+    t_loaded = S.TimeLaw(path, S.GP.A_PATH_REAL, vmax_deg=v80).T   # TCP acceleration the grip force is sized for
+    t_empty = S.TimeLaw(path, 15.0, vmax_deg=v80).T                # empty way back (15 m/s2)
     t_budget = 2 * T_WAY
     print(f"transfer through the vias (fence): loaded {t_loaded:.2f} s at {S.GP.A_PATH_REAL} m/s2, empty {t_empty:.2f} s, "
           f"together {t_loaded + t_empty:.2f} of {t_budget:.1f} s")

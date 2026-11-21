@@ -39,33 +39,33 @@ def q_place(lift=0.0):
 
 
 # Transfer through the 1200 mm wide enclosure: a plain joint swing pick -> place takes the forearm 318 mm through
-# the fence (clearance.py). The arm is pulled in to a wrist radius VIA_R at height VIA_Z, axis 1 turns, then the arm
-# reaches out again; found by the via search in clearance.py (>= 100 mm to the fence, >= 90 mm to everything else).
-VIA_R, VIA_Z = 400.0, 1700.0
+# the fence (clearance.py). One via in the middle of the swing, where the arm points at the fence: wrist pulled in
+# to VIA_R at VIA_Z, axis 1 at VIA_A1. Axis 1 keeps turning through it, the arm pulls in and reaches out again on
+# the way (via search 21 Nov: fence >= 96 mm, axis margin >= 20 deg, loaded 1.52 s). Two retracted vias with a stop
+# at each cost 2.5 s, a cubic spline through them overshot axis 5 to 7 deg from its limit.
+VIA_R, VIA_Z, VIA_A1 = 350.0, 1700.0, 90.0
 
 
 def transfer_vias(lift=60.0):
-    """Joint waypoints pick (lifted) -> retracted at pick side -> retracted at place side -> place (lifted), rad."""
+    """Joint waypoints pick (lifted) -> retracted mid-swing -> place (lifted), rad."""
     import math
     q1, _ = q_pick(lift)
     q2, _ = q_place(lift)
-    out = [q1]
-    for a in (math.atan2(-CP.BASE[1], CP.X_PICK - CP.BASE[0]), math.atan2(CP.DY_CHAIN - CP.BASE[1], CP.X_PLACE - CP.BASE[0])):
-        q, bad = CP.ik_tool_down((CP.BASE[0] + VIA_R * math.cos(a), CP.BASE[1] + VIA_R * math.sin(a), VIA_Z))
-        assert not bad, bad
-        out.append(np.radians(q))
-    return out + [q2]
+    a = math.radians(VIA_A1)
+    q, bad = CP.ik_tool_down((CP.BASE[0] + VIA_R * math.cos(a), CP.BASE[1] + VIA_R * math.sin(a), VIA_Z))
+    assert not bad, bad
+    return [q1, np.radians(q), q2]
 
 
 def transfer_path(lift=60.0):
-    """q(u), u in 0 ... 1: cubic spline through the vias, knots spaced by the time each segment needs at the
-    axis speeds, zero slope at both ends (the time law s(t) sets the speed)."""
-    from scipy.interpolate import CubicSpline
+    """q(u), u in 0 ... 1: shape-preserving (PCHIP) interpolation through the vias, knots spaced by the time each
+    segment needs at the axis speeds; no overshoot of any axis between the waypoints."""
+    from scipy.interpolate import PchipInterpolator
     qs = np.array(transfer_vias(lift))
     vmax = np.radians([249.0, 180.0, 247.0, 500.0, 415.0, 720.0])
     seg = [np.max(np.abs(b - a) / vmax) for a, b in zip(qs[:-1], qs[1:])]
     u = np.concatenate([[0.0], np.cumsum(seg)]) / sum(seg)
-    return CubicSpline(u, qs, bc_type="clamped")
+    return PchipInterpolator(u, qs)
 
 
 class TimeLaw:
