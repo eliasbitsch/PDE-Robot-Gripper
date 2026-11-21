@@ -287,6 +287,26 @@ if mode == "anim":
     sc.render.filepath = os.path.join(HERE, "out", "frames", "f_")
     bpy.ops.render.render(animation=True)
     print("anim done")
+elif mode == "views":
+    # setup review before any video: stills from candidate cameras (name, target, direction, distance, lens, f-stop, frame)
+    zp = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) * MM
+    cands = [("1_hero_open", c, (0.85, -1.6, -0.04), 0.98, 85, 5.6, 10),
+             ("2_hero_closing", c, (0.85, -1.6, -0.04), 0.98, 85, 5.6, 75),
+             ("3_low_front", c, (0.15, -1.0, -0.14), 0.95, 70, 5.6, 75),
+             ("4_three_quarter_high", c, (1.0, -1.0, 0.65), 1.05, 70, 5.6, 75),
+             ("5_side", c, (-1.0, -0.12, 0.05), 0.95, 85, 5.6, 75),
+             ("6_top", c, (0.08, -0.35, 1.0), 1.05, 70, 5.6, 75),
+             ("7_jaws_macro", Vector((0, 0, zp)), (0.35, -1.0, 0.12), 0.36, 100, 4.0, 75),
+             ("8_drive_closeup", Vector((-42, -5, 2)) * MM, (-0.9, -1.5, 0.75), 0.47, 85, 6.3, 205)]
+    sc.timeline_markers.clear()      # markers would force CamA / CamB per frame
+    os.makedirs(os.path.join(HERE, "out", "views"), exist_ok=True)
+    for name, tgt, vec, dist, lens, fst, fr in cands:
+        cam = camera("V_" + name, tgt, vec, dist, lens, fst)
+        sc.frame_set(fr)
+        sc.camera = cam
+        sc.render.filepath = os.path.join(HERE, "out", "views", name + ".png")
+        bpy.ops.render.render(write_still=True)
+        print("wrote", sc.render.filepath)
 elif mode == "save":
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, "out", "hero_v1.blend"))
     print("saved")
