@@ -119,8 +119,8 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 
 2. **D11 drive electronics (chosen 15 Nov 2026, to be confirmed against the CL4-E manual):**
    - Gripper: ST4118S1404-B with long B shaft, BRAKE-BKE-0,4-5,0 on a 3 mm adapter plate, NME2 incremental encoder (5 V)
-     on its own bracket 1 mm behind the brake's turning armature; body 200 mm (192 mm with the BWA). Open with
-     Nanotec: BKE on the ST4118 rear face (hole circle d33.5 vs the BWA's d30.5), rear shaft length, zero backlash.
+     on its own bracket 1 mm behind the brake's turning armature; body 200 mm (192 mm with the BWA). Assumed
+     (virtual design, datasheet gaps): adapter plate for the d33.5 hole circle, rear shaft long enough, zero backlash.
    - Cabinet: **Nanotec CL4-E-1-12** (12-58 V, 3 A rated / 6 A peak, encoder input, brake output, 4 DI / 2 DO,
      CANopen / Modbus RTU / USB, programmable in NanoJ). Supply 24 V, so the brake runs from the same rail.
    - Robot interface over plain 24 V I/O (no fieldbus option needed on the OmniCore): DI "close", DI "open" to the

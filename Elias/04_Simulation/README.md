@@ -211,7 +211,7 @@ to 1.4° (S 1) would be needed, and the datasheet does not guarantee it. Hence s
 brake BRAKE-BKE-0,4-5,0**: its armature hangs on a diaphragm spring and its hub is clamped to the shaft by grub
 screws, so there is no hex play. The whole 44.5 N stays. It holds 0.4 N·m (2.83 N·m at the pinion, 141 N per jaw)
 and engages within ≤ 10 ms (the larger of the two switching times on the sheet). The datasheet lists the backlash
-as "n.a."; zero play is the design principle **[confirm with Nanotec]**. The stiffness left out (carriage tilt,
+as "n.a."; zero play is the design principle and taken as an assumption. The stiffness left out (carriage tilt,
 gear meshes, gearbox torsion) only adds stored travel, so these numbers are conservative.
 
 ![brake play](figures/brake_play.png)
