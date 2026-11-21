@@ -25,6 +25,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import drive as DRV  # noqa: E402
 import sim as S  # noqa: E402
+sys.path.insert(0, os.path.join(HERE, "..", "05_FEM"))
+import tilt_check as TC  # noqa: E402
 
 GP = S.GP
 F_SET = GP.F_GRIP_SET
@@ -32,22 +34,16 @@ F_HOLD = GP.B_MASSE * GP.G / (GP.N_BACKEN * GP.MU_OILY)       # per jaw against 
 R_P = GP.PINION_D / 2                                         # mm
 
 U_TRAIN_LC1 = 29.2                 # µm at the pad centre, FEM LC1 (44.5 N), carriage rigid (05_FEM/README.md)
-NBR_E = (4.5, 5.5, 8.0)            # MPa, NBR 70 Shore A: Gent from the hardness gives 5.5; 8 = stiff end (worst here)
-NBR_T = GP.PAD_T
-_gw, _gd, _gp = GP.PAD_GROOVE
-PAD_W, PAD_H = GP.PAD_W - 1.2, GP.PAD_Z[1] - GP.PAD_Z[0] - 1.2
-PAD_A = PAD_W * PAD_H * (1 - _gw / _gp)                       # mm2 without the grooves
-_strip = _gp - _gw
-SHAPE = _strip * PAD_H / (2 * (_strip + PAD_H) * NBR_T)       # shape factor of one strip between two grooves
+NBR_E = TC.NBR_E                   # MPa, NBR 70 Shore A: Gent from the hardness gives 5.5; 8 = stiff end (worst here)
 SHAFT_D, SHAFT_L, G_STEEL = 8.0, GP.DRIVE_Z - 12.2 + 6.0, 81000.0   # pinion shaft from the bevel contact to the teeth
 
 PLAY_MOTOR_DEG = {"BWA-0,35-5 (spring-applied, hex hub, until 21 Nov)": 2.0, "BKE-0,4-5,0 (permanent magnet, built)": 0.0}
 
 
 def chain_um_per_n(e_nbr):
-    """Compliance per jaw at the pad [µm/N]: jaw train + NBR pad + pinion shaft torsion (in series)."""
-    ec = e_nbr * (1 + 2 * 0.57 * SHAPE ** 2)                  # bonded layer, Gent / Lindley, k = 0.57 for 70 Shore A
-    c_pad = NBR_T / (PAD_A * ec) * 1000
+    """Compliance per jaw at the pad [µm/N]: jaw train + NBR pad (bonded ribs on a bonded base, tilt_check.py) +
+    pinion shaft torsion, in series."""
+    c_pad = TC.pad_compression_um(1.0, e_nbr)
     c_train = U_TRAIN_LC1 / 44.5
     j = math.pi * SHAFT_D ** 4 / 32
     c_shaft = (2 * R_P) * R_P * SHAFT_L / (G_STEEL * j) * 1000   # one pinion carries both jaws: T = 2 F r
@@ -73,7 +69,7 @@ def opening_time(e_nbr, f0=F_SET):
 
 
 def main():
-    res = dict(f_set=F_SET, f_hold=F_HOLD, pad_area=PAD_A, shape_factor=SHAPE, cases={})
+    res = dict(f_set=F_SET, f_hold=F_HOLD, cases={})
     print(f"setpoint {F_SET:.1f} N per jaw; the part needs {F_HOLD:.1f} N per jaw against its weight (mu {GP.MU_OILY}, S 1)")
     for e in NBR_E:
         c, parts = chain_um_per_n(e)

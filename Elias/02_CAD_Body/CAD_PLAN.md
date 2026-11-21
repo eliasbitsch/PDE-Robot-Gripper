@@ -129,13 +129,13 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
    - Cable: one shielded robot-rated hybrid cable (motor 4 + encoder 6 + brake 2 cores, about 8-9 mm), fits the
      existing SKINTOP M16 (clamping range 4.5-10 mm).
    - **Power failure (19 Nov 2026, revised 21 Nov, review 1.10):** the brake alone does not keep the part. Without
-     current the elastic preload opens the jaws within 2.3 ... 2.5 ms (chain stiffness from FEM, pad and shaft
+     current the elastic preload opens the jaws within 2.0 ... 2.1 ms (chain stiffness from FEM, pad and shaft
      against the reflected inertia, `04_Simulation/brake_play.py`; MuJoCo gives the same, `power_fail.py`), long
      before any brake engages. Hence a 24 V buffer module **PULS UF20.241** (≥ 200 ms at 20 A, > 1 s at the ≈ 2 A of
      controller + motor + brake) in front of the CL4-E and a brake-first shutdown. The gripper 24 V is a separate,
      non-e-stop-switched supply (the e-stop stops the robot, it must not open the jaws).
-   - **Brake play:** the BWA's hex hub has up to 2° play at the motor = 49 µm per jaw, against 52 ... 63 µm stored
-     elastically at 44.5 N: 2 ... 10 N would be left, the part (14.8 N) drops even with brake-first. Changed to the
+   - **Brake play:** the BWA's hex hub has up to 2° play at the motor = 49 µm per jaw, against 40 ... 42 µm stored
+     elastically at 44.5 N: nothing would be left, the part (14.8 N) drops even with brake-first. Changed to the
      **permanent-magnet brake BRAKE-BKE-0,4-5,0** (diaphragm-spring armature, hub clamped, no play; 0.4 N·m; engages
      ≤ 10 ms): the full 44.5 N stays. The brake output must give the full 24 V (+6 / -10 %); no PWM holding-voltage
      reduction, since a PM brake starts to grip again at reduced voltage.

@@ -214,16 +214,16 @@ stepper's detent torque is left (6 mN·m → 1.9 N per jaw), until the brake loc
 The part needs 14.8 N per jaw against its weight. Without current the elastic preload of pads, jaws and slides opens
 the jaws within about 2 ms. This does not hang on MuJoCo's contact stiffness (solref 0.002, not calibrated):
 `brake_play.py` takes the chain stiffness from the FEM (LC1, 29.2 µm), the NBR pad (bonded layer, E 4.5 ... 8 MPa)
-and the pinion shaft torsion (51.8 ... 63.0 µm stored per jaw), and the reflected drive inertia (3.2 kg). The
-quarter period is **2.3 ... 2.5 ms**. No brake engages that fast, so the controller must keep the motor powered
+and the pinion shaft torsion (40.1 ... 42.2 µm stored per jaw; pad as bonded layer, `05_FEM/tilt_check.py`), and the
+reflected drive inertia (3.2 kg). The quarter period is **2.0 ... 2.1 ms**. No brake engages that fast, so the controller must keep the motor powered
 until the brake has closed: a 24 V buffer module and a brake-first shutdown (D11 in `02_CAD_Body/CAD_PLAN.md`).
 
 **Brake play (review 1.10, 21 Nov).** The brake sits on the motor's rear shaft. The spring-applied
 BRAKE-BWA-0,35-5 drives its friction disc through a hex hub with up to 2° play (datasheet). While the jaws grip, the
 hub rests on the closing-side flank. Once the brake has closed and the current goes off, the preload turns the shaft
-back through the play, and each jaw opens by 2° / 7.07 × 10 mm = **49 µm**. With 52 ... 63 µm stored, only
-**2 ... 10 N per jaw are left: the part drops even with the brake-first shutdown**. A play of at most 1.05° (S 1.5)
-to 1.4° (S 1) would be needed, and the datasheet does not guarantee it. Hence since 21 Nov the **permanent-magnet
+back through the play, and each jaw opens by 2° / 7.07 × 10 mm = **49 µm**. With 40 ... 42 µm stored, **nothing
+is left: the part drops even with the brake-first shutdown**. A play of at most 0.8° (S 1.5) to 1.1° (S 1) would be
+needed, and the datasheet does not guarantee it. Hence since 21 Nov the **permanent-magnet
 brake BRAKE-BKE-0,4-5,0**: its armature hangs on a diaphragm spring and its hub is clamped to the shaft by grub
 screws, so there is no hex play. The whole 44.5 N stays. It holds 0.4 N·m (2.83 N·m at the pinion, 141 N per jaw)
 and engages within ≤ 10 ms (the larger of the two switching times on the sheet). The datasheet lists the backlash

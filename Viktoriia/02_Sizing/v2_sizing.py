@@ -189,15 +189,24 @@ def _(F_max, F_req, F_set, P, mo):
     _h = P.PAD_Z[1] - P.PAD_Z[0] - 0.2 - 1.0  # 19.8 mm
     _gw, _gd, _gp = P.PAD_GROOVE
     A_pad = _w * _h * (1 - _gw / _gp)         # mm², grooves 1.5 mm wide every 4 mm carry nothing
-    E_nbr = 5.0                               # MPa, NBR 70 Shore A (same value as cad/params.py)
-    t_nbr = 3.0                               # mm
+    E_nbr = 5.5                               # MPa, NBR 70 Shore A (Gent from the hardness)
+    def _ec(t, a, b):                         # bonded layer: E_c = E (1 + 2 k S²), k = 0.57, capped by K = 2000 MPa
+        _S = a * b / (2 * (a + b) * t)
+        return 1 / (1 / (E_nbr * (1 + 2 * 0.57 * _S**2)) + 1 / 2000.0), _S
+    _ec_rib, _S_rib = _ec(_gd, _gp - _gw, _h)              # 1 mm ribs between the grooves
+    _ec_base, _S_base = _ec(3.0 - _gd, _w, _h)             # 2 mm continuous base on the plate
+    def _comp(F):                                          # µm
+        return (F / A_pad * _gd / _ec_rib + F / (_w * _h) * (3.0 - _gd) / _ec_base) * 1000
     sigma_pa6 = 70.0                          # MPa, PA 6 yield 60-80 MPa (Röchling / Ensinger data sheets)
     _rows = ""
     for _lbl, _F in (("regular", F_req), ("setpoint", F_set), ("full current", F_max)):
         _p = _F / A_pad
-        _rows += f"| {_lbl} | {_F:.1f} N | {_p:.3f} MPa | {sigma_pa6/_p:.0f} | {_p/E_nbr*t_nbr*1000:.0f} µm |\n"
+        _rows += f"| {_lbl} | {_F:.1f} N | {_p:.3f} MPa | {sigma_pa6/_p:.0f} | {_comp(_F):.1f} µm |\n"
     mo.md(f"""
     Pad area $A$ = {_w:.1f} × {_h:.1f} mm × (1 − {_gw}/{_gp}) = {A_pad:.0f} mm² (V3 pad, grooves taken off)
+
+    NBR compression as a bonded layer (review 1.12): ribs shape factor {_S_rib:.2f} → $E_c$ = {_ec_rib:.0f} MPa,
+    base {_S_base:.2f} → {_ec_base:.0f} MPa. With E alone (free block) it would be 4 to 7 times more.
 
     | Load | F | p = F/A | safety vs. PA 6 yield ({sigma_pa6:.0f} MPa) | NBR compression |
     |---|---|---|---|---|
@@ -658,14 +667,14 @@ def _(F_max, F_req, F_set, P, mo, r_p):
 
     Fail-safe: no current, brake closed - **but only if the preload is still there when it closes.**
     The detent torque (6 mN·m) holds just ≈ 1.9 N per jaw, the part needs 14.8 N per jaw against its own weight.
-    Without current the elastic preload of pads, jaws and slides pushes the jaws open within ≈ 2.3 ... 2.5 ms
+    Without current the elastic preload of pads, jaws and slides pushes the jaws open within ≈ 2.0 ... 2.1 ms
     (stiffness from FEM, pad and shaft against the reflected inertia, `Elias/04_Simulation/brake_play.py`; MuJoCo
     `power_fail.py` gives the same), whatever the brake does afterwards. Remedy (D11): a 24 V buffer module
     (PULS UF20.241, ≥ 200 ms at 20 A) keeps the controller and motor powered; on undervoltage the controller closes
     the brake, waits 50 ms, then switches the motor off. The gripper supply is not cut by the e-stop.
 
-    **Brake play decides it.** The force is stored in only 52 ... 63 µm of elastic travel per jaw. The BWA's hex hub
-    had up to 2° play at the motor = 49 µm per jaw: after brake-first only 2 ... 10 N would be left, the part drops.
+    **Brake play decides it.** The force is stored in only 40 ... 42 µm of elastic travel per jaw. The BWA's hex hub
+    had up to 2° play at the motor = 49 µm per jaw: after brake-first nothing would be left, the part drops.
     The BKE has a diaphragm-spring armature and a clamped hub, no play → the full setpoint stays. Single faults that
     cut the motor current at once (motor cable, power stage trip) still drop the part inside the guarded cell; see
     the table in `Elias/04_Simulation/README.md`.
@@ -768,7 +777,7 @@ def _(F_max, F_req, F_set, P, S0_cases, mo, s0_608):
     | 6 | Ball rail size 12, tilting (hanging) | S0 = {S0_cases['setpoint']:.1f} (setpoint) / {S0_cases['full current + E-stop']:.1f} (full current + e-stop) ✓ ≥ 5, because the cover catches a failed slide 2 mm lower (otherwise Rexroth asks ≥ 12, § 6a) |
     | 7 | Bearings 608-2Z, spiral bevel forces | s0 = {s0_608['setpoint']:.1f} (setpoint) / {s0_608['full current']:.1f} (full current) ✓ (SKF ≥ 2) |
     | 8 | Gearbox shaft load, spiral bevel forces | ≤ 46 % of 305 N ✓ |
-    | 9 | Brake on power failure | BKE without play: holds ≈ 141 N per jaw, the full setpoint stays after brake-first ✓ (BWA play would have left 2 ... 10 N); motor-circuit single faults = residual risk |
+    | 9 | Brake on power failure | BKE without play: holds ≈ 141 N per jaw, the full setpoint stays after brake-first ✓ (BWA play would have left nothing); motor-circuit single faults = residual risk |
     | 10 | Motor | margin ≈ 1.7 (regular) / 1.4 (setpoint) ✓, max ≈ 60 N with all efficiencies = current limit; two-stage close against the impact |
 
     Envelope for all part checks: {F_max:.1f} N (full motor current).

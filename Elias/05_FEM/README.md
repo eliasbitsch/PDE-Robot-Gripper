@@ -56,8 +56,9 @@ so holder and slide see their real loads. When V3 arrives only `export_train.py`
 holder - jaw bonded (preloaded screws and dowels), load as uniform traction on the pad area. EN AW-6082 T6 for
 slide and holder (Rp0.2 250 MPa), EN AW-7075 T6 for the mock jaw (460 MPa).
 
-**Acceptance.** von Mises below Rp0.2 / S per load case (125 MPa for 6082 at S 2); pad tilt ≤ 0.1° in LC2 so the
-pads stay flat on the part (the deflection at the pad centre is reported but not governing); fatigue: LC1 is a
+**Acceptance.** von Mises below Rp0.2 / S per load case (125 MPa for 6082 at S 2); pad tilt: the grip must
+keep its safety against slip with the pressure wedge the tilt causes (`tilt_check.py`, review 1.12; the former fixed
+0.1° was not derived); fatigue: LC1 is a
 pulsating load at about 3 million cycles a year, stress amplitude ≤ 45 MPa in 6082.
 
 **Model since 19 Nov 2026.** Jaw = Viktoriia's V3 (`v3_import.py` builds `train_v3.step` and `jaw_v3.step` from
@@ -81,9 +82,25 @@ the pad is 80.8 x 19.8 mm instead of 21.8 x 33.8 mm, low on the flat zone betwee
 | LC5 brake limit | 92.9 | 0.131 | 30.5 / 8.2 | 34.3 / 7.3 | 18.3 / 25.1 |
 
 - Strength is far from critical: S ≥ 7.3 everywhere, also at the brake limit.
-- Stiffness drives the design: LC2 tilt 0.059° against 0.1° (0.091° with the old jaw: the shorter lever helps more
-  than the heavier plate costs). The carriage is still rigid in the model; its own tilting stiffness (Rexroth
-  catalogue) is the next thing to add.
+- Stiffness: LC2 tilt 0.059° with the carriage rigid (0.091° with the old jaw: the shorter lever helps more than the
+  heavier plate costs).
+
+**Tilt with the carriage and the real pad (`tilt_check.py`, `out/tilt_check.json`, review 1.12).**
+- Carriage pitch from the Rexroth stiffness chart (R999001206 p. 13, long carriage size 12, lifting load ≈ 6.5 µm at
+  500 N, the soft end) over the effective ball-row length 6 M_L0 / C0 = 31 mm, lever pad centre → rack mesh 65 mm:
+  0.60 mdeg per N. Total tilt **0.068° at the setpoint, 0.097° full current, 0.100° e-stop** (FEM + carriage).
+- The NBR pad is a bonded layer, not a free block: 1 mm ribs between the oil grooves (shape factor 1.1,
+  E_c ≈ 13 MPa) on a 2 mm base (shape factor 4.0, E_c ≈ 99 MPa), E = 4.5 ... 8 MPa for 70 Shore A. It compresses
+  only **2.7 ... 4.8 µm** at 44.5 N, not 10 ... 19 µm as with E alone.
+- Full contact would need tilt ≤ 2 × compression / pad height = 0.016 ... 0.028°. So already at the setpoint the
+  lower pad edge lifts and the pad bears on the top 9.6 ... 12.7 of 19.8 mm, as a pressure wedge (peak ≈ 0.1 MPa,
+  nothing for PA 6). Since tilt and force grow together, the wedge has the same shape at every grip force.
+- What it costs: friction does not care about the area, but the pressure centre moves up, away from the part's
+  centre of mass (10.5 mm under the pad centre), and the twist lever grows. grip_check's limit surface with the
+  wedge: safety at the setpoint on the path 2.48 → **2.30** (required 2), e-stop horizontal 1.38 → **1.22**,
+  vertical 1.10 (no twist, unchanged) - all ✓. **The tilt is acceptable; a fixed tilt limit is not needed.**
+- The old 0.1° would have been exceeded in the e-stop once the carriage counts (0.100°), and was not meaningful:
+  even the setpoint tilt lifts the pad edge.
 
 **Mesh convergence** (`convergence.py`, LC2, down to 1.2 mm = 199k elements, `figures/convergence_train.png`):
 strain energy, pad tilt and pad deflection change by 0.60 / 0.53 / 0.20 % in the last refinement (converged:

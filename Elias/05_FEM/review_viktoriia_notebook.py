@@ -220,7 +220,7 @@ def _(HERE, P, fem_train, mo, os, v2):
 |---|---|---|---|
 | carriage pitch moment M_y, full current | {_My_v:.2f} N·m | {_My_f:.2f} N·m | {(_My_f / _My_v - 1) * 100:+.1f} % |
 | carriage yaw moment M_z, full current | {_Mz_v:.2f} N·m | {_Mz_f:.2f} N·m | {(_Mz_f / _Mz_v - 1) * 100:+.1f} % |
-| pad tilt, full current | - | {(_lc2['tilt_deg'] if _lc2 else _nan):.3f}° (limit 0.1°) | - |
+| pad tilt, full current | - | {(_lc2['tilt_deg'] if _lc2 else _nan):.3f}° (+ carriage, see tilt_check.py) | - |
 
 Static safety S0 (Rexroth R999001206 p. 9: 3-5 all loads known, **5-8 normal design**, ≥ 12 overhead / high hazard):
 

@@ -22,10 +22,14 @@ import gripper_params as P  # noqa: E402
 COG_Z_PART = -4.5            # mm, part B centre of mass in its STEP frame (mesh centroid, homogeneous PA 6)
 
 
-def limit_hull(w, h, n=30):
-    """Friction wrench (fy, fz, t) at slip for mu N = 1 on a w x h pad [m], over many instantaneous centres."""
+def limit_hull(w, h, n=30, c=None):
+    """Friction wrench (fy, fz, t) at slip for mu N = 1 on a w x h pad [m], over many instantaneous centres.
+    c: tilted jaw, pressure falls linearly from the top edge to zero at depth c [m] (tilt_check.py); None = uniform."""
     ys, zs = np.meshgrid(np.linspace(-w / 2, w / 2, n), np.linspace(-h / 2, h / 2, n))
     pts_pad = np.c_[ys.ravel(), zs.ravel()]
+    if c is not None:
+        p = np.clip(1.0 - (h / 2 - pts_pad[:, 1]) / c, 0.0, None)
+        pts_pad = np.repeat(pts_pad[p > 0], np.maximum(1, np.round(p[p > 0] * 20).astype(int)), axis=0)
     out = [[np.cos(a), np.sin(a), 0.0] for a in np.linspace(0, 2 * np.pi, 72, endpoint=False)]   # pure sliding
     for r in np.geomspace(1e-4, 50, 60):
         for a in np.linspace(0, 2 * np.pi, 72, endpoint=False):

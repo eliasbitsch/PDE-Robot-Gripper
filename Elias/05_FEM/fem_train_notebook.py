@@ -41,7 +41,7 @@ def _(L, mo):
     {L.table()}
 
     Emergency stop deceleration {L.A_STOP} m/s² is an assumption until V2 delivers the value.
-    Criteria: von Mises below Rp0.2 / S, pad tilt in LC2 ≤ {L.TILT_MAX}°.
+    Criteria: von Mises below Rp0.2 / S; pad tilt: grip safety with the pressure wedge (`tilt_check.py`), the old {L.TILT_MAX}° line is for reference only.
     """)
     return
 
@@ -101,7 +101,7 @@ def _(L, np, plt, res):
     ax1.grid(alpha=0.3, axis="y")
     if "tilt_deg" in res["cases"][0]:
         ax2.bar(x, [abs(c["tilt_deg"]) for c in res["cases"]], color="#0f766e")
-        ax2.axhline(L.TILT_MAX, color="#C2410C", ls="--", label=f"limit {L.TILT_MAX}° (LC2)")
+        ax2.axhline(L.TILT_MAX, color="#C2410C", ls="--", label=f"former limit {L.TILT_MAX}° (reference)")
         ax2.set_ylabel("pad tilt [°]")
         ax2.legend(frameon=False, fontsize=8)
     ax2.set_xticks(x, cases)
