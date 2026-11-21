@@ -453,6 +453,7 @@ def _(F_max, F_req, F_set, P, a_path, a_stop, g, m, mo):
     _rows = ""
     S0_cases = {}
     for _lbl, _F, _a, _as in (("regular", F_req, g + a_path, 0.0), ("setpoint", F_set, g + a_path, 0.0),
+                              ("setpoint +5 % (calibrated) + E-stop", 1.05 * F_set, g, a_stop),
                               ("full current + E-stop", F_max, g, a_stop)):
         _My, _Mz, _Mx, _Fc, _S0 = guide(_F, _a, _as)
         S0_cases[_lbl] = _S0
@@ -469,12 +470,79 @@ def _(F_max, F_req, F_set, P, a_path, a_stop, g, m, mo):
 
     The pitch moment of the jaw still dominates, but the size 12 carriage (ML0 {ML0/1000:.1f} instead of 14 N·m) and the
     shorter T-shaped jaw give **S0 = {S0_cases['setpoint']:.1f} at the setpoint and {S0_cases['full current + E-stop']:.1f} in the
-    worst case** (full current plus the sideways e-stop load). But Rexroth asks
-    **S0 ≥ 12 for overhead hanging arrangements with a hazard potential** (R999001206, p. 9), and our
-    carriages hang under the plate. **[open, with Elias]** whether that row applies here: the load on the carriage is
-    almost only moment, the part is not hanging on the carriage itself.
+    worst case** (full current plus the sideways e-stop load). Which S0 is required: see § 6a.
     """)
-    return (S0_cases,)
+    return C0, ML0, MT0, S0_cases, dy_rail, dz_carr, dz_tilt, dy_rack
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ### 6a. Required S0 - the carriages hang under the plate
+
+    Rexroth table (R999001206, p. 9, "Statischer Tragsicherheitsfaktor S0"):
+
+    | Conditions of use | S0 |
+    |---|---|
+    | overhead hanging arrangements or applications with a high hazard potential | ≥ 12 |
+    | high dynamic load at standstill, contamination | 8 - 12 |
+    | normal design of machines, not all load parameters or connection accuracies fully known | 5 - 8 |
+    | all load data fully known, running free of shocks | 3 - 5 |
+
+    Our carriages hang under the base plate, so the weight of slide, jaw and part pulls them off the rail. By the
+    wording, the first row applies, and **S0 = 5.7 ... 8.4 does not meet 12.** The row exists because in a hanging
+    arrangement a damaged carriage lets the load fall. Two ways out:
+
+    1. **Make sure nothing can fall** (catch), then design with the rows below. In our housing the slide hangs
+       **2 mm above the bottom cover** and is wider than the slot the holder reaches through. If a carriage loses
+       its balls, the slide drops 2 mm and rests on the cover (≈ 2800 ... 3300 mm² on solid cover, closed and open,
+       checked in the CAD: `build.py`, "carriage lost"). The rack drops with it and stays ≈ 7 of its 10 mm in mesh
+       with the pinion, so the jaw keeps its position and the gripper can still be opened. Nothing falls out of the
+       gripper; the hazard behind the ≥ 12 row is gone.
+    2. **A bigger carriage** that reaches 12 (table below) - the housing grows in Y and X.
+
+    It also helps to look at where F_comb comes from: the part that really *hangs* on the carriage (slide, holder,
+    jaw, half the part, ≈ 10 N) gives S0 ≈ 500 alone. S0 = 5.7 ... 8.4 comes from the grip-force moment, which is a
+    force *inside* the gripper. Exceeding C0 means permanent dents in the raceway (DIN 636: 0.0001 × ball
+    diameter), i.e. rougher running - not a carriage that comes off.
+    """)
+    return
+
+
+@app.cell
+def _(F_max, F_set, P, a_path, a_stop, dy_rack, dy_rail, dz_carr, dz_tilt, g, m, mo):
+    _opts = {   # name: C0 [N], Mt0, ML0 [N·m], extra height [mm] (R999001206 p. 19 / 25)
+        "SLS 12 (built)": (P.CARRIAGE_C0, P.CARRIAGE_MT0, P.CARRIAGE_ML0, 0.0),
+        "BLS 12 (wide, long, 40 mm wide, 59.5 long)": (8250.0, 97.7, 54.6, 1.0),
+        "SLS 15 (32 mm wide, 60.8 long, rail 15)": (10170.0, 75.3, 67.1, 3.0),
+    }
+    _cases = (("setpoint", F_set, g + a_path, 0.0), ("setpoint +5 % + E-stop", 1.05 * F_set, g, a_stop),
+              ("full current + E-stop", F_max, g, a_stop))
+    _rows = ""
+    for _n, (_C0, _Mt0, _ML0, _dh) in _opts.items():
+        _s = []
+        for _lbl, _F, _a, _as in _cases:
+            _Fz, _Fy = m * _a / 2, m * _as / 2
+            _Fc = (_Fy + _Fz + _C0 * (_Fz * dy_rail + _Fy * (dz_carr + _dh)) / (_Mt0 * 1000)
+                   + _C0 * _F * (dz_tilt + _dh) / (_ML0 * 1000) + _C0 * _F * dy_rack / (_ML0 * 1000))
+            _s.append(_C0 / _Fc)
+        _rows += f"| {_n} | " + " | ".join(f"{v:.1f} {'✓' if v >= 12 else ''}" for v in _s) + " |\n"
+    mo.md(f"""
+    | Carriage | S0 setpoint | S0 setpoint +5 % + E-stop | S0 full current + E-stop |
+    |---|---|---|---|
+    {_rows}
+
+    Only the SLS 15 meets 12 in every case; the wide BLS 12 misses it in the double-fault case (current limit lost
+    *and* e-stop at the same moment). Both need 12 ... 13 mm more carriage length per jaw and a wider housing.
+
+    **Chosen (21 Nov): way 1 - SLS 12 with the cover as catch.** With the catch, the "normal design"
+    row (5 - 8) applies, not "all load data known" (3 - 5), because of the e-stop shocks. The realistic worst case
+    (calibrated setpoint at its upper end plus e-stop) gives S0 ≈ 7.5 ✓, the double fault 5.7 ✓ (≥ 5). The 2 mm gap
+    between slide and cover becomes a design feature: it must stay ≤ the rack's mesh reserve and is checked in every
+    CAD build.
+    """)
+    return
+
 
 
 @app.cell
@@ -686,7 +754,7 @@ def _(F_max, F_req, F_set, P, S0_cases, mo, s0_608):
     | 3 | Surface pressure | < 0.1 MPa ✓ not critical |
     | 4 | Rack and pinion, root + flank | ✓ large reserves |
     | 5 | Bevel pair KHK SMSG1.5-20 (spiral, hardened) | $K_A T$ ≤ 34 % (setpoint) / 48 % (full current) of the catalogue flank rating ✓ |
-    | 6 | Ball rail size 12, tilting | S0 = {S0_cases['setpoint']:.1f} (setpoint) / {S0_cases['full current + E-stop']:.1f} (full current + e-stop) - **open: Rexroth S0 ≥ 12 for overhead arrangements?** |
+    | 6 | Ball rail size 12, tilting (hanging) | S0 = {S0_cases['setpoint']:.1f} (setpoint) / {S0_cases['full current + E-stop']:.1f} (full current + e-stop) ✓ ≥ 5, because the cover catches a failed slide 2 mm lower (otherwise Rexroth asks ≥ 12, § 6a) |
     | 7 | Bearings 608-2Z, spiral bevel forces | s0 = {s0_608['setpoint']:.1f} (setpoint) / {s0_608['full current']:.1f} (full current) ✓ (SKF ≥ 2) |
     | 8 | Gearbox shaft load, spiral bevel forces | ≤ 46 % of 305 N ✓ |
     | 9 | Brake on power failure | holds ≈ 124 N per jaw ✓ |

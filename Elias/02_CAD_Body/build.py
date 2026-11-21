@@ -424,6 +424,26 @@ def interference(shapes):
     return hits
 
 
+def carriage_loss_check(parts, theta0):
+    """Carriage lost (overhead arrangement, review 1.9): the hanging slide drops onto the cover, which catches it, and
+    the rack stays in mesh. Returns per side and position: drop [mm], slide area on solid cover [mm2], mesh overlap [mm]."""
+    res = {}
+    for label, d in (("closed", 0.0), ("open", P.D_OPEN)):
+        shapes = at(parts, d, theta0)
+        cov = shapes["Cover"]
+        band = Part.makeBox(400, 200, 0.5, V(-200, -100, cov.BoundBox.ZMax - 0.5))
+        top = cov.common(band)
+        for tag in ("L", "R"):
+            sl, rk = shapes[f"Slide_{tag}"], shapes[f"Rack_{tag}"]
+            drop = sl.BoundBox.ZMin - cov.BoundBox.ZMax
+            foot = sl.common(Part.makeBox(400, 200, 0.5, V(-200, -100, sl.BoundBox.ZMin)))
+            foot.translate(V(0, 0, -drop - 0.5))
+            area = foot.common(top).Volume / 0.5
+            mesh = min(rk.BoundBox.ZMax - drop, P.PINION_Z0 + P.PINION_B) - max(rk.BoundBox.ZMin - drop, P.PINION_Z0)
+            res[f"{tag} {label}"] = (round(drop, 2), round(area), round(mesh, 2))
+    return res
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     doc = App.newDocument("Gripper")
@@ -451,6 +471,10 @@ def main():
     thin = wall_check(parts)
     report["thin_walls"] = thin
     print(f"wall check (min {P.WALL_MIN} mm around holes): {thin or 'ok'}")
+    lost = carriage_loss_check(parts, theta0)
+    report["carriage_loss"] = lost
+    print("carriage lost (slide drops onto the cover): " + ", ".join(
+        f"{k}: drop {v[0]} mm, {v[1]} mm2 on the cover, rack still {v[2]} mm in mesh" for k, v in lost.items()))
 
     seq_hits, n = [], 0
     t = 0.0
