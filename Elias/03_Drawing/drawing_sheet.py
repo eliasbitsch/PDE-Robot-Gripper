@@ -22,6 +22,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 CAD = os.path.join(HERE, "..", "02_CAD_Body")
 sys.path.insert(0, CAD)
+sys.path.insert(0, HERE)
 import gripper_params as P  # noqa: E402
 
 W, H = 420.0, 297.0
@@ -31,8 +32,8 @@ PT = 72 / 25.4                                     # points per mm
 FONT = "DejaVu Sans"
 DATE = "2026-11-21"
 DRAWING_NO = "PDE-G10-E3-001"
-TITLE = "Robot gripper for part B"
-SUBTITLE = "Assembly, electric drive (rack and pinion)"
+TITLE = "Robotergreifer für Bauteil B"
+SUBTITLE = "Baugruppe, elektrischer Antrieb (Zahnstange/Ritzel)"
 AUTHORS = ("E. Bitsch", "V. Ovdiienko")
 
 V = json.load(open(os.path.join(HERE, "out", "views.json")))
@@ -81,7 +82,10 @@ def to2d(view, p):
 
 
 class Sheet:
-    def __init__(self, title_suffix=""):
+    def __init__(self, title=f"{TITLE} - {SUBTITLE}", number=DRAWING_NO, size=(W, H)):
+        self.title, self.number = title, number
+        global W, H
+        W, H = size
         self.fig = plt.figure(figsize=(W / 25.4, H / 25.4))
         self.ax = self.fig.add_axes([0, 0, 1, 1])
         self.ax.set_xlim(0, W)
@@ -103,7 +107,7 @@ class Sheet:
                 self.line([x, x], [10, 15], 0.35)
             self.line([x, x], [H - 15, H - 10], 0.35)
 
-    def title_block(self, sheet, of, scale="1:2", doc_type="Assembly drawing"):
+    def title_block(self, sheet, of, scale="1:2", doc_type="Baugruppenzeichnung"):
         x0, y0, w, h = W - 10 - 180, 10, 180, 40
         ax = self.ax
         ax.add_patch(Rectangle((x0, y0), w, h, fill=False, lw=mm(0.7)))
@@ -114,19 +118,19 @@ class Sheet:
             self.line([x, x], [y0, y0 + 30], 0.35)
         f = lambda x, y, lab, val, sv=3.5: (self.text(x + 1.5, y + 6.6, lab, 1.8, color="0.3"),
                                             self.text(x + 1.5, y + 1.8, val, sv))
-        f(x0, y0 + 30, "Title", f"{TITLE} - {SUBTITLE}", 3.2)
-        f(x0, y0 + 20, "Created by", AUTHORS[0])
-        f(x0 + 45, y0 + 20, "Co-author", AUTHORS[1])
-        f(x0 + 90, y0 + 20, "Document type", doc_type)
-        f(x0 + 135, y0 + 20, "Group / course", "Group 10, PDE MRE WS26")
-        f(x0, y0 + 10, "Drawing number", DRAWING_NO)
-        f(x0 + 45, y0 + 10, "Date / rev.", f"{DATE}  A")
-        f(x0 + 90, y0 + 10, "Scale / projection", f"{scale}   first angle")
-        f(x0 + 135, y0 + 10, "Sheet", f"{sheet} / {of}")
-        f(x0, y0, "General tolerances", "ISO 2768-mK")
-        f(x0 + 45, y0, "Surfaces", "ISO 21920, Ra 3.2 unless noted")
-        f(x0 + 90, y0, "Edges", "ISO 13715, -0.3 unless noted")
-        f(x0 + 135, y0, "Org.", "FH Technikum Wien")
+        f(x0, y0 + 30, "Benennung", self.title, 3.2)
+        f(x0, y0 + 20, "Erstellt", AUTHORS[0])
+        f(x0 + 45, y0 + 20, "Mitarbeit", AUTHORS[1])
+        f(x0 + 90, y0 + 20, "Dokumentart", doc_type)
+        f(x0 + 135, y0 + 20, "Gruppe / LV", "Gruppe 10, PDE MRE WS26")
+        f(x0, y0 + 10, "Zeichnungsnummer", self.number)
+        f(x0 + 45, y0 + 10, "Datum / Index", f"{DATE}  A")
+        f(x0 + 90, y0 + 10, "Maßstab / Projektion", f"{scale}   Methode 1")
+        f(x0 + 135, y0 + 10, "Blatt", f"{sheet} / {of}")
+        f(x0, y0, "Allgemeintoleranzen", "ISO 2768-mK")
+        f(x0 + 45, y0, "Oberflächen", "ISO 21920, Ra 3,2 wenn n. a.")
+        f(x0 + 90, y0, "Werkstückkanten", "ISO 13715, -0,3 wenn n. a.")
+        f(x0 + 135, y0, "Organisation", "FH Technikum Wien")
         self.projection_symbol(x0 + 170, y0 + 36.5)
 
     def projection_symbol(self, x, y):
@@ -250,8 +254,8 @@ def sheet1(pdf):
     boxA = (oA + SCALE * loA - [30, 28]).tolist() + (oA + SCALE * hiA + [30, 16]).tolist()
     boxT = (oT + SCALE * loT - [16, 14]).tolist() + (oT + SCALE * hiT + [16, 12]).tolist()
     sh.text(*(oA + SCALE * np.array([0.5 * (loA[0] + hiA[0]), hiA[1]]) + [0, 22]), "A-A", 5, ha="center", weight="bold")
-    sh.text(*(oL + SCALE * np.array([0.5 * (loL[0] + hiL[0]), hiL[1]]) + [0, 8]), "view from the left", 3.5, ha="center")
-    sh.text(*(oI + SCALE * np.array([0.5 * (loI[0] + hiI[0]), hiI[1]]) + [0, 6]), "isometric view", 3.5, ha="center")
+    sh.text(*(oL + SCALE * np.array([0.5 * (loL[0] + hiL[0]), hiL[1]]) + [0, 8]), "Ansicht von links", 3.5, ha="center")
+    sh.text(*(oI + SCALE * np.array([0.5 * (loI[0] + hiI[0]), hiI[1]]) + [0, 6]), "Isometrische Ansicht", 3.5, ha="center")
     # section line A-A in the top view (plane y = 0, seen from -y: arrows point to +y)
     ya = (to2d("top", (0, 0, 0)) * SCALE + oT)[1]
     xl, xr = oT[0] + SCALE * loT[0] - 6, oT[0] + SCALE * hiT[0] + 6
@@ -268,9 +272,9 @@ def sheet1(pdf):
     a, b = pA(-xh, -26), pA(xh, -26)
     dim_h(sh, a[0], b[0], SCALE * loA[1] + oA[1] - 9, a[1], b[1], f"{P.HOUSING_X:.0f}", above=False)
     t, bt = pA(-xh - 2, z_top), pA(-xh - 2, z_bot)
-    dim_v(sh, bt[1], t[1], oA[0] + SCALE * loA[0] - 9, bt[0], t[0], f"{z_top - z_bot:.1f}")
+    dim_v(sh, bt[1], t[1], oA[0] + SCALE * loA[0] - 9, bt[0], t[0], f"{z_top - z_bot:.1f}".replace(".", ","))
     f_, tc = pA(xh, 76.0), pA(xh, 76.0 - 150.5)
-    dim_v(sh, tc[1], f_[1], oA[0] + SCALE * hiA[0] + 9, f_[0], f_[0], "150.5 (flange - TCP)", outside=True)
+    dim_v(sh, tc[1], f_[1], oA[0] + SCALE * hiA[0] + 9, f_[0], f_[0], "150,5 (Flansch - TCP)", outside=True)
     pl, pr = pA(-(P.PAD_X0 + P.D_GRIP), (P.PAD_Z[0] + P.PAD_Z[1]) / 2), pA(P.PAD_X0 + P.D_GRIP, (P.PAD_Z[0] + P.PAD_Z[1]) / 2)
     sh.ax.annotate("", xy=(pl[0], pl[1]), xytext=(pr[0], pr[1]), arrowprops=dict(arrowstyle="<|-|>", lw=mm(LW_THIN),
                    color="black", mutation_scale=6, shrinkA=0, shrinkB=0))
@@ -283,15 +287,15 @@ def sheet1(pdf):
     balloons(sh, "top", oT, rest, boxT)
     # fits and notes
     x0, y0 = W - 10 - 180, 55
-    notes = ["Fits", "608-2Z bearings: housing bore 22 H7, shaft 8 k6 (upper fixed, lower floating)",
-             "Jaw on holder: dowels ISO 8734 4 m6, holes 4 H7; plunger GN 617-5 into 5.2",
-             "Robot flange ISO 9409-1-40-4-M6: spigot 25 h7, locating pin 6 H7",
-             "Bevel wheel on shaft: 8 H7/k6 + key DIN 6885 A 2x2x8; pinion hub 8 H7",
-             "Notes", "Shown at the grip position (pads 70 mm apart); stroke 2 x 10 mm",
-             "Mass 2.92 kg; parts list on sheet 2", "Screws: ISO 4762 / ISO 10642, 8.8, medium-strength threadlocker"]
+    notes = ["Passungen", "Lager 608-2Z: Gehäusebohrung 22 H7, Welle 8 k6 (oben Fest-, unten Loslager)",
+             "Backe auf Halter: Zylinderstifte ISO 8734 4 m6 in 4 H7; Arretierbolzen GN 617-5 in 5,2",
+             "Roboterflansch ISO 9409-1-40-4-M6: Zentrierbund 25 h7, Passstift 6 H7",
+             "Kegelrad auf Welle: 8 H7/k6 + Passfeder DIN 6885 A 2x2x8; Ritzelnabe 8 H7",
+             "Hinweise", "Dargestellt in Greifstellung (Beläge 70 mm); Hub 2 x 10 mm",
+             "Masse 2,92 kg; Stückliste auf Blatt 2", "Schrauben ISO 4762 / ISO 10642, 8.8, mittelfest gesichert"]
     for i, s in enumerate(notes):
-        sh.text(x0, y0 + 40 - i * 4.6, s, 3.5 if s not in ("Fits", "Notes") else 3.8,
-                weight="bold" if s in ("Fits", "Notes") else "normal")
+        sh.text(x0, y0 + 40 - i * 4.6, s, 3.5 if s not in ("Passungen", "Hinweise") else 3.8,
+                weight="bold" if s in ("Passungen", "Hinweise") else "normal")
     sh.title_block(1, 2)
     sh.save(pdf, os.path.join(HERE, "out", "sheet1.png"))
 
@@ -300,9 +304,11 @@ def sheet2(pdf):
     sh = Sheet()
     rows = list(csv.reader(open(os.path.join(CAD, "out", "bom.csv"), encoding="utf-8"), delimiter=";"))
     head, body = rows[0], rows[1:]
-    cols = [(22, "Pos", 10), (32, "Qty", 9), (41, "Designation", 150), (191, "Standard / supplier", 92), (283, "Material", 78), (361, "Mass [g]", 20)]
+    import de
+    body = [[r[0], r[1], de.designation(r[2]), de.supplier(r[3]), de.material(r[4]), r[5]] for r in body]
+    cols = [(22, "Pos.", 10), (32, "Menge", 12), (45, "Benennung", 146), (191, "Norm / Hersteller", 92), (283, "Werkstoff", 78), (361, "Masse [g]", 20)]
     top = H - 22
-    sh.text(22, top + 3, "Parts list (ISO 7573) - assembly " + DRAWING_NO, 5, weight="bold")
+    sh.text(22, top + 3, "Stückliste (ISO 7573) zur Baugruppe " + DRAWING_NO, 5, weight="bold")
     rh = min(5.0, (top - 60) / (len(body) + 1))
     y = top - rh
     for x, lab, _ in cols:
@@ -316,9 +322,9 @@ def sheet2(pdf):
         sh.line([20, W - 10], [y, y], 0.18)
     for x, _, _ in cols[1:]:
         sh.line([x, x], [y, top], 0.18)
-    sh.text(22, y - 6, "Own parts: material and treatment as listed; bought parts: catalogue numbers as listed. "
-            "Cabinet parts (controller, power supply, buffer module) see out/bom_cabinet.csv, not part of this assembly.", 3.0)
-    sh.title_block(2, 2, scale="-", doc_type="Parts list")
+    sh.text(22, y - 6, "Eigenteile: Werkstoff und Behandlung wie angegeben; Kaufteile: Bestellnummern wie angegeben. "
+            "Schaltschrankteile (Regler, Netzteil, Puffermodul) siehe gesonderte Liste, nicht Teil dieser Baugruppe.", 3.0)
+    sh.title_block(2, 2, scale="-", doc_type="Stückliste")
     sh.save(pdf, os.path.join(HERE, "out", "sheet2.png"))
 
 
