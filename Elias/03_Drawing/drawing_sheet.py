@@ -331,13 +331,16 @@ def sheet1(pdf):
     def pA(x, z):
         return to2d("A-A", (x, 0, z)) * SCALE + oA
     xh = P.HOUSING_X / 2
-    z_top, z_bot = 76.0 + P.ISO_SPIGOT_H, P.JAW_Z_BOTTOM
+    z_fl = P.HOOD_TOP + P.HOOD_SEAT + P.ADAPTER_T          # flange face
+    z_tcp = (P.PAD_Z[0] + P.PAD_Z[1]) / 2
+    z_top, z_bot = z_fl + P.ISO_SPIGOT_H, P.JAW_Z_BOTTOM
     a, b = pA(-xh, -26), pA(xh, -26)
     dim_h(sh, a[0], b[0], SCALE * loA[1] + oA[1] - 9, a[1], b[1], f"{P.HOUSING_X:.0f}", above=False)
     t, bt = pA(-xh - 2, z_top), pA(-xh - 2, z_bot)
     dim_v(sh, bt[1], t[1], oA[0] + SCALE * loA[0] - 9, bt[0], t[0], f"{z_top - z_bot:.1f}".replace(".", ","))
-    f_, tc = pA(xh, 76.0), pA(xh, 76.0 - 150.5)
-    dim_v(sh, tc[1], f_[1], oA[0] + SCALE * hiA[0] + 9, f_[0], f_[0], "150,5 (Flansch - TCP)", outside=True)
+    f_, tc = pA(xh, z_fl), pA(xh, z_tcp)
+    dim_v(sh, tc[1], f_[1], oA[0] + SCALE * hiA[0] + 9, f_[0], f_[0],
+          f"{z_fl - z_tcp:.1f} (Flansch - TCP)".replace(".", ","), outside=True)
     pl, pr = pA(-(P.PAD_X0 + P.D_GRIP), (P.PAD_Z[0] + P.PAD_Z[1]) / 2), pA(P.PAD_X0 + P.D_GRIP, (P.PAD_Z[0] + P.PAD_Z[1]) / 2)
     sh.ax.annotate("", xy=(pl[0], pl[1]), xytext=(pr[0], pr[1]), arrowprops=dict(arrowstyle="<|-|>", lw=mm(LW_THIN),
                    color="black", mutation_scale=6, shrinkA=0, shrinkB=0))
@@ -354,9 +357,9 @@ def sheet1(pdf):
     notes = ["Passungen", "Lager 608-2Z: Gehäusebohrung 22 H7, Welle 8 k6 (oben Fest-, unten Loslager)",
              "Backe auf Halter: Zylinderstifte ISO 8734 4 m6 in 4 H7; Arretierbolzen GN 617-5 in 5,2",
              "Roboterflansch ISO 9409-1-40-4-M6: Zentrierbund 25 h7, Passstift 6 H7",
-             "Kegelrad auf Welle: 8 H7/k6 + Passfeder DIN 6885 A 2x2x8; Ritzelnabe 8 H7",
+             f"Kegelrad auf Welle: 8 H7/k6 + Passfeder DIN 6885 A 2x2x{P.KEY_L:.0f}; Ritzelnabe 8 H7",
              "Hinweise", "Dargestellt in Greifstellung (Beläge 70 mm); Hub 2 x 10 mm",
-             "Masse 2,92 kg; Stückliste auf Blatt 2", "Schrauben ISO 4762 / ISO 10642, 8.8, mittelfest gesichert"]
+             f"Masse {json.load(open(os.path.join(CAD, 'out', 'checks.json')))['mass_kg']:.2f} kg; Stückliste auf Blatt 2".replace(".", ","), "Schrauben ISO 4762 / ISO 10642, 8.8, mittelfest gesichert"]
     for i, s in enumerate(notes):
         sh.text(x0, y0 + 40 - i * 4.6, s, 3.5 if s not in ("Passungen", "Hinweise") else 3.8,
                 weight="bold" if s in ("Passungen", "Hinweise") else "normal")
