@@ -86,6 +86,15 @@ def pad_left():
     nbr = (cq.Workplane("XY").box(NBR_T, w - 2 * NBR_INSET, h - 2 * NBR_INSET)
            .edges("|X").fillet(PLATE_R - NBR_INSET)
            .translate((-(X_IN - NBR_T / 2), 0, zc)))
+    # vertical oil-drain grooves: oil on the part runs down and out instead of forming a film under the pad
+    gw, gd, gp = P.PAD_GROOVE
+    wn = w - 2 * NBR_INSET
+    n = int((wn - 2.0) // gp)
+    y0 = -0.5 * (n - 1) * gp
+    for k in range(n):
+        groove = (cq.Workplane("XY").box(gd, gw, h)
+                  .translate((-(X_IN - NBR_T + gd / 2), y0 + k * gp, zc)))   # on the contact face
+        nbr = nbr.cut(groove)
     return plate, nbr
 
 

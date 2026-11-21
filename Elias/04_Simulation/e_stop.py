@@ -130,8 +130,9 @@ def run(scale=1.0, mu=GP.MU_OILY):
 def main():
     out = {"alpha_rad_s2": [float(a) for a in ALPHA], "mu": GP.MU_OILY, "setpoint": GP.F_GRIP_SET,
            "current_limit": GP.F_JAW_LIMIT, "scenarios": {}}
-    for tag, sc in (("data sheet", 1.0), ("x2", 2.0)):
-        r = run(sc)
+    for tag, sc, mu in (("data sheet", 1.0, GP.MU_OILY), ("x2", 2.0, GP.MU_OILY),
+                        ("data sheet, grooved pad mu 0.3", 1.0, GP.MU_PAD_EXPECTED), ("x2, grooved pad mu 0.3", 2.0, GP.MU_PAD_EXPECTED)):
+        r = run(sc, mu)
         out["scenarios"][tag] = {c: v["worst"] for c, v in r.items()}
         out["scenarios"][tag]["_rows"] = {c: [(x["t"], x["N"], x["a_abs"]) for x in v["rows"]] for c, v in r.items()}
         for c, v in r.items():
@@ -147,7 +148,7 @@ def plot(out):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(10, 4))
-    for (tag, sc), ls in zip(out["scenarios"].items(), ("-", "--")):
+    for (tag, sc), ls in zip(out["scenarios"].items(), ("-", "--", "-.", ":")):
         for c, col in (("chain_2", "#0f766e"), ("chain_1", "#2563eb")):
             rows = np.array(sc["_rows"][c])
             ax.plot(rows[:, 0], rows[:, 1], ls, color=col, lw=1.5, label=f"{c.replace('_', ' ')}, alpha {tag}")
@@ -155,7 +156,7 @@ def plot(out):
     ax.axhline(out["current_limit"], color="k", lw=1.0, ls=":", label=f"bevel gear limit {out['current_limit']:.1f} N")
     ax.set_xlabel("instant of the category 0 stop in the cycle [s] (loaded part of the cycle)")
     ax.set_ylabel("normal force per jaw to hold, S 1 [N]")
-    ax.set_title(f"emergency stop anywhere in the cycle, mu {out['mu']}", fontsize=10)
+    ax.set_title("emergency stop anywhere in the cycle (design mu 0.2; grooved pad mu 0.3 expected, V5)", fontsize=10)
     ax.legend(fontsize=8, frameon=False, ncol=2)
     ax.grid(alpha=0.3)
     fig.tight_layout()

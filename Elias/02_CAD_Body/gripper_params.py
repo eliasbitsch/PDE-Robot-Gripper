@@ -36,8 +36,14 @@ T_PINION_BRAKE = BRAKE_T * GEAR_I
 F_JAW_MAX = T_PINION_STATIC / (2 * PINION_D / 2 / 1000)   # N per jaw at full current, gearbox loss only: FEM upper bound
 ETA_BEVEL, ETA_RP = 0.98, 0.97                  # V2 § 10
 F_JAW_AVAIL = F_JAW_MAX * ETA_BEVEL * ETA_RP    # N per jaw the motor really delivers at full current (all losses)
-# Part may be dirty or oily (feedback 10 Nov): design with a lubricated friction coefficient, source to cite in V2.
+# Part may be dirty or oily (feedback 10 Nov). Design value for NBR on oily PA 6: 0.2. Brackets: steel on steel 0.1
+# (Schunk's value for its payload ratings), oiled steel 0.05 ... 0.1, oil-resistant NBR gripper pads 0.3 ... 0.4
+# (HKI product information), dry knurled NBR > 1 (PFA). The pads are grooved so oil drains off the contact; the
+# higher friction this should give (MU_PAD_EXPECTED) is a reserve for hard e-stops, to be measured in V5, not used
+# in the design proof (review 21 Nov).
 MU_OILY = 0.2
+MU_PAD_EXPECTED = 0.3
+PAD_GROOVE = (1.5, 1.0, 4.0)        # mm: width, depth, pitch of the vertical oil-drain grooves in the NBR
 F_GRIP_OILY = S_SICHERHEIT * B_MASSE * (G + A_BAHN) / (N_BACKEN * MU_OILY)   # required by the hand calculation (2.05 m/s2)
 A_PATH_REAL = 4.96                  # m/s2, TCP peak on the real MoveJ path (MuJoCo, E4): axis 1 turns ~160 deg
 F_GRIP_SET = S_SICHERHEIT * B_MASSE * (G + A_PATH_REAL) / (N_BACKEN * MU_OILY)   # operating setpoint, also covers the e-stop (V2)

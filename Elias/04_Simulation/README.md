@@ -57,6 +57,15 @@ between the jaws included). Normal force per jaw needed at S = 1:
 | ABB stop data (p. 91) | loaded transfer, t = 1.15 s | 21.8 m/s² | 35.5 N | held, S 1.25 |
 | twice the ABB rates (sensitivity) | start of the transfer, t = 0.57 s | 42.7 m/s² | 57.5 N | slips |
 | ABB design value 82 m/s² (p. 54, nominal load) | - | 82 m/s² | ~110 N | slips |
+| ABB stop data, grooved pad µ 0.3 (expected, V5) | t = 1.14 s | 21.8 m/s² | 24.4 N | held, S 1.8 |
+| twice the ABB rates, grooved pad µ 0.3 | t = 0.57 s | 42.7 m/s² | 41.5 N | held, S 1.07 |
+
+Decision 21 Nov: more friction, not more force. The force chain is at its limit (bevel gear endurance 48.5 N, motor
+60.5 N); a higher friction coefficient costs nothing in loads and weight. The pads get vertical oil-drain grooves;
+the design proof keeps µ = 0.2, the grooved pad's expected µ ≥ 0.3 (oil-resistant NBR gripper pads 0.3 ... 0.4,
+HKI) is the reserve for hard stops and is measured in V5 (`Viktoriia/05_Print_Check/friction_test.md`). The 82 m/s²
+case is not held by any reasonable friction grip (it would need 123 N at µ 0.2); there the closed enclosure keeps a
+slipping part inside the cell, and the brake keeps the jaws closed.
 
 The grip force does not rise in an e-stop (the brake holds the preload; the part's inertia goes into the pad
 friction), so the bevel gear sees no extra load; the setpoint itself is capped by the bevel gear's endurance
