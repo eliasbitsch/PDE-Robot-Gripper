@@ -98,7 +98,7 @@ within the zone radius of the via to where it leaves it, quadratic Bezier in joi
 point, tangent to both lines, no axis overshoot). The earlier model interpolated a PCHIP curve through the via
 (R 350 mm, Z 1700 mm); on the real MoveJ line to that via the forearm cut **4.9 mm into the fence**, the curve had
 hidden it. New via search on the MoveJ path (A1 60 ... 120°, R 200 ... 500 mm, Z 1250 ... 1800 mm, zone 100 /
-200 mm, both chains): R 200, Z 1450, z200 gives 101.7 mm to the fence on both chains (99.8 mm since the body grew to
+200 mm, both chains): R 200, Z 1450, z200 gives 101.7 mm to the fence on both chains (100.2 mm since the body grew to
 200 mm for the BKE brake, review 1.10).
 
 **Acceleration as programmed, not assumed.** The 4.96 m/s² the grip force is sized for are a cap in the robot
@@ -129,7 +129,7 @@ checked; they are identical in time.
 
 | Phase | Duration |
 |---|---|
-| close on the belt (two-stage, grip force stands after 0.263 s) | 0.30 s |
+| close on the belt (tolerant two-stage, grip force stands after 0.373 s) | 0.40 s |
 | lift 60 mm (loaded) | 0.22 s |
 | transfer through the via (loaded) | 1.86 s |
 | lower onto the carrier | 0.22 s |
@@ -137,10 +137,10 @@ checked; they are identical in time.
 | lift (empty) | 0.13 s |
 | transfer back (empty) | 1.33 s |
 | lower around the next part | 0.13 s |
-| **cycle** | **4.38 s of 5.0 s** |
+| **cycle** | **4.48 s of 5.0 s** |
 
 Collision log every 10 ms, robot links 2-6 and the gripper against every obstacle (convex hulls, on the safe side):
-no contact anywhere, on either chain. Closest: fence 99.8 mm (right fence on the loaded way, 101.7 mm left on the empty way back, both near the
+no contact anywhere, on either chain. Closest: fence 100.2 mm (left fence on the empty way back, 101.7 mm right on the loaded way, both near the
 via), production line 153 mm, chain / carrier on the other chain 423 mm, pedestal 434 mm, belt 93 mm while carrying
 the part off; the 33 mm to belt and carrier are the jaws at the part while picking and placing, 63 mm the jaw to the
 near chain. Axes: smallest margin to a limit 16.1° (axis 3, arm pulled in at the via) and 20.6° (axis 1 at the
@@ -156,26 +156,42 @@ place position), speeds at most 80 % of the data sheet (axes 1 and 2).
 
 ## Closing time (`closing_time.py`, `out/closing_results.json`, `figures/closing.png`)
 
-Requirement from the hand calculation V2: close 8 mm per jaw and have the grip force within 0.3 s. The drive runs
-position controlled with the current limit as grip force (setpoint 44.5 N per jaw). Motor curve from the datasheet's electrical
-values at 24 V (phasor sum of back-EMF and winding impedance), 70 % usable in closed loop; the Nanotec curve still
-has to be laid over it.
+Requirement: close 8 mm per jaw and have the grip force standing within the closing budget (0.3 s in the V2
+handover, 0.4 s since review 1.11). The drive runs position controlled with the current limit as grip force
+(setpoint 44.5 N per jaw). Motor curve from the datasheet's electrical values at 24 V (phasor sum of back-EMF and
+winding impedance), 70 % usable in closed loop. Part B rests on the belt (friction 0.6), centred or 5 mm off centre
+along the grip axis (CAD_PLAN point 0: ±5 mm); "blocked" holds the part in place (against a stop or the next part).
 
-| Profile | contact | grip force within 5 % | peak pad force | motor peak |
-|---|---|---|---|---|
-| direct, trapezoid 0.25 s | 177 ms at 52 mm/s | 195 ms | 66.5 N (1.5 ×) | 324 rpm, 0.018 of 0.136 N·m |
-| direct, trapezoid 0.12 s | 86 ms at 111 mm/s | 101 ms | 159.8 N (3.6 ×) | 675 rpm, 0.030 of 0.136 N·m |
-| two-stage: 0.12 s to 1 mm before the part, then 10 mm/s | 173 ms at 10 mm/s | 266 ms | 45.9 N (1.0 ×) | 591 rpm, 0.028 of 0.136 N·m |
+| Profile | part | contact | grip force within 5 % | peak pad force | part pushed |
+|---|---|---|---|---|---|
+| direct, trapezoid 0.25 s | centred | 177 ms at 52 mm/s | 195 ms | 66.5 N (1.5 ×) | 0.5 mm |
+| direct, trapezoid 0.12 s | centred | 86 ms at 111 mm/s | 101 ms | 159.8 N (3.6 ×) | 0.5 mm |
+| two-stage: 0.12 s to 1 mm before the part, then 10 mm/s | centred | 173 ms at 10 mm/s | 266 ms | 45.9 N (1.0 ×) | 0.5 mm |
+| same | +5 mm | 52 ms at **89 mm/s** | 266 ms | 49.6 N | 5.5 mm, knocked across |
+| same | +5 mm, blocked | 52 ms at 88 mm/s | 65 ms | 93.1 N | - |
+| **tolerant: 0.05 s to 6 mm before the part, then 20 mm/s** | centred | 328 ms at 19 mm/s | **373 ms** | 45.0 N (1.0 ×) | 0.5 mm |
+| same | +5 mm | 78 ms at 19 mm/s | 373 ms | 45.5 N | 5.5 mm, pushed slowly |
+| same | +5 mm, blocked | 78 ms at 19 mm/s | 187 ms | 90.7 N | - |
+| tolerant, slow phase 10 mm/s | centred / +5 mm | 603 / 103 ms at 10 mm/s | 695 ms | 45.3 / 45.8 N | |
 
-- Torque is not the limit: the motor could cover the 8 mm in 45 ms. The motor uses at most a quarter of its torque.
-- The limit is the impact. Rotor, gearbox and brake act like 3.2 kg on the jaws, seven times the jaws themselves
-  (0.47 kg), and the current limit cannot stop this inertia before the pads hit: driving straight in at 50 mm/s
-  gives 67 N, more than the FEM's full-current case (63.6 N); the undamped estimate with a 3 mm NBR pad is even
-  higher (`impact_estimate`, no damping, upper bound).
-- **Recommendation:** two-stage profile, fast to 1 mm before the part and the last millimetre at 10 mm/s
-  (NanoJ program or two position records in the CL4-E). Meets 0.3 s with 34 ms to spare, no force overshoot.
-- The MuJoCo contact stiffness is not calibrated to the pad; the peaks are a comparison between the profiles,
-  the order of magnitude is backed by the estimate.
+- Torque is not the limit: the motor could cover the 8 mm in 45 ms and uses at most a quarter of its torque.
+- The limit is the impact. Rotor, gearbox and brake act like 3.2 kg on the jaws, about five times the jaws
+  themselves (0.70 kg), and the current limit cannot stop this inertia before the pads hit: 67 N at 52 mm/s,
+  160 N at 111 mm/s. Each grip would be such a hit; on the bevel pair 160 N is K_A·T ≈ 4.2 N·m against the
+  3.47 N·m catalogue rating. As a rare overload it is fine (38 % of the static capacity, `drive_margin.py`).
+- **Two-stage against the position tolerance (review 1.11).** "Fast to 1 mm before the part" assumes the part is
+  where it should be. With the part 5 mm off centre, one jaw meets it in the fast phase at 89 mm/s. On the free belt
+  the part is knocked 5.5 mm across (peak only 49.6 N, the part gives way); the review's estimate of 139 N assumed a
+  stiff stop. **Tolerant profile:** the slow phase starts 1 mm before the earliest possible contact (6 mm before the
+  nominal part), so no jaw ever meets the part faster than the slow speed. At 10 mm/s that costs 0.7 s; at
+  **20 mm/s** the peak stays at 45.5 N (1.01 ×) and the grip force stands after **373 ms**. Closing budget 0.4 s:
+  cycle 4.48 s of 5 s (E4). Recommended profile, as a NanoJ program or two position records in the CL4-E.
+- **Blocked part:** whatever the profile, a part that cannot slide to the middle gets the whole pinion force on one
+  jaw, twice the setpoint (89 ... 93 N; the speed adds only 2 ... 4 N at 20 mm/s or less). A centric gripper needs the
+  part free to centre: the belt guide must leave ±5 mm play across the grip axis, no tight nest. The FEM covers that
+  load (LC5 141 N, S ≥ 7.3), and the controller sees it as "position outside the part window" → fault.
+- The MuJoCo contact stiffness is not calibrated to the pad; the peaks compare the profiles, and the order of
+  magnitude is backed by `impact_estimate` (undamped, upper bound).
 
 ## Videos
 
@@ -183,7 +199,7 @@ has to be laid over it.
 back view on the lug side), contact points and forces split into normal and friction, and a clearance check between
 the part and the jaws, pad plates, holders, cover and housing, and between gripper / robot and belt, carrier and
 pedestal (convex hulls, so conservative). Colliding parts turn red; the HUD shows pad forces, friction use and
-part movement. [`figures/closing_direct_120ms.mp4`](figures/closing_direct_120ms.mp4), [`figures/closing_two-stage_120ms.mp4`](figures/closing_two-stage_120ms.mp4) at 0.05 ×, [`figures/cycle_estop.mp4`](figures/cycle_estop.mp4) at 0.25 ×; in the notebook with your own values.
+part movement. [`figures/closing_direct_120ms.mp4`](figures/closing_direct_120ms.mp4), [`figures/closing_two-stage_120ms.mp4`](figures/closing_two-stage_120ms.mp4), [`figures/closing_tolerant_50ms_off5mm_slow20.mp4`](figures/closing_tolerant_50ms_off5mm_slow20.mp4) (part 5 mm off centre) at 0.05 ×, [`figures/cycle_estop.mp4`](figures/cycle_estop.mp4) at 0.25 ×; in the notebook with your own values.
 
 ## Power failure (`power_fail.py`, `brake_play.py`; `out/power_fail.json`, `out/brake_play.json`)
 

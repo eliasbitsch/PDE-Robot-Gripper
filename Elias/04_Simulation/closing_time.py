@@ -7,6 +7,9 @@ force within 0.3 s. The drive is position controlled (closed loop) with a curren
 force. Two motion profiles:
   direct     one trapezoid into the part, the current limit stops the jaws
   two-stage  fast to 1 mm before the part, then 10 mm/s into contact (typical for stepper grippers)
+  tolerant   two-stage with the slow phase starting 1 mm before the earliest contact the position tolerance allows
+             (part up to TOL off centre along the grip axis): a jaw never meets the part in the fast phase (review 1.11)
+Each profile also runs with the part TOL off centre: one jaw touches first and pushes the part to the middle.
 The reflected inertia of rotor, gearbox and brake (drive.py) sits on the jaw slides as armature.
 """
 import json
@@ -24,9 +27,10 @@ import sim as S  # noqa: E402
 import viz  # noqa: E402
 
 GP, MM = S.GP, S.MM
-T_REQ = 0.3
+T_REQ = 0.4                           # s; 0.3 s in the V2 handover, 0.4 s since review 1.11 (slow phase over +-5 mm, cycle reserve)
 D_OPEN, D_GRIP = GP.D_OPEN * MM, GP.D_GRIP * MM
 V_TOUCH = 0.010                       # m/s, approach speed for the last millimetre
+TOL = 0.005                           # m, part position on the belt along the grip axis (CAD_PLAN point 0: +-5 mm)
 T_SETTLE0 = 0.1                       # s, part settles on the belt before the close command
 # NBR 70 Shore A pad, 3 mm thick on its plate: effective compression modulus with the shape factor of a wide
 # thin pad, Gent: E_c = E (1 + 2 k S^2), E = 6 MPa, k = 0.6 (rough, for the impact estimate only)
@@ -54,16 +58,16 @@ def _trap(t, T, ta):
     return 1.0, 0.0
 
 
-def profile(name, t_fast):
+def profile(name, t_fast, v_touch=V_TOUCH):
     """Reference jaw position d_ref(t) [m] from the close command (t = 0)."""
     end = D_GRIP - 0.0015                       # beyond the part: the current limit sets the force
     if name == "direct":
         return lambda t: trapezoid(t, t_fast, D_OPEN, end)
-    pre = D_GRIP + 0.001
+    pre = D_GRIP + 0.001 + (TOL if name == "tolerant" else 0.0)
     def f(t):
         if t < t_fast:
             return trapezoid(t, t_fast, D_OPEN, pre)
-        return max(end, pre - V_TOUCH * (t - t_fast))
+        return max(end, pre - v_touch * (t - t_fast))
     return f
 
 
@@ -77,22 +81,34 @@ def profile_torque_check(t_fast, travel, usable=0.7):
     return dict(v_max=vmax, rpm=w * 60 / (2 * math.pi), torque_need=t_need, torque_avail=usable * DRV.torque_avail(w))
 
 
-def run(name, t_fast, force=GP.F_GRIP_SET, rec=None):
+def run(name, t_fast, force=GP.F_GRIP_SET, rec=None, offset=0.0, v_touch=V_TOUCH, blocked=False):
+    """offset [m]: part off centre along the grip axis (gripper x), resting on the belt. blocked: the part cannot
+    slide away (against a stop or the next part; held in place every step), so the first jaw meets a wall."""
     m, d = S.load()
     q0, _ = S.q_pick()
     S.set_robot(m, d, q0, jaw=D_OPEN)
     S.place_part_in_gripper(m, d)
+    if offset:
+        adr = m.joint("part").qposadr[0]
+        d.qpos[adr:adr + 3] += d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ np.array([offset, 0.0, 0.0])
+        mujoco.mj_forward(m, d)
     ja = m.actuator("jaw").id
     m.actuator_forcerange[ja] = (-2 * force, 2 * force)
-    ref = profile(name, t_fast)
-    p0 = None
-    t_end = T_SETTLE0 + 0.45
+    ref = profile(name, t_fast, v_touch)
+    p0, hold = None, None
+    padr, vadr = m.joint("part").qposadr[0], m.joint("part").dofadr[0]
+    t_end = T_SETTLE0 + 1.0
     log = {k: [] for k in ("t", "d", "d_ref", "fL", "fR", "push")}
     while d.time < t_end:
         tc = d.time - T_SETTLE0
         d.ctrl[ja] = D_OPEN if tc < 0 else ref(tc)
         d.ctrl[:6] = q0
         mujoco.mj_step(m, d)
+        if blocked:
+            if hold is None:
+                hold = d.qpos[padr:padr + 7].copy()
+            d.qpos[padr:padr + 7] = hold
+            d.qvel[vadr:vadr + 6] = 0.0
         if tc >= 0 and p0 is None:
             p0 = d.body("part").xpos.copy()
         pf, _ = viz.pad_forces(m, d)
@@ -112,7 +128,7 @@ def run(name, t_fast, force=GP.F_GRIP_SET, rec=None):
     touch = np.argmax(f > 1.0)
     ok = np.abs(f - force) < 0.05 * force
     settled = next((i for i in range(len(f)) if ok[i:].all()), len(f) - 1)   # within 5 % for good
-    return dict(profile=name, t_fast=t_fast, force=force, t_contact=float(t[touch]), t_grip=float(t[settled]),
+    return dict(profile=name, t_fast=t_fast, offset_mm=offset / MM, v_touch=v_touch, blocked=blocked, force=force, t_contact=float(t[touch]), t_grip=float(t[settled]),
                 f_peak=float(max(np.max(log["fL"]), np.max(log["fR"]))), overshoot=float(np.max(f) / force),
                 v_contact=float(-np.gradient(np.array(log["d"]) * MM, t)[touch]), part_push_mm=float(max(log["push"])),
                 meets=bool(t[settled] <= T_REQ)), log
@@ -133,24 +149,33 @@ def main(video=True):
     travel = D_OPEN - D_GRIP
     mt = DRV.min_time(travel)
     print(f"motor curve: fastest 8 mm to standstill {mt['t'] * 1000:.0f} ms (v_max {mt['v_max'] * 1000:.0f} mm/s)")
-    cases = [("direct", 0.25), ("direct", 0.12), ("two-stage", 0.12)]
+    # (profile, fast phase [s], part offset [m], slow speed [m/s], video)
+    # (profile, fast phase [s], part offset [m], slow speed [m/s], part blocked, video)
+    cases = [("direct", 0.25, 0.0, V_TOUCH, False, False), ("direct", 0.12, 0.0, V_TOUCH, False, True),
+             ("two-stage", 0.12, 0.0, V_TOUCH, False, True), ("two-stage", 0.12, TOL, V_TOUCH, False, False),
+             ("two-stage", 0.12, TOL, V_TOUCH, True, False),
+             ("tolerant", 0.05, 0.0, V_TOUCH, False, False), ("tolerant", 0.05, TOL, V_TOUCH, False, False),
+             ("tolerant", 0.05, 0.0, 0.020, False, False), ("tolerant", 0.05, TOL, 0.020, False, True),
+             ("tolerant", 0.05, TOL, 0.020, True, False)]
     out, logs = [], {}
-    for name, tf in cases:
-        tq = profile_torque_check(tf, travel if name == "direct" else travel - 0.001)
-        rec = viz.Recorder(dt=0.0005) if video and (name, tf) != ("direct", 0.25) else None
-        r, lg = run(name, tf, rec=rec)
+    for name, tf, off, vt, blk, vid in cases:
+        pre = 0.001 + (TOL if name == "tolerant" else 0.0)
+        tq = profile_torque_check(tf, travel if name == "direct" else travel - pre)
+        rec = viz.Recorder(dt=0.0005) if video and vid else None
+        r, lg = run(name, tf, rec=rec, offset=off, v_touch=vt, blocked=blk)
         r.update(torque=tq, f_impact_est=impact_estimate(r["v_contact"])[0])
         out.append(r)
-        logs[f"{name} {tf:.2f} s"] = lg
-        print(f"{name:9s} fast {tf:.2f} s: contact {r['t_contact'] * 1000:4.0f} ms at {r['v_contact'] * 1000:4.0f} mm/s, "
+        label = f"{name} {tf:.2f} s" + (f", slow {vt * 1000:.0f} mm/s" if name != "direct" else "") + (f", part {off / MM:+.0f} mm" if off else "") + (" blocked" if blk else "")
+        logs[label] = lg
+        print(f"{label:38s}: contact {r['t_contact'] * 1000:4.0f} ms at {r['v_contact'] * 1000:4.0f} mm/s, "
               f"grip force reached {r['t_grip'] * 1000:4.0f} ms ({'ok' if r['meets'] else 'TOO SLOW'}), "
               f"peak {r['f_peak']:5.1f} N (x{r['overshoot']:.2f}), estimate NBR {r['f_impact_est']:5.1f} N, "
               f"part pushed {r['part_push_mm']:.2f} mm | motor {tq['rpm']:.0f} rpm, "
               f"{tq['torque_need']:.3f} of {tq['torque_avail']:.3f} N*m")
         if rec is not None:
-            tag = f"{name}_{int(tf * 1000)}ms"
+            tag = f"{name}_{int(tf * 1000)}ms" + (f"_off{int(round(off / MM))}mm" if off else "") + (f"_slow{int(round(vt * 1000))}" if name == "tolerant" else "")
             v = viz.render_video(rec, os.path.join(S.B.OUT, f"closing_{tag}.mp4"), slowmo=0.05,
-                                 label=f"Closing, {name}, fast phase {tf:.2f} s")
+                                 label=f"Closing, {label}")
             r["video"] = os.path.relpath(v["path"], HERE)
             r["min_clearance_mm"] = v["min_clearance_mm"]
     json.dump(dict(t_req=T_REQ, min_time=mt["t"], m_reflected=DRV.M_REFLECTED, cases=out),

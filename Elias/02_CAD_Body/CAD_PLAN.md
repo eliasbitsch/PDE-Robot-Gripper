@@ -113,7 +113,7 @@ December: drawing + BOM in TechDraw (E3), cell (E7), MuJoCo sequence (E4).
 
 ## 7. Open points
 
-0. **Assumption, part position on the buffer belt:** part B arrives within about ±5 mm of its nominal position (the assignment does not say; stops or a centring guide on the belt are assumed). The 10 mm stroke per jaw opens to 86 mm, 8 mm clearance per side over the 70 mm grip faces. Without redesign the stroke can grow to about 12.5 mm (carriage at the rail end, long rack still covering the pinion) if a larger tolerance is required.
+0. **Assumption, part position on the buffer belt:** part B arrives within about ±5 mm of its nominal position (the assignment does not say; a guide on the belt is assumed that leaves the part free to slide across the grip axis, no tight nest, so the centric jaws can centre it). The closing profile covers the tolerance (review 1.11): fast to 6 mm before the nominal part, then 20 mm/s, grip force after 0.37 s without overshoot, closing budget 0.4 s, cycle 4.48 s (`04_Simulation/closing_time.py`). The 10 mm stroke per jaw opens to 86 mm, 8 mm clearance per side over the 70 mm grip faces. Without redesign the stroke can grow to about 12.5 mm (carriage at the rail end, long rack still covering the pinion) if a larger tolerance is required.
 
 1. **Placement orientation on the workpiece carrier** (PLAN § 8.2) - still the only point that can change the grip direction.
 

@@ -682,7 +682,7 @@ def _(mo):
 
     $$T_M = \frac{2\,F_G\,r}{i\;\eta_G\,\eta_\mathrm{bevel}\,\eta_\mathrm{rp}}$$
 
-    Closing stroke 8 mm per jaw in 0.3 s (triangular speed profile). Rotor inertia 38 g·cm² (Nanotec data sheet);
+    Fast phase of the closing move: 2 mm per jaw in 0.05 s (triangular speed profile), then 20 mm/s into the part. Rotor inertia 38 g·cm² (Nanotec data sheet);
     the jaws, slides, racks and carriages (≈ 0.25 kg per side, BOM) are reflected through $i^2$.
     """)
     return
@@ -700,7 +700,7 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
     F_avail = T_hold * i_g * eta_tot / (2 * r_p)
 
     # closing move
-    s_close, t_close = 8.0, 0.3
+    s_close, t_close = 2.0, 0.05
     phi_p = s_close / r_p                                # rad at the pinion
     phi_m = phi_p * i_g
     w_m = 2 * phi_m / t_close                            # peak motor speed, rad/s
@@ -720,7 +720,7 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
     _t = np.linspace(0, t_close, 200)
     _w = np.where(_t < t_close / 2, al_m * _t, al_m * (t_close - _t)) * 60 / (2 * math.pi)
     _ax.plot(_t, _w, color="#0f766e", lw=2)
-    _ax.set_xlabel("t [s]"); _ax.set_ylabel("motor speed [rpm]"); _ax.set_title("closing move, 8 mm in 0.3 s")
+    _ax.set_xlabel("t [s]"); _ax.set_ylabel("motor speed [rpm]"); _ax.set_title("fast phase of the close, 2 mm in 0.05 s")
     _ax.grid(alpha=0.3); fig_m.tight_layout()
 
     mo.vstack([mo.md(f"""
@@ -732,14 +732,18 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
 
     - Max grip force with **all** efficiencies at full current: **{F_avail:.1f} N** (Elias' 63.6 N counts only the gearbox).
     - Closing move: pinion turns {math.degrees(phi_p):.0f}°, motor {math.degrees(phi_m):.0f}°, peak **{rpm:.0f} rpm**,
-      acceleration {al_m:.0f} rad/s² → inertia torque **{T_acc:.2f} N·mm** - negligible. Speed is no limit either:
+      acceleration {al_m:.0f} rad/s² → inertia torque **{T_acc:.1f} N·mm** ({T_acc/T_hold*100:.0f} % of the holding torque) - small. Speed is no limit either:
       the pull-out torque cannot exceed the 0.20 Nm holding torque, and at 24 V it stays at ≈ 0.19 Nm up to ≈ 800 rpm
       (model from R, L and holding torque, `Elias/04_Simulation/drive.py`; Nanotec curve to be laid over).
     - Seen from the jaws, rotor + gearbox + brake act like **≈ 3.2 kg** (J·(i/r)², vs {2*m_side:.2f} kg of jaws): the
       current limit cannot stop that before the pads hit. MuJoCo (E4, `closing_time.py`): driving straight into the
-      part gives a pad force peak of ≈ 67 N at 50 mm/s and ≈ 160 N at 110 mm/s; a **two-stage close** (fast to 1 mm
-      before the part, then 10 mm/s) meets 0.3 s (266 ms) with 46 N, no overshoot - that is the recommended motion
-      profile. The 160 N case is checked as a rare overload on the bevel pair in § 5 (38 % of the static capacity).
+      part gives a pad force peak of ≈ 67 N at 50 mm/s and ≈ 160 N at 110 mm/s. A **two-stage close** avoids it,
+      but only if the slow phase starts before the earliest possible contact: the part may lie ± 5 mm off centre on
+      the belt. Recommended: fast to 6 mm before the nominal part, then 20 mm/s → grip force after 373 ms with 45.5 N,
+      no overshoot, also with the part 5 mm off (it is pushed to the middle). Closing budget 0.4 s instead of 0.3 s,
+      cycle 4.48 of 5 s (E4). If the part cannot slide (tight nest), one jaw gets the whole pinion force (≈ 2 × setpoint),
+      so the belt guide must leave it free across the grip axis. The 160 N case is checked as a rare overload on the
+      bevel pair in § 5 (38 % of the static capacity).
     - Current limit: {P.F_JAW_LIMIT:.1f} N per jaw with all losses, set by the motor (the bevels allow more, § 5).
       The setpoint is calibrated once at commissioning with a force gauge (§ 5).
     - The grip itself happens at standstill, so the holding torque is the relevant limit: margin

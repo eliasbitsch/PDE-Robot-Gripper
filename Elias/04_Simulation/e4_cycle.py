@@ -22,7 +22,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GP, CP = S.GP, S.CP
 A_LOADED, A_EMPTY = GP.A_PATH_REAL, 15.0
 SPEED_USE = 0.8                     # axes at most 80 % of the data sheet speed: the cycle has time to spare
-T_CLOSE = 0.30                      # s, two-stage close until the grip force stands (closing_time.py: 0.263 s)
+T_CLOSE = 0.40                      # s, tolerant two-stage close (slow phase over the +-5 mm position tolerance) until
+                                    # the grip force stands (closing_time.py: 0.373 s; 0.30 s before review 1.11)
 T_OPEN = 0.20                       # s, open by 8 mm (cad/params.py T_LOESEN)
 LIFT = 60.0
 DT = 0.01
