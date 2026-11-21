@@ -287,6 +287,16 @@ if mode == "anim":
     sc.render.filepath = os.path.join(HERE, "out", "frames", "f_")
     bpy.ops.render.render(animation=True)
     print("anim done")
+elif mode == "preview":
+    # quick look: short clips at 480p and few samples (env CLIPS="a:40-100,b:170-230", STEP=2 -> 15 fps)
+    step = int(os.environ.get("STEP", "2"))
+    sc.frame_step = step
+    for clip in os.environ.get("CLIPS", "a:40-100,b:170-230").split(","):
+        tag, rng = clip.split(":")
+        sc.frame_start, sc.frame_end = (int(v) for v in rng.split("-"))
+        sc.render.filepath = os.path.join(HERE, "out", "preview", tag, "f_")
+        bpy.ops.render.render(animation=True)
+        print("clip done", tag)
 elif mode == "views":
     # setup review before any video: stills from candidate cameras (name, target, direction, distance, lens, f-stop, frame)
     zp = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) * MM
