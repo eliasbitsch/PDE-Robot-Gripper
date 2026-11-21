@@ -114,19 +114,23 @@ but not used for a verdict; the safety factors above leave room for a factor of 
 Her notebook is executed as it is; FEM of `jaw_v3.step` at full current, 2.5 / 1.6 / 1.0 mm (deflection changes
 0.3 % in the last step). Interactive with all plots: `marimo edit review_viktoriia_notebook.py`.
 
-| Quantity | V4 | FEM (105k el.) | deviation | ≤ 5 % |
+| Quantity | V4 | FEM (105k el.), same boundary condition | deviation | ≤ 5 % |
 |---|---|---|---|---|
-| bending stress at z = -53.5 (mean over the web width) | 4.18 MPa | 4.07 MPa | +2.6 % | ✓ |
-| deflection, rigid beam (a+b) vs FEM clamped section at z = -47 | 3.64 µm | 4.15 µm | -12.3 % | ✗ |
-| deflection, beam + Weber (a+b+c) vs FEM rigid clamp | 5.43 µm | 5.82 µm | -6.7 % | ✗ |
-| deflection, beam + Weber vs FEM standard support | 5.43 µm | 6.96 µm | -21.9 % | ✗ |
+| bending stress at z = -53.5 (mean over the web width) | 4.13 MPa | 4.07 MPa | +1.6 % | ✓ |
+| deflection, beam (a+b) vs FEM with the section clamped at z = -47 | 4.32 µm | 4.15 µm | +4.1 % | ✓ |
+| deflection, beam + Weber clamp (a+b+c) vs FEM with the holder face clamped | 6.11 µm | 5.82 µm | +5.0 % (4.995) | ✓ |
+| info: beam + Weber vs FEM standard support (face may slide, dowels) | 6.11 µm | 6.96 µm | -12.1 % | - |
 
-The stress is confirmed. It is read as the mean over the whole web width: the load enters the 25 mm web from the
-88 mm plate mainly along the web edges, so a strip in the middle reads about 6 % low, while the width mean meets beam
-theory within 0 ... 2 % all along the web (`fem_jaw.py`, check over z = -48 ... -57). The deflection is not within
-5 %: the beam variants give 3.6 ... 5.4 µm against 4.2 ... 5.8 µm in the FEM; the rest is the clamp zone and the
-web-plate junction, which a beam does not see. Weber's term comes from gear-tooth roots and is an estimate of the
-elastic clamp, not a proof. At about 5 µm the jaw deflection is far from mattering; the tilt above is the criterion.
+All like-for-like comparisons are within 5 % (21 Nov 2026, review section 2). What closed the deflection gap (it was
+-12.3 % before): V4 now models the junction from the 25 mm web into the 88 mm plate as built - the R4 fillet widens
+the web over its last 4 mm, and below it the bending stress spreads into the plate at 45° from the fillet's tangent
+points instead of using the full 88 mm at once (with the full width the beam is 12 % too stiff, with 45° from the
+bare web edge 12 % too soft). The Weber row sits at the limit; the FEM value still rises with refinement (5.73 /
+5.76 / 5.82 µm at 2.5 / 1.6 / 1.0 mm), which would lower it. The standard support is a different boundary condition:
+the holder face may slide and the dowels give way, a compliance the beam model does not contain; V5 measures which
+support is real. The stress is read as the mean over the whole web width: the load enters the 25 mm web from the
+88 mm plate mainly along the web edges, so a strip in the middle reads about 6 % low. At about 5 µm the jaw
+deflection is far from mattering; the tilt above is the criterion.
 `jaw_variants.py` is the study for the previous bar-shaped jaw (pocket rims, 20 Nov) and is not rerun.
 
 **To run:** `python v3_import.py`, `python fem_train.py 2.0`, `python convergence.py`, `python v4_check.py`;

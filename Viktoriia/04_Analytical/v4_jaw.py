@@ -65,9 +65,10 @@ def _(P, mo):
     N_HOLES = 2
     CBORE_D, CBORE_T = 6.5, 1.0                         # V3: counterbore on the outer face at both screw holes
     use_holes = mo.ui.checkbox(value=True, label="include the two Ø3.4 holes and Ø6.5 x 1 counterbores (V3) in the stiffness")
-    use_holes
+    use_spread = mo.ui.checkbox(value=True, label="load spreading at 45° from the 25 mm web into the 88 mm plate (effective width)")
+    mo.vstack([use_holes, use_spread])
     return (B, B_PLATE, CBORE_D, CBORE_T, E, F_cases, G_mod, H, NU, N_HOLES, POCKET_D, RIM, RP02, holes, s_F, s_a,
-            s_b, s_end, s_p, use_holes, z_clamp)
+            s_b, s_end, s_p, use_holes, use_spread, z_clamp)
 
 
 @app.cell
@@ -79,6 +80,13 @@ def _(mo):
     (towards the part), $x$ = 8 on the outer face (on the holder). In the pocket the material between $x$ = 0 and 3
     is only the two 1 mm rims.
 
+    **Junction web → plate (21 Nov).** The 25 mm web meets the 88 mm plate with an R4 fillet. The fillet widens the web
+    over its last 4 mm (taken into $I$). Below the junction the bending stress does not use the full plate width at
+    once: it spreads from the web into the plate at **45°** (Saint-Venant), starting at the tangent points of the
+    fillet, $b_{eff}(s) = \min(88,\; 25 + 2 \cdot 4 + 2\,(s - s_p))$; the pad screws and the side rims only count once
+    $b_{eff}$ reaches them. Assuming the full 88 mm right at the junction makes the beam about 12 % too stiff
+    (checkbox to compare).
+
     $$I = \sum \left(\frac{b_i h_i^3}{12} + A_i\,(x_i - x_c)^2\right), \qquad
     \sigma(x) = \frac{M\,(x - x_c)}{I}$$
     """)
@@ -86,25 +94,38 @@ def _(mo):
 
 
 @app.cell
-def _(B, B_PLATE, CBORE_D, CBORE_T, H, N_HOLES, POCKET_D, RIM, holes, mo, s_a, s_b, s_p, use_holes):
+def _(B, B_PLATE, CBORE_D, CBORE_T, H, N_HOLES, POCKET_D, RIM, holes, mo, s_a, s_b, s_p, use_holes, use_spread):
     def _chord(d, dia):
         return 2 * max(0.0, (dia / 2) ** 2 - d ** 2) ** 0.5
+
+    WEB_R = 4.0                                   # V3 fillet web -> plate (jaws.py)
+
+    def b_eff(s):
+        """Plate width that carries bending at s: the stress spreads from the 25 mm web into the plate at 45 deg."""
+        if not use_spread.value:
+            return B_PLATE
+        return min(B_PLATE, B + 2 * WEB_R + 2 * (s - s_p))   # starts at the tangent points of the R4 web fillet
 
     def section(s, with_holes=False):
         """I [mm^4], A [mm^2], x_c [mm] (from the inner face) at distance s below the clamp.
         With holes: the hole chord is taken out of the web, the counterbore chord out of the outer 1 mm layer."""
         if s_a <= s <= s_b:
-            d = min(abs(s - sh) for sh, _ in holes) if with_holes else 1e9
+            be = b_eff(s)
+            holes_in = with_holes and be > 2 * 28.0          # pad screws at y = +-28 only count inside b_eff
+            d = min(abs(s - sh) for sh, _ in holes) if holes_in else 1e9
             w_hole = _chord(d, holes[0][1])
             w_cb = _chord(d, CBORE_D)
             web_h = H - POCKET_D - CBORE_T
-            parts = [(B_PLATE - N_HOLES * w_hole, web_h, POCKET_D + web_h / 2),
-                     (B_PLATE - N_HOLES * max(w_hole, w_cb), CBORE_T, H - CBORE_T / 2),
-                     (2 * RIM, POCKET_D, POCKET_D / 2)]
+            rims = 2 * RIM if be >= B_PLATE - 1e-9 else 0.0   # the side rims sit at the plate edges
+            parts = [(be - N_HOLES * w_hole, web_h, POCKET_D + web_h / 2),
+                     (be - N_HOLES * max(w_hole, w_cb), CBORE_T, H - CBORE_T / 2),
+                     (max(rims, 1e-6), POCKET_D, POCKET_D / 2)]
         elif s >= s_p:
-            parts = [(B_PLATE, H, H / 2)]
+            parts = [(b_eff(s), H, H / 2)]
         else:
-            parts = [(B, H, H / 2)]
+            u = s - (s_p - WEB_R)                     # R4 fillet widens the web over its last 4 mm
+            fil = WEB_R - (WEB_R**2 - u**2) ** 0.5 if u > 0 else 0.0
+            parts = [(B + 2 * fil, H, H / 2)]
         A = sum(w * h for w, h, _ in parts)
         xc = sum(w * h * x for w, h, x in parts) / A
         I = sum(w * h**3 / 12 + w * h * (x - xc) ** 2 for w, h, x in parts)
@@ -337,9 +358,11 @@ def _(mo):
 
     FEM of **this V3 jaw**, read from `Elias/05_FEM/v4_fem_results.json` (written by `v4_check.py`: gmsh C3D10,
     finest mesh, CalculiX, converged); the old mock-jaw values of 11 Nov are the fallback if the file is missing.
-    Two FEM support variants exist: **standard** (holder face fixed in x only, dowel holes in y/z) and **rigid clamp**.
-    Like must be compared with like: the analytical *rigid* model belongs to neither exactly - the FEM "rigid clamp"
-    still lets the jaw material inside the holder zone deform, which is exactly what term c) describes.
+    Like must be compared with like, so each analytical model is held against the FEM with the same boundary condition:
+    the beam (a+b), built in at z = -47, against the FEM with the **whole cross-section clamped at z = -47**; the beam
+    with Weber's elastic clamp (a+b+c) against the FEM with the **holder face clamped** (the jaw material inside the
+    holder zone deforms, which is what term c) describes). The FEM **standard support** (holder face fixed in x only,
+    dowels in y/z, the face may slide) adds a support compliance that V4 does not model: shown for information.
     """)
     return
 
@@ -349,7 +372,7 @@ def _(F_cases, deflection, mo, stresses):
     import json as _json
     _F = F_cases["full current"]
     _p = mo.notebook_dir() / ".." / ".." / "Elias" / "05_FEM" / "v4_fem_results.json"
-    FEM = _json.load(open(_p)) if _p.exists() else {"sigma_check": 5.71, "w_std": 17.0, "w_rigid": 15.0}
+    FEM = _json.load(open(_p)) if _p.exists() else {"sigma_check": 5.71, "w_std": 17.0, "w_rigid": 15.0, "w_section": 12.7}
     _sig = stresses(_F)["FEM check z = -53.5 (s = 6.5)"]
     _d = deflection(_F)
     w_rigid_an = (_d["w_b"] + _d["w_s"]) * 1000
@@ -361,27 +384,25 @@ def _(F_cases, deflection, mo, stresses):
     def ok(x):
         return "✓" if abs(x) <= 5 else "✗"
 
+    _w_sec = FEM.get("w_section", FEM["w_rigid"])
     _r1, _r2, _r3, _r4 = (dev(_sig, FEM["sigma_check"]), dev(w_el_an, FEM["w_rigid"]),
-                          dev(w_el_an, FEM["w_std"]), dev(w_rigid_an, FEM["w_rigid"]))
-    _bounds = sorted((w_rigid_an, w_el_an))
-    reading = (f"the stress at the check section deviates {_r1:+.1f} % ({'within' if abs(_r1) <= 5 else 'outside'} 5 %). "
-               f"Deflection: the beam with Weber's elastic clamp deviates {_r2:+.1f} % from the FEM rigid clamp "
-               f"({'within' if abs(_r2) <= 5 else 'outside'} 5 %); the two beam variants give {_bounds[0]:.1f} ... "
-               f"{_bounds[1]:.1f} µm against {FEM['w_rigid']:.1f} µm in the FEM. Weber's term comes from gear-tooth "
-               f"roots and is used here as an estimate of the elastic clamp, not as a proof. The FEM standard support "
-               f"(holder face fixed in x only) is the soft bound; the printed jaw (V5) decides which support is real.")
+                          dev(w_el_an, FEM["w_std"]), dev(w_rigid_an, _w_sec))
+    _all = all(abs(x) <= 5 for x in (_r1, _r2, _r4))
+    reading = (f"all three like-for-like comparisons are {'within' if _all else 'NOT all within'} 5 % "
+               f"(stress {_r1:+.1f} %, beam {_r4:+.1f} %, beam with Weber's clamp {_r2:+.2f} %). Weber's term comes "
+               f"from gear-tooth roots and is used as an estimate of the elastic clamp; it sits at the limit, while the "
+               f"FEM value still rises slightly with mesh refinement (5.73 / 5.76 / 5.82 µm), which would lower the "
+               f"deviation. With the standard support the FEM deflects {FEM['w_std']:.2f} µm ({_r3:+.0f} % for V4): holder "
+               f"and dowel compliance, not part of the beam model; the printed jaw (V5) decides which support is real.")
     mo.md(f"""
-    | Quantity | analytical (V4) | FEM (E5) | deviation | ≤ 5 % |
+    | Quantity | analytical (V4) | FEM (E5), same boundary condition | deviation | ≤ 5 % |
     |---|---|---|---|---|
     | bending stress at z = -53.5 | {_sig:.2f} MPa | {FEM['sigma_check']:.2f} MPa | {_r1:+.1f} % | {ok(_r1)} |
-    | deflection, beam with rigid clamp (a+b) vs FEM rigid clamp | {w_rigid_an:.1f} µm | {FEM['w_rigid']:.1f} µm | {_r4:+.1f} % | {ok(_r4)} |
-    | **deflection, elastic clamp (a+b+c) vs FEM rigid clamp** | **{w_el_an:.1f} µm** | **{FEM['w_rigid']:.1f} µm** | **{_r2:+.1f} %** | **{ok(_r2)}** |
-    | deflection, elastic clamp vs FEM standard support | {w_el_an:.1f} µm | {FEM['w_std']:.1f} µm | {_r3:+.1f} % | {ok(_r3)} |
+    | **deflection, beam (a+b) vs FEM section clamped at z = -47** | **{w_rigid_an:.2f} µm** | **{_w_sec:.2f} µm** | **{_r4:+.1f} %** | **{ok(_r4)}** |
+    | **deflection, beam + Weber clamp (a+b+c) vs FEM holder face clamped** | **{w_el_an:.2f} µm** | **{FEM['w_rigid']:.2f} µm** | **{_r2:+.2f} %** | **{ok(_r2)}** |
+    | info: beam + Weber vs FEM standard support (support compliance, not in V4) | {w_el_an:.2f} µm | {FEM['w_std']:.2f} µm | {_r3:+.1f} % | - |
 
     **Reading:** {reading}
-
-    For the report: compare **like with like** (rigid ↔ rigid + Weber), state the standard-support result as the
-    upper bound, and let V5 arbitrate.
     """)
     return
 

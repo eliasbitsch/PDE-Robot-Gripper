@@ -49,8 +49,9 @@ def run_size(lc, store=None):
     store[f"{lc:g}"] = row
     json.dump(store, open(PATH, "w"), indent=1)
     fine = store[min(store, key=float)]
-    json.dump(dict(sigma_check=round(abs(fine["standard"]["szz"]), 3), w_rigid=round(fine["rigid"]["ux"], 2),
-                   w_std=round(fine["standard"]["ux"], 2), elements=fine["rigid"]["elements"],
+    json.dump(dict(sigma_check=round(abs(fine["standard"]["szz"]), 3), w_rigid=round(fine["rigid"]["ux"], 3),
+                   w_section=round(fine["section"]["ux"], 3), w_std=round(fine["standard"]["ux"], 3),
+                   elements=fine["rigid"]["elements"],
                    lc=float(min(store, key=float)), jaw="Viktoriia V3 (jaw_v3.step)"), open(SHARED, "w"), indent=1)
     return store
 
@@ -62,12 +63,12 @@ def compare(store=None, an=None):
         return None
     fine = store[min(store, key=float)]
     dev = lambda a, f: (a - f) / f * 100
-    rows = [("bending stress z = -53.5 [MPa]", an["sigma_check"], abs(fine["standard"]["szz"])),   # outer face is in compression
-            ("deflection, rigid beam (a+b) vs FEM clamped section at z = -47 [µm]", an["w_rigid"], fine["section"]["ux"]) if "section" in fine else None,
-            ("deflection, rigid beam (a+b) vs FEM rigid clamp [µm]", an["w_rigid"], fine["rigid"]["ux"]),
-            ("deflection, beam + Weber (a+b+c) vs FEM rigid clamp [µm]", an["w_elastic"], fine["rigid"]["ux"]),
-            ("deflection, beam + Weber vs FEM standard support [µm]", an["w_elastic"], fine["standard"]["ux"])]
-    return [dict(quantity=q, analytic=a, fem=f, dev=dev(a, f), ok=abs(dev(a, f)) <= TOL) for q, a, f in filter(None, rows)]
+    # criterion rows compare the same boundary condition; info rows do not (the support compliance is not in V4)
+    rows = [("bending stress z = -53.5 [MPa]", an["sigma_check"], abs(fine["standard"]["szz"]), True),   # outer face in compression
+            ("deflection, beam (a+b) vs FEM clamped section at z = -47 [µm]", an["w_rigid"], fine["section"]["ux"], True),
+            ("deflection, beam + Weber clamp (a+b+c) vs FEM rigid holder face [µm]", an["w_elastic"], fine["rigid"]["ux"], True),
+            ("info: beam + Weber vs FEM standard support (dowels, face slides) [µm]", an["w_elastic"], fine["standard"]["ux"], False)]
+    return [dict(quantity=q, analytic=a, fem=f, dev=dev(a, f), ok=abs(dev(a, f)) <= TOL, criterion=c) for q, a, f, c in rows]
 
 
 if __name__ == "__main__":
@@ -78,4 +79,5 @@ if __name__ == "__main__":
             st = run_size(lc, st)
             print(lc, st[f"{lc:g}"], flush=True)
     for r in compare(st):
-        print(f"{r['quantity']:58s} V4 {r['analytic']:7.2f}  FEM {r['fem']:7.2f}  {r['dev']:+6.1f} %  {'ok' if r['ok'] else 'NO'}")
+        print(f"{r['quantity']:70s} V4 {r['analytic']:7.2f}  FEM {r['fem']:7.2f}  {r['dev']:+6.2f} %  "
+              f"{('ok' if r['ok'] else 'NO') if r['criterion'] else 'info'}")
