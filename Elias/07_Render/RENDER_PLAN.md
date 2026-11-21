@@ -77,7 +77,15 @@ short captions. No music or only a quiet bed; optional voice-over.
 
 ---
 
-## 3. Order of work
+## 3. What exists
+
+`hero_v1.py` (Blender 5.1, Cycles): the first shots from 12 Nov, recovered 21 Nov and updated to the current CAD
+(200 mm body, BKE brake, V3 jaws). Shot A: the gripper turns slowly on the black glossy floor while the jaws open and
+close (frames 1-150); shot B: close-up of the drive train with the shell hidden (151-270). It is the base for shots
+2 and 5 above. Render: `blender -b -P hero_v1.py -- anim` (≈ 50 min at 128 samples, 1080p), then ffmpeg to
+`hero_v1.mp4`. Frames and the .blend go to `out/` (git-ignored); the script and the mp4 are kept in the repo.
+
+## 4. Order of work
 
 1. Export the assembly with names and BOM positions (FreeCAD → glTF / OBJ) and the E4 trajectory as JSON.
 2. Blender base scene: materials, black studio, white lab, camera rig; one EEVEE draft of shot 2.
