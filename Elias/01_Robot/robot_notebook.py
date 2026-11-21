@@ -19,6 +19,8 @@ def _():
 def _(mo):
     mo.md(r"""
     # E1 - Robot selection and placement: ABB IRB 1300-7/1.4
+    **Robot gripper, part B (PA 6) - group 10 - Ovdiienko / Bitsch**
+
 
     Requirement from the assignment: a robot suited to the working area, the 5 s cycle and the part mass. All numbers
     below come from `robot_selection.py` (run it after a CAD change); the datasheet values are marked in the vendor

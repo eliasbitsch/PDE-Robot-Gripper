@@ -163,6 +163,11 @@ checked; they are identical in time.
 | lower around the next part | 0.13 s |
 | **cycle** | **4.48 s of 5.0 s** |
 
+**Scope of the collision check (review section 3).** The path is the one the ABB controller runs as far as its
+interpolation is documented: MoveJ straight in joint space, the z200 corner path as a quadratic blend inside the zone
+(`abb_path.py`), the TCP acceleration capped by WorldAccLim. It is not confirmed in RobotStudio (not used; open-source
+chain instead), so the 100 mm fence clearance is the margin for the remaining difference between model and controller.
+
 Collision log every 10 ms, robot links 2-6 and the gripper against every obstacle (convex hulls, on the safe side):
 no contact anywhere, on either chain. Closest: fence 100.2 mm (left fence on the empty way back, 101.7 mm right on the loaded way, both near the
 via), production line 153 mm, chain / carrier on the other chain 423 mm, pedestal 434 mm, belt 93 mm while carrying

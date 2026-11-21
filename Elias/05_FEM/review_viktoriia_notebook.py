@@ -38,6 +38,8 @@ def _():
 def _(mo):
     mo.md(r"""
     # Review: Viktoriia's V2 and V4 against the simulation
+    **Robot gripper, part B (PA 6) - group 10 - Ovdiienko / Bitsch**
+
 
     Her notebooks (`Viktoriia/02_Sizing/v2_sizing.py`, `Viktoriia/04_Analytical/v4_jaw.py`) are executed here as they
     are, so every number below is her current result. Next to it: the FEM of her jaw V3 (E5) and the MuJoCo cell (E4).

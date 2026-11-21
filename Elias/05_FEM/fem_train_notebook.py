@@ -22,6 +22,8 @@ def _():
 def _(mo):
     mo.md(r"""
     # Jaw train FEM - slide + jaw holder + mock jaw
+    **Robot gripper, part B (PA 6) - group 10 - Ovdiienko / Bitsch**
+
 
     Right side of the gripper. The slide is fixed on its contact patch with the ball carriage, slide, holder and
     jaw are bonded, the load acts on the pad area of the jaw. The jaw is a **mock** until Viktoriia's jaw (V3)

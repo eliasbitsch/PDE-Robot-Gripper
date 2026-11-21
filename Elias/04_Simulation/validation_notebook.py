@@ -26,6 +26,8 @@ def _():
 def _(mo):
     mo.md(r"""
     # Gripper validation - hand calculation against simulation
+    **Robot gripper, part B (PA 6) - group 10 - Ovdiienko / Bitsch**
+
 
     ABB IRB 1300 with the gripper on the flange, part B from the buffer belt to the workpiece carrier.
     Change a value and the hand calculation **and** the MuJoCo simulation recompute (a few seconds).

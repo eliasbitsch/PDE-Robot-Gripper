@@ -17,6 +17,8 @@ def _():
 def _(mo):
     mo.md(r"""
     # Response to Elias' review – points 1 to 3
+    **Robot gripper, part B (PA 6) - group 10 - Ovdiienko / Bitsch**
+
 
     *Viktoriia Ovdiienko, 20 Nov 2026 – answers to "What I still need from you" in Elias' review message.
     Open with `marimo edit review_elias_response.py`.*

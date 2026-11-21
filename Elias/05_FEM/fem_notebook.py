@@ -21,6 +21,8 @@ def _():
 def _(mo):
     mo.md(r"""
     # Jaw FEM - gmsh + CalculiX
+    **Robot gripper, part B (PA 6) - group 10 - Ovdiienko / Bitsch**
+
 
     Right jaw, EN AW-7075 T6. The holder face takes the grip force (normal direction only),
     the two dowels locate it; the grip force acts as uniform pressure on the pad pocket floor.
