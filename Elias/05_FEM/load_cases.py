@@ -82,6 +82,5 @@ if __name__ == "__main__":
         m = MATERIALS[mat]
         print(f"{part:11s} {mat}: allowed von Mises {m['Rp02'] / 2:.0f} MPa (S 2), "
               f"fatigue amplitude for LC1 <= {m['fatigue'] / 2:.0f} MPa")
-    print(f"
-pad tilt: judged by tilt_check.py (grip with the pressure wedge); former limit {TILT_MAX} deg for reference")
+    print(f"\npad tilt: judged by tilt_check.py (grip with the pressure wedge); former limit {TILT_MAX} deg for reference")
     print(f"brake limit per jaw: {F_BRAKE:.0f} N, emergency stop {A_STOP:.1f} m/s^2 (ABB category 0, axis 1 at {R_TCP_A1} m)")
