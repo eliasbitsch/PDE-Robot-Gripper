@@ -378,9 +378,12 @@ EXTRA_BOM = [
 ]
 
 
+BOM_MAP = {}
+
+
 def bom(parts, masses):
     import re
-    rows = {}
+    rows, keys = {}, {}
     for name in parts:
         if name.split("_")[0] in ("Screw", "Dowel", "Washer", "Setscrew"):
             std = name.split("_")[1]
@@ -392,13 +395,19 @@ def bom(parts, masses):
             if info is None:
                 continue
             key = info
+        keys[name] = key
         r = rows.setdefault(key, [0, 0.0])
         r[0] += 1
         r[1] += masses.get(name, 0.0)
     order = lambda kv: (kv[0][1] == "standard part", kv[0][1].startswith("own") is False, kv[0][0])
     lines = ["Pos;Qty;Designation;Standard / supplier;Material;Mass each [g]"]
+    pos_of = {}
     for i, (k, (q, m)) in enumerate(sorted(rows.items(), key=order), 1):
-        lines.append(f"{i};{q};{k[0]};{k[1]};{k[2]};{1000 * m / q:.0f}")
+        c = [str(v).replace(";", ",") for v in k]                  # ';' is the column separator
+        lines.append(f"{i};{q};{c[0]};{c[1]};{c[2]};{1000 * m / q:.0f}")
+        pos_of[k] = i
+    BOM_MAP.clear()
+    BOM_MAP.update({n: pos_of[k] for n, k in keys.items() if k in pos_of})    # part name -> position (drawing balloons)
     for j, (d, s, mat, q) in enumerate(EXTRA_BOM, len(lines)):
         lines.append(f"{j};{q};{d};{s};{mat};-")
     return lines
@@ -541,6 +550,8 @@ def main():
     with open(os.path.join(OUT, "bom.csv"), "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     print(f"BOM: {len(lines) - 1} positions -> out/bom.csv")
+    with open(os.path.join(OUT, "bom_map.json"), "w") as f:
+        json.dump(BOM_MAP, f, indent=1)
     from parts import cabinet
     cabinet.write_csv(os.path.join(OUT, "bom_cabinet.csv"))
     print(f"cabinet BOM: {len(cabinet.CABINET_BOM)} positions -> out/bom_cabinet.csv")
