@@ -710,7 +710,7 @@ elif mode == "assemble":
                     cands.append(iso_quat(sx, sy, sz * (1.5 if cons.get(2) == -1 else 1.0)))   # steeper from below
         return min(cands, key=lambda q: q_prev.rotation_difference(q).angle)
 
-    DUR, HOLD, TRANS, STAG = 12, 10, 18, 2              # land, hold after landing, camera move, stagger in a group
+    DUR, HOLD, TRANS, STAG = 9, 7, 13, 1                # land, hold after landing, camera move, stagger in a group
     q0 = iso_quat(1, -1, 1)
     states = [(1, q0, c, 0.9, TRANS)]                   # (frame the camera arrives, orientation, target, distance, move frames)
     sched = []
@@ -733,7 +733,7 @@ elif mode == "assemble":
                 sched.append((f + i * STAG, n, objs[n], dirs[n] * travel, gidx, dirs[n], travel))
             gidx += 1
             last = gi == len(sh["groups"]) - 1        # the camera waits for the full landing; groups in a shot overlap
-            f += STAG * (len(members) - 1) + (DUR + HOLD if last else int(DUR * 0.6))
+            f += STAG * (len(members) - 1) + (DUR + HOLD if last else int(DUR * 0.5))
         print("shot", len(states) - 1, sh["cons"], [g[0][0] for g in sh["groups"]])
     f += 24
     states.append((f, q0, c, 0.8, 24))                 # finished gripper: classic iso from above
@@ -741,26 +741,74 @@ elif mode == "assemble":
     # (later parts further out on the same axis), the camera pulls out to show all parts in the air, a slow turn,
     # then everything snaps back at once like pulled by a strong magnet (accelerating, not easing in).
     G = gidx
-    E0 = f + 12
-    EX_STEP, EX_DUR, SNAP = 3, 22, 13
-    rank, seen = {}, {}
-    for f0, n, ob, off, gi, d, travel in sched:        # sandwich rank per joining direction, in assembly order
-        key = tuple(round(v) for v in d)
-        seen.setdefault(key, [])
-        if gi not in seen[key]:
-            seen[key].append(gi)
-        rank[n] = seen[key].index(gi)
-    expl = {n: (E0 + (G - 1 - gi) * EX_STEP, d * (travel * 1.3 + 0.022 * rank[n])) for f0, n, ob, off, gi, d, travel in sched}
+    E0 = f + 10
+    EX_STEP, EX_DUR, SNAP, STAGE = 2, 14, 10, 0.45
+    # exploded offsets, stacked like a sandwich: a part goes out along its joining axis (jaws, pads and holder dowels
+    # outward, as when the gripper opens) until it clears, with 12 mm air, every earlier part that flies the same way
+    # and overlaps it sideways. Without this, motor/brake/encoder ended up on top of each other and screws inside
+    # their plates (review 22 Nov).
+    bpy.context.view_layer.update()
+
+    def wbox(ob):
+        pts = [ob.matrix_world @ Vector(v) for v in ob.bound_box]
+        return Vector([min(q[i] for q in pts) for i in range(3)]), Vector([max(q[i] for q in pts) for i in range(3)])
+
+    OUTWARD = ("Jaw_", "PadPlate_", "Pad_", "Dowel_ISO8734-4x12")
+    expl, placed = {}, []
+    for f0, n, ob, off, gi, d, travel in sched:        # assembly order: inner parts first
+        ed = -d if n.startswith(OUTWARD) else d
+        ax = max(range(3), key=lambda i: abs(ed[i]))
+        sg = 1 if ed[ax] > 0 else -1
+        lo, hi = wbox(ob)
+        near, far = (lo[ax], hi[ax]) if sg > 0 else (-hi[ax], -lo[ax])
+        o = max(0.035, travel * 0.5)
+        for ax2, sg2, lo2, hi2, far2 in placed:
+            if ax2 == ax and sg2 == sg and all(lo[i] < hi2[i] - 0.002 and lo2[i] < hi[i] - 0.002 for i in range(3) if i != ax):
+                o = max(o, far2 + 0.012 - near)
+        placed.append((ax, sg, lo, hi, far + o))
+        u = Vector((0, 0, 0))
+        u[ax] = sg
+        expl[n] = (E0 + (G - 1 - gi) * EX_STEP, u * o)
+    pts = []
+    for f0, n, ob, off, gi, d, travel in sched:
+        lo, hi = wbox(ob)
+        pts += [lo + expl[n][1], hi + expl[n][1]]
+    ex_lo = Vector([min(q[i] for q in pts) for i in range(3)])
+    ex_hi = Vector([max(q[i] for q in pts) for i in range(3)])
+    dist_ex = max(1.3, (ex_hi - ex_lo).length * 1.5)
+    dist_mid = 0.5 * (dist_ex + 0.85)
     EX_END = E0 + G * EX_STEP + EX_DUR
-    S0 = EX_END + 50
-    states.append((EX_END, Quaternion((0, 0, 1), math.radians(15)) @ q0, c, 1.75, EX_END - f))
-    states.append((S0, Quaternion((0, 0, 1), math.radians(40)) @ q0, c, 1.75, 50))
-    states.append((S0 + SNAP, Quaternion((0, 0, 1), math.radians(48)) @ q0, c, 0.85, SNAP))
-    END = S0 + SNAP + 60
-    states.append((END, Quaternion((0, 0, 1), math.radians(70)) @ q0, c, 0.8, 60))
+    S1 = EX_END + 75                                   # a full turn in the exploded view
+    S2 = S1 + SNAP + 36                                # first snap to a stage, a further turn, then the final snap
+    END = S2 + SNAP + 50
+    print("finale frames: explode", E0, EX_END, "stage", S1, "final snap", S2, "end", END)
+    states.append((EX_END, q0, c, dist_ex, EX_END - f))
+    states.append((S1, q0, c, dist_ex, 10))
+    states.append((S1 + SNAP, q0, c, dist_mid, SNAP))
+    states.append((S2, q0, c, dist_mid, 10))
+    states.append((S2 + SNAP, q0, c, 0.85, SNAP))
+    states.append((END, q0, c, 0.8, 50))
+
+    def yaw_extra(fr):                                 # turns of the finale, on top of the shot orientation
+        y = 2 * math.pi * ease(min(1.0, max(0.0, (fr - EX_END) / (S1 - EX_END))))
+        y += (2 * math.pi / 3) * ease(min(1.0, max(0.0, (fr - S1 - SNAP) / (S2 - S1 - SNAP))))
+        y += math.radians(30) * ease(min(1.0, max(0.0, (fr - S2 - SNAP) / (END - S2 - SNAP))))
+        return y
+
+    def explode_factor(fr, e0):
+        if fr < S1:
+            return ease(min(1.0, max(0.0, (fr - e0) / EX_DUR)))
+        if fr < S1 + SNAP:                             # magnet: accelerating into the stage
+            return 1.0 - (1.0 - STAGE) * ((fr - S1) / SNAP) ** 3
+        if fr < S2:
+            return STAGE
+        if fr < S2 + SNAP:
+            return STAGE * (1.0 - ((fr - S2) / SNAP) ** 3)
+        return 0.0
     print("assemble shots", len(shots), "groups", len(groups))
 
     nudge_loc = [Vector() for _ in range(END + 2)]
+    nudge_rot = [Vector() for _ in range(END + 2)]     # axis * angle in the gripper frame
     rng_ = __import__("random").Random(4)
     for f0, name, ob, off, gi, d, travel in sched:
         base = ob.location.copy()
@@ -772,10 +820,7 @@ elif mode == "assemble":
         for fr in range(1, END + 1):
             t = (fr - f0) / DUR
             s = 0.0 if t <= 0 else min(1.0, 1 - (1 + 7 * t) * math.exp(-7 * t)) if t < 1 else 1.0
-            if fr < S0:                                 # out: smooth, ease-out
-                e = ease(min(1.0, max(0.0, (fr - e0) / EX_DUR)))
-            else:                                       # magnet snap: accelerating, full speed into the seat
-                e = 1.0 - min(1.0, (fr - S0) / SNAP) ** 3
+            e = explode_factor(fr, e0)
             ob.location = base + off * (1 - s) + eoff * e
             ob.hide_render = t <= 0
             if name.startswith(("Screw", "Setscrew")):
@@ -786,13 +831,23 @@ elif mode == "assemble":
             ob.keyframe_insert("location", frame=fr)
             ob.keyframe_insert("rotation_quaternion", frame=fr)
             ob.keyframe_insert("hide_render", frame=fr)
-        # the assembly rocks along the joining axis only: plates snap in with a short firm push, screws hardly at all
+        # the assembly yields along the joining axis and tilts about the lever from the joint to its centre: plates
+        # snap in with a firm push and a clear tilt, screws hardly at all (reviews 22 Nov)
         amp = 1.4 if name.startswith(PLATES) else 0.05 if name.startswith(FASTENERS) else 0.5
-        for u in range(0, 10):
+        lever = base - c
+        tq = (-axis).cross(lever)
+        tilt_amp = math.radians(1.0 if name.startswith(PLATES) else 0.02 if name.startswith(FASTENERS) else 0.45)
+        tq = tq.normalized() * tilt_amp * min(1.0, lever.length / 0.04) if tq.length > 1e-6 else Vector()
+        for u in range(0, 12):
             if seat + u <= END:
-                nudge_loc[seat + u] += -axis * amp * MM * math.exp(-u / 2.5) * math.sin(math.pi * u / 4)
-    for u in range(0, 14):                              # one firm common jolt when everything snaps home
-        nudge_loc[S0 + SNAP + u] += Vector((0, 0, -1)) * 2.5 * MM * math.exp(-u / 3) * math.sin(math.pi * u / 5)
+                prof = math.exp(-u / 2.8) * math.sin(math.pi * u / 4.5)
+                nudge_loc[seat + u] += -axis * amp * MM * prof
+                nudge_rot[seat + u] += tq * prof
+    for t_snap, k_ in ((S1 + SNAP, 0.5), (S2 + SNAP, 1.0)):   # a common jolt at the stage and when everything is home
+        for u in range(0, 14):
+            prof = k_ * math.exp(-u / 3) * math.sin(math.pi * u / 5)
+            nudge_loc[t_snap + u] += Vector((0, 0, -1)) * 2.5 * MM * prof
+            nudge_rot[t_snap + u] += Vector((1, 0.4, 0)).normalized() * math.radians(0.8) * prof
     # lab set after Elias' reference (22 Nov): polished concrete floor 1 m below, ceiling grid with light strips and
     # spots at 3.2 m, glass walls, white machines in the distance; Poly Haven "Autoshop 01" (CC0) as environment for
     # the reflections. Real geometry, so the joint rise of gripper and camera shows parallax. Flash in from white.
@@ -912,12 +967,13 @@ elif mode == "assemble":
             j2 = j + 1
             span = min(states[j2][4], states[j2][0] - states[j][0])
             v = ease(min(1.0, max(0.0, (fr - (states[j2][0] - span)) / span)))
-        qv = states[j][1].slerp(states[j2][1], v)
+        qv = Quaternion((0, 0, 1), yaw_extra(fr)) @ states[j][1].slerp(states[j2][1], v)
         poi = states[j][2].lerp(states[j2][2], v)
         dist = states[j][3] + (states[j2][3] - states[j][3]) * v
         if os.environ.get("NOZOOM"):                    # whole gripper always in frame: only the turns
             poi, dist = c, 0.82
-        root.rotation_quaternion = qv
+        nr = nudge_rot[fr]
+        root.rotation_quaternion = qv @ (Quaternion(nr.normalized(), nr.length) if nr.length > 0 else Quaternion())
         rise = Vector((0, 0, RISE * ease(fr / END)))      # gripper and camera rise together through the room
         root.location = qv @ nudge_loc[fr] + rise
         root.keyframe_insert("rotation_quaternion", frame=fr)
