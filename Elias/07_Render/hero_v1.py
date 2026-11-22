@@ -617,7 +617,9 @@ elif mode == "assemble":
         (("Window_Plate", "Cable_Gland"), FRONT, 60), (("Screw_ISO10642-M3x8_Window",), FRONT, 40),
         (("Adapter_ISO9409",), UP, 80), (("Screw_ISO10642-M4x16_Adapter",), UP, 45),
     ]
-    BIG = ("Bracket", "Hood", "Cover", "Jaw_", "Rail", "Holder_")
+    PLATES = ("Hood", "Cover", "Rail", "Bracket", "Slide_", "Carriage_", "Holder_", "Window_Plate", "Adapter",
+              "Jaw_", "PadPlate_", "Pad_")
+    FASTENERS = ("Screw", "Setscrew", "Dowel", "Washer", "Key_", "Circlip", "Shim")
     for name, ob in objs.items():
         ob.animation_data_clear()
         ob.hide_render = False
@@ -625,7 +627,7 @@ elif mode == "assemble":
         ob.data.transform(Matrix.Translation(-ctr))
         ob.location = ob.location + ob.matrix_basis.to_3x3() @ ctr   # objects carry the mm -> m scale
         ob.rotation_mode = "QUATERNION"
-    T0, DUR, GAP = 30, 15, 5                           # first arrival, frames to land, pause between groups
+    T0, DUR, GAP = 30, 15, 10                          # first arrival, frames to land, hold before the next group
     f, sched, pois, used = T0, [], [], set()
     for prefixes, how, dist in GROUPS:
         members = sorted(n for n in objs if n.startswith(prefixes) and n not in used)
@@ -668,16 +670,13 @@ elif mode == "assemble":
             ob.keyframe_insert("location", frame=fr)
             ob.keyframe_insert("rotation_quaternion", frame=fr)
             ob.keyframe_insert("hide_render", frame=fr)
-        big = name.startswith(BIG)
+        # the assembly rocks along the joining axis only: plates snap in with a short firm push, screws hardly at all
         push = -axis                                    # direction the part moves when it seats
-        lever = base - c
-        tq = push.cross(lever)
-        tq = tq.normalized() if tq.length > 1e-6 else Vector()
-        for u in range(0, 24):
+        amp = 1.4 if name.startswith(PLATES) else 0.05 if name.startswith(FASTENERS) else 0.5
+        for u in range(0, 20):
             if seat + u <= END:
-                prof = math.exp(-u / 5) * math.sin(math.pi * u / 8)
-                nudge_loc[seat + u] += push * (0.8 if big else 0.25) * MM * prof
-                nudge_rot[seat + u] += tq * math.radians(0.4 if big else 0.1) * prof
+                prof = math.exp(-u / 3.5) * math.sin(math.pi * u / 5)   # quick push, one damped swing back
+                nudge_loc[seat + u] += push * amp * MM * prof
     # white lab: bright soft world, white floor; flash in from white
     w = sc.world.node_tree.nodes["Background"]
     w.inputs["Color"].default_value = (0.82, 0.83, 0.85, 1)
@@ -747,9 +746,13 @@ elif mode == "assemble":
             return min(cands, key=lambda q: q_prev.rotation_difference(q).angle)
 
         tk = [(1, iso_quat(1, -1, 1), c, 0.9)]
+        prev_how = None
         for g0, tgt_, size, how in pois:
             dist = min(max(size * 2.2 + 0.12, 0.26), 0.75)
-            tk.append((max(g0 - 2, tk[-1][0] + 6), orient(how, tk[-1][1]), tgt_, dist))
+            if how == prev_how and (tgt_ - tk[-1][2]).length < 0.04 and len(tk) > 1:
+                continue                               # same side, same place (e.g. screws to their plate): hold
+            tk.append((max(g0 - 2, tk[-1][0] + 6), orient(how, tk[-1][1]), tgt_, max(dist, tk[-1][3] if how == prev_how else 0)))
+            prev_how = how
         tk.append((pois[-1][0] + DUR + 14, iso_quat(1, -1, 1), c, 0.8))     # finished gripper: classic iso from above
         tk.append((END, Quaternion((0, 0, 1), math.radians(35)) @ iso_quat(1, -1, 1), c, 0.74))
         for fr in range(1, END + 1):
@@ -763,6 +766,8 @@ elif mode == "assemble":
             qv = tk[k][1].slerp(tk[k2][1], v)
             poi = tk[k][2].lerp(tk[k2][2], v)
             dist = tk[k][3] + (tk[k2][3] - tk[k][3]) * v
+            if os.environ.get("NOZOOM"):                # whole gripper always in frame: only the turns, no zoom or pan
+                poi, dist = c, 0.82
             root.rotation_quaternion = qv @ qn(fr)
             root.location = qv @ nudge_loc[fr]
             root.keyframe_insert("rotation_quaternion", frame=fr)
@@ -808,7 +813,8 @@ elif mode == "assemble":
     print("assemble frames", END, "groups", len(pois), "camera keys", len(keys))
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "assemble" + ("_turn" if STYLE == "turn" else ""), "f_")
+    sc.render.filepath = os.path.join(HERE, "out", "assemble" + ("_turn" if STYLE == "turn" else "")
+                                      + ("_nozoom" if os.environ.get("NOZOOM") else ""), "f_")
     bpy.ops.render.render(animation=True)
     print("assemble done", sc.render.engine)
 elif mode == "preview":
