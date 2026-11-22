@@ -78,10 +78,27 @@ def carrier_pose(s):
     return np.array([CPT.X_WHEEL - u, CPT.Z_WHEEL - RC]), math.pi
 
 
-def build(m0_path, cut=+1):
+def build(m0_path, cut=+1, film=False):
     spec = mujoco.MjSpec.from_file(m0_path)
+    if film:                       # stage look: black surround, spots on the cell instead of the sun
+        for tx in spec.textures:
+            if tx.type == mujoco.mjtTexture.mjTEXTURE_SKYBOX:
+                tx.rgb1, tx.rgb2 = [0, 0, 0], [0, 0, 0]
+        for li in spec.worldbody.lights:
+            li.active = False
+        for pos, aim, cut_deg, power in (((0.3, -2.2, 4.6), (0.1, 0.0, 0.9), 34, 0.95),   # key, operator side
+                                         ((-2.6, 1.4, 4.2), (-1.0, 0.0, 1.0), 30, 0.55),  # machine and chains
+                                         ((2.8, 1.2, 4.0), (1.3, 0.0, 1.0), 28, 0.55),    # buffer line
+                                         ((-0.3, 2.6, 3.8), (0.0, 0.0, 1.2), 32, 0.35),   # rim from behind
+                                         ((-0.8, -3.4, 3.4), (-1.6, -1.2, 1.2), 26, 0.5)):  # machine front, cabinet
+            d_ = np.array(aim) - np.array(pos)
+            li = spec.worldbody.add_light(pos=list(pos), dir=list(d_ / np.linalg.norm(d_)), cutoff=cut_deg, exponent=8)
+            li.diffuse, li.specular, li.ambient = [power] * 3, [0.25] * 3, [0.0] * 3
+            li.castshadow = False
     pb = spec.body("part")
-    part_geoms = [(g.type, g.meshname, list(g.pos), list(g.quat), list(g.rgba), list(g.size)) for g in pb.geoms]
+    # visual geoms only: the collision boxes (group 3) lie on the part's faces and z-fight with it if made visible
+    part_geoms = [(g.type, g.meshname, list(g.pos), list(g.quat), list(g.rgba), list(g.size)) for g in pb.geoms
+                  if g.group != 3]
     wb = spec.worldbody
     for i in range(N_PART):
         b = wb.add_body(name=f"vp{i}", mocap=True, pos=[0, 0, -5])
@@ -117,7 +134,9 @@ def main(n_cycles=4, clean=False, slow=1.0):
     global W, H
     if clean:
         W, H = 1920, 1080
-    m, d = build(os.path.join(S.B.OUT, "cell.xml"), cut=-1 if clean else +1)
+    # explainer film: no see-through fence bays; transparent geoms are re-sorted every frame and flicker when the camera
+    # moves. The wire mesh is open anyway.
+    m, d = build(os.path.join(S.B.OUT, "cell.xml"), cut=0 if clean else +1, film=clean)
     # the model spans ~17 m (plant, belt), so MuJoCo's default near/far (0.17 m ... 870 m) and the 35 m shadow box
     # leave too little depth and shadow resolution: coplanar faces z-fight and the shadows shimmer. Fit both to the cell.
     ext = m.stat.extent
@@ -156,6 +175,19 @@ def main(n_cycles=4, clean=False, slow=1.0):
         return sum(ramp((t - (k * TAKT + tl0[1][0] + tl0[1][1])) / T_ADVANCE) for k in range(n_cycles + 2))
 
     r = mujoco.Renderer(m, H * SS, W * SS)
+    opt = mujoco.MjvOption()
+    if clean:
+        # no shadows in the film: the wire-mesh fence casts a grid finer than any shadow map, which breaks up into
+        # blotches on parts and gripper and flickers while the camera moves; a stronger headlight shades instead
+        m.light_castshadow[:] = 0
+        m.vis.headlight.diffuse[:] = (0.22, 0.22, 0.22)       # a little fill from the camera, the spots do the rest
+        m.vis.headlight.ambient[:] = (0.06, 0.06, 0.06)                                                  # shell parts into group 5, switched off for the cut view
+        for g in range(m.ngeom):
+            if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH and m.mesh(m.geom_dataid[g]).name.startswith(HIDE_SHELL):
+                m.geom_group[g] = 5
+        for g in range(m.ngeom):                               # buffer lid glass out: an open window onto the queue
+            if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH and 0 < m.geom_rgba[g, 3] < 1 and                     m.mesh(m.geom_dataid[g]).name.startswith("sr") and m.geom_pos[g][0] > 0.5:
+                m.geom_group[g] = 4
     cam = mujoco.MjvCamera()
     cam.lookat[:] = (0.0, 0.0, 1.05)
     cam.distance, cam.azimuth, cam.elevation = 4.3, 292, -30
@@ -174,16 +206,28 @@ def main(n_cycles=4, clean=False, slow=1.0):
     else:
         ts = [i / FPS / slow for i in range(int((n_cycles * TAKT + 0.5) * FPS * slow))]
     look = None
-    for i, t in enumerate(ts):
+
+    def robot_state(t):
         k = int(t // TAKT)
         tc = t - k * TAKT
-        side = side_of(k)
-        tl, T, _ = sides[side]
+        tl, T, _ = sides[side_of(k)]
         if tc < T:
             seg, q, jaw = at(tl, tc)
-            seg_name = NAMES_DE[seg]
-        else:
-            seg, q, jaw, seg_name = -1, q_wait, GP.D_OPEN, "Warten auf Takt"
+            return k, tc, T, seg, q, jaw, NAMES_DE[seg]
+        return k, tc, T, -1, q_wait, GP.D_OPEN, "Warten auf Takt"
+
+    d2 = mujoco.MjData(m)
+    gfb = m.body("gripper_frame").id
+
+    def grip_point(t):                                         # where the part sits in the gripper, at time t
+        _, _, _, _, q, jaw, _ = robot_state(t)
+        S.set_robot(m, d2, q, jaw=jaw * MM)
+        return d2.xpos[gfb] + d2.xmat[gfb].reshape(3, 3) @ S.PART_OFFSET
+
+    for i, t in enumerate(ts):
+        k, tc, T, seg, q, jaw, seg_name = robot_state(t)
+        side = side_of(k)
+        tl = sides[side][0]
         S.set_robot(m, d, q, jaw=jaw * MM)
         gb = m.body("gripper_frame").id
         Rg, pg = d.xmat[gb].reshape(3, 3), d.xpos[gb]
@@ -231,18 +275,24 @@ def main(n_cycles=4, clean=False, slow=1.0):
                     d.mocap_pos[mb] = (0, 0, -5)
         mujoco.mj_forward(m, d)
         if clean:
-            look = film_camera(cam, t, d.mocap_pos[m.body(f"vp{FOLLOW}").mocapid[0]].copy(), look, ts[i] - ts[i - 1] if i else 0.0)
+            grip = d.xpos[m.body("gripper_frame").id] + d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ S.PART_OFFSET
+            look = film_camera(cam, t, d.mocap_pos[m.body(f"vp{FOLLOW}").mocapid[0]].copy(), grip, look)
+            opt.geomgroup[5] = 0 if SEE_MECH[0] <= t < SEE_MECH[1] else 1
+            m.vis.map.znear = max(0.02, min(0.3, 0.25 * cam.distance)) / ext
             if os.environ.get("CAMDRY"):                   # print the followed part's path, no rendering
                 if i % 15 == 0:
                     print(f"t {t:5.2f} part {np.round(d.mocap_pos[m.body(f'vp{FOLLOW}').mocapid[0]], 3)}")
                 continue
-        r.update_scene(d, cam)
+        r.update_scene(d, cam, scene_option=opt)
+        if clean:
+            vec = film_vectors(r.scene, m, d, cam.distance, grip_point, t, jaw)
         im = Image.fromarray(r.render())
         if SS > 1:
             im = im.resize((W, H), Image.LANCZOS)
         done = sum(1 for n in range(n_cycles) if t >= t_release(n))
         if clean:
-            flog.append(dict(t=round(float(t), 4), seg=seg, name=NAMES_EN[seg] if seg >= 0 else "waiting for the takt"))
+            flog.append(dict(t=round(float(t), 4), seg=seg, name=NAMES_EN[seg] if seg >= 0 else "waiting for the takt",
+                             v=round(vec[0], 3), a=round(vec[1], 3), f=round(vec[2], 1)))
         else:
             hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
         frames.append(np.asarray(im))
@@ -264,9 +314,40 @@ def main(n_cycles=4, clean=False, slow=1.0):
 
 part_place = {}
 
-# explainer film: real time ranges and their slow-down; part 1 (second cycle, chain 1 on the camera side) is followed
-FILM_TIME = [(0.0, 4.2, 1.0), (4.2, 10.4, 2.0)]
-FOLLOW = 1
+# explainer film: real time ranges and their slow-down (video s per real s); part 3 (fourth cycle, chain 1 on the
+# camera side) is followed, so the robot first loads both chains a few times while the camera tours the cell
+FILM_TIME = [(0.0, 14.7, 1.0), (14.7, 15.6, 3.0), (15.6, 18.6, 2.0), (18.6, 24.6, 1.0), (24.6, 25.6, 3.0),
+             (25.6, 26.3, 1.0)]   # ends before axis 6 turns the arm in front
+FOLLOW, FILM_CYCLES = 3, 6
+SEE_MECH = (24.4, 27.1)                             # gripper shell hidden: racks, slides, drive visible
+HIDE_SHELL = ("g_Housing", "g_Cover", "g_Hood", "g_Window", "g_Tower", "g_Lid", "g_Screw_ISO10642-M3x10_Cover",
+              "g_Screw_ISO10642-M3x8_Window")
+# camera stations: (real t, look-at point or "part" / "grip", camera offset from it [m], cut before this key)
+P = np.array
+CAM_KEYS = [
+    (0.0, P([0.2, 0.0, 0.9]), P([5.0, -2.9, 4.8]), False),          # the whole cell, high and wide
+    (3.5, P([0.0, -0.3, 1.0]), P([2.2, -3.2, 2.2]), False),
+    (6.0, P([-0.9, -1.0, 1.35]), P([1.1, -1.1, 0.35]), False),      # ABB OmniCore on the cabinet, FHTW logo on the machine
+    (7.5, P([-0.95, -1.0, 1.45]), P([0.9, -0.9, 0.25]), False),
+    (9.0, P([1.8, -0.40, 1.28]), P([0.25, -1.0, 0.15]), False),     # PS-1 buffer line sign
+    (10.2, P([2.0, 0.0, 1.05]), P([0.05, -0.22, 0.8]), False),      # lid window: the queue before the ISO 13857 hood
+    (11.6, P([1.92, 0.0, 1.05]), P([0.0, -0.3, 0.8]), False),
+    (12.6, P([1.0, 0.0, 1.05]), P([-0.1, -0.4, 1.25]), False),      # over the fence (2.1 m) into the cell
+    (13.9, "part", P([-0.55, -0.5, 0.45]), False),                  # the pick
+    (14.9, "part", P([-0.25, -0.28, 0.12]), False),                 # close: the jaws close on the part
+    (15.5, "part", P([-0.2, -0.32, 0.1]), False),
+    (16.4, "part", P([-0.6, -0.4, 0.6]), False),                    # lift and swing (camera stays inside the fence)
+    (17.4, "part", P([0.2, -0.45, 0.85]), False),
+    (18.1, "part", P([0.35, -0.25, 0.2]), False),                   # set down on chain 1
+    (19.4, "part", P([0.55, -0.25, 0.3]), False),                   # the carrier takes it into the machine
+    (20.5, P([-1.7, -0.7, 1.3]), P([1.3, -1.0, 1.6]), False),       # up, outside the fence, clear of the machine roof
+    (22.0, P([-2.0, -0.3, 1.15]), P([0.25, -1.9, 0.15]), False),    # machine window: table and spindle
+    (23.3, P([-2.0, -0.1, 1.05]), P([0.15, -1.5, 0.25]), False),
+    (24.4, "grip", P([-0.3, -0.35, 0.15]), True),                   # cut: the next grip, shell hidden
+    (25.0, "grip", P([-0.22, -0.3, 0.08]), False),
+    (25.6, "grip", P([-0.25, -0.22, 0.12]), False),
+    (27.0, "grip", P([-0.3, -0.2, 0.18]), False),                   # stays inside the fence
+]
 
 
 def _ease(u):
@@ -274,57 +355,71 @@ def _ease(u):
     return u * u * (3 - 2 * u)
 
 
-def film_camera(cam, t, part, look, dt):
-    """Wide establishing move over the whole cell, then a smoothed chase of the followed part from above, always from
-    the operator side and away from the machine so nothing comes between the camera and the part."""
-    wide = (np.array([0.2, 0.0, 0.9]), 7.5, 150.0, -40.0)
-    # from inside the cell: at the pick the camera looks out towards the buffer belt (+x), at the place towards the
-    # machine (-x); in between it swings round over the operator side
-    end = (1.5, 30.0, -38.0)                        # distance, azimuth, elevation where the chase begins
+def film_camera(cam, t, part, grip, look_prev):
+    """Eased moves between the stations; 'part' / 'grip' keys track the moving point. Returns the look-at point."""
     hidden = part[2] < -1.0
-    if look is None:
-        look = wide[0].copy()
-    tgt = part + np.array([0, 0, 0.05])
-    if t < 4.2:                                     # the cell from high and wide, then down onto the part on the belt
-        u = _ease(t / 4.2)
-        look = wide[0] + (tgt - wide[0]) * u
-        w = u ** 1.6                                # distance drops late, so the cell stays readable longer
-        cam.distance = wide[1] + (end[0] - wide[1]) * w
-        cam.azimuth = wide[2] + (end[1] - wide[2]) * u
-        cam.elevation = wide[3] + (end[2] - wide[3]) * u
-    else:                                           # chase: critically damped follow, slow swing to look down on the place
-        if not hidden:
-            a = 1.0 - math.exp(-dt * 4.0)
-            look = look + (tgt - look) * a
-        v = _ease((t - 4.2) / 6.2)
-        cam.distance = end[0] + 0.4 * math.sin(math.pi * v)
-        cam.azimuth = end[1] + 135.0 * v
-        cam.elevation = end[2] - 8.0 * v
+
+    def pt(spec):
+        if isinstance(spec, str):
+            if spec == "part":
+                return look_prev if hidden and look_prev is not None else part + np.array([0, 0, 0.03])
+            return grip
+        return spec
+
+    k = max(i for i, key in enumerate(CAM_KEYS) if key[0] <= t) if t >= CAM_KEYS[0][0] else 0
+    if k == len(CAM_KEYS) - 1 or CAM_KEYS[k + 1][3]:
+        look, off = pt(CAM_KEYS[k][1]), CAM_KEYS[k][2]
+    else:
+        (ta, la, oa, _), (tb, lb, ob, _) = CAM_KEYS[k], CAM_KEYS[k + 1]
+        w = _ease((t - ta) / (tb - ta))
+        look = pt(la) * (1 - w) + pt(lb) * w
+        na, nb = np.linalg.norm(oa), np.linalg.norm(ob)
+        dirv = oa / na * (1 - w) + ob / nb * w
+        off = dirv / np.linalg.norm(dirv) * (na * (1 - w) + nb * w)   # direction and distance blended separately
+    f = -off / np.linalg.norm(off)
     cam.lookat[:] = look
+    cam.distance = float(np.linalg.norm(off))
+    cam.azimuth = math.degrees(math.atan2(f[1], f[0]))
+    cam.elevation = math.degrees(math.asin(max(-1.0, min(1.0, f[2]))))
     return look
 
 
-def hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f):
-    dr = ImageDraw.Draw(im, "RGBA")
-    dr.rectangle([20, 20, 640, 250], fill=(255, 255, 255, 215), outline=(60, 60, 60, 255))
-    dr.text((36, 30), f"Takt {k + 1}    t = {t:5.2f} s", font=f_big, fill=(20, 20, 20))
-    dr.text((36, 74), f"Taktzeit 5,0 s (vorgegeben)   Roboterzyklus {T:.2f} s", font=f, fill=(40, 40, 40))
-    dr.text((36, 106), f"Kette {'2' if k % 2 == 0 else '1'}:  {seg_name}", font=f, fill=(40, 40, 40))
-    dr.text((36, 138), f"Greifer: {'geschlossen' if jaw < GP.D_OPEN - 0.1 else 'offen'}   Teile übergeben: {done}",
-            font=f, fill=(40, 40, 40))
-    x0, x1, y = 36, 620, 190
-    dr.rectangle([x0, y, x1, y + 28], fill=(225, 225, 225, 255), outline=(90, 90, 90, 255))
-    dr.rectangle([x0, y, x0 + (x1 - x0) * min(tc, T) / TAKT, y + 28], fill=(194, 65, 12, 255))
-    if tc > T:
-        dr.rectangle([x0 + (x1 - x0) * T / TAKT, y, x0 + (x1 - x0) * tc / TAKT, y + 28], fill=(150, 150, 150, 255))
-    xr = x0 + (x1 - x0) * T / TAKT
-    dr.line([xr, y - 6, xr, y + 34], fill=(20, 20, 20, 255), width=2)
-    dr.text((x0, y + 32), "Roboter in Bewegung", font=ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 16), fill=(194, 65, 12))
-    dr.text((xr + 6, y + 32), "Reserve", font=ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 16), fill=(90, 90, 90))
+V_RGB, A_RGB, F_RGB = (1.0, 0.82, 0.2, 1), (1.0, 0.5, 0.1, 1), (0.9, 0.12, 0.08, 1)
+
+
+def _arrow(scn, a, b, width, rgba):
+    if scn.ngeom >= scn.maxgeom or np.linalg.norm(b - a) < 1e-4:
+        return
+    g = scn.geoms[scn.ngeom]
+    mujoco.mjv_initGeom(g, mujoco.mjtGeom.mjGEOM_ARROW, np.zeros(3), np.zeros(3), np.eye(3).flatten(), np.array(rgba, np.float32))
+    mujoco.mjv_connector(g, mujoco.mjtGeom.mjGEOM_ARROW, width, a, b)
+    scn.ngeom += 1
+
+
+def film_vectors(scn, m, d, dist, grip_point, t, jaw, h=0.01):
+    """Velocity (yellow) and acceleration (orange) of the gripped point, central differences of the robot path;
+    grip force (red) on both pads while the jaws are closed. Lengths scale with the camera distance so the arrows
+    read the same in wide shots and close-ups; the values go to the overlay. Returns (|v| m/s, |a| m/s2, F N)."""
+    p0, pm, pp = grip_point(t), grip_point(t - h), grip_point(t + h)
+    v = (pp - pm) / (2 * h)
+    a = (pp - 2 * p0 + pm) / (h * h)
+    w = 0.006 * dist
+    if np.linalg.norm(v) > 0.02:
+        _arrow(scn, p0, p0 + v * 0.10 * dist, w, V_RGB)
+    if np.linalg.norm(a) > 0.3:
+        _arrow(scn, p0, p0 + a * 0.012 * dist, w, A_RGB)
+    f = GP.F_GRIP_SET if jaw <= GP.D_GRIP + 0.05 else 0.0
+    if f:
+        gb = m.body("gripper_frame").id
+        x = d.xmat[gb].reshape(3, 3)[:, 0]
+        for name, sgn in (("pad_L", -1), ("pad_R", 1)):
+            pc = d.geom(name).xpos.copy()
+            _arrow(scn, pc + sgn * x * 0.16 * dist, pc + sgn * x * 0.01, w * 1.2, F_RGB)
+    return float(np.linalg.norm(v)), float(np.linalg.norm(a)), float(f)
 
 
 if __name__ == "__main__":
-    if "--clean" in sys.argv:                      # explainer film: the cell, then part 1 followed, no HUD
-        main(2, clean=True)
+    if "--clean" in sys.argv:                      # explainer film: a tour of the cell following one part, no HUD
+        main(FILM_CYCLES, clean=True)
     else:
         main(int(sys.argv[1]) if len(sys.argv) > 1 else 4)

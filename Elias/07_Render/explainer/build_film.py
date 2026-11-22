@@ -88,7 +88,10 @@ def s9():
     fr_t = [f["t"] for f in vid["frames"]]
     c0, T, takt = vid["follow_cycle_start"], cyc["cycle_time"], cyc["budget"]
     vdur = len(fr_t) / vid["fps"]
-    v_follow = next(i for i, x in enumerate(fr_t) if x >= vid["film_time"][1][0]) / vid["fps"]   # chase begins
+    v_follow = next(i for i, x in enumerate(fr_t) if x >= c0 - 1.1) / vid["fps"]   # camera reaches the pick
+    VAF = [(f["v"], f["a"], f["f"]) for f in vid["frames"]]
+    t_mech = c0 + takt + 4.4                                   # cell_video.SEE_MECH: next grip with the shell hidden
+    v_mech = next(i for i, x in enumerate(fr_t) if x >= t_mech - 0.2) / vid["fps"]
     v_card = next(i for i, x in enumerate(fr_t) if x >= c0 + T) / vid["fps"]
     segs = [(s["segment"], s["t_start"], s["duration"]) for s in cyc["segments"]]
     rows = list(csv.DictReader(open(os.path.join(SIM, "e4_collision_log_chain1.csv")), delimiter=";"))
@@ -114,9 +117,15 @@ def s9():
       <div id="s9-a"><div class="cap">The cell</div>
         <div class="sub">part B, {GP.B_MASSE:.3f} kg: buffer belt &rarr; robot &rarr; two carrier chains, takt {GP.TAKTZEIT:.1f} s</div></div>
       <div id="s9-b"><div class="cap">Following one part</div>
-        <div class="sub">MuJoCo, real robot path, half speed</div></div>
+        <div class="sub">MuJoCo, real robot path, slowed down at grip and place</div></div>
+      <div id="s9-c"><div class="cap">Inside the gripper</div>
+        <div class="sub">next cycle, shell hidden: motor, brake, bevel pair, pinion, two racks</div></div>
       <div class="clock" id="s9-clock"></div>
-      <div class="panel"><div class="ph">closest approach</div>{rows_html}</div>
+      <div class="panel"><div class="ph">gripper</div>
+        <div class="row"><span class="rn"><i class="sw" style="background:#FFD133"></i>velocity</span><span class="rv" id="s9-vv">&ndash;</span></div>
+        <div class="row"><span class="rn"><i class="sw" style="background:#FF8019"></i>acceleration</span><span class="rv" id="s9-va">&ndash;</span></div>
+        <div class="row"><span class="rn"><i class="sw" style="background:#EB1F14"></i>grip force / jaw</span><span class="rv" id="s9-vf">&ndash;</span></div>
+        <div class="ph" style="margin-top:18px">closest approach</div>{rows_html}</div>
       <div class="strip"><div class="stop"><span id="s9-sname">waiting at the pick</span><span class="tk">takt {takt:.1f} s</span></div>
         <div class="bar">{seg_html}<div class="res" style="left:{T / takt * 100:.3f}%;width:{(takt - T) / takt * 100:.3f}%"></div>
           <div class="head" id="s9-head"></div></div>
@@ -126,47 +135,56 @@ def s9():
         <div class="small">{takt - T:.2f} s reserve &middot; {'no contact' if not ec['any_contact'] else 'CONTACT'}</div></div>
     </div>"""
     style = f"""
-    .shade {{ position: absolute; inset: 0; background: linear-gradient(90deg, rgba(14,16,19,.82) 0, rgba(14,16,19,0) 34%, rgba(14,16,19,0) 70%, rgba(14,16,19,.82) 100%); }}
-    #s9-ui .cap, #s9-ui .sub {{ text-shadow: 0 1px 8px rgba(0,0,0,.5); }}
-    .plate {{ position: absolute; left: 56px; top: 40px; width: 1060px; height: 136px; background: rgba(14,16,19,.86); border-radius: 10px; }}
+    .shade {{ display: none; }}
+    #s9-c {{ opacity: 0; }}
+    #s9-ui .sub {{ color: rgba(235,235,245,.6); }}
+    #s9-ui .cap {{ font-weight: 600; letter-spacing: -0.015em; }}
+    .plate {{ position: absolute; left: 56px; top: 40px; width: 960px; height: 136px; background: rgba(28,28,30,.42); backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); border: 1px solid rgba(255,255,255,.10); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); border-radius: 18px; }}
     .clock {{ position: absolute; right: 86px; top: 64px; font-size: 34px; font-variant-numeric: tabular-nums; }}
-    .panel {{ position: absolute; right: 86px; top: 290px; width: 500px; padding: 22px 26px; background: rgba(14,16,19,.86); border-radius: 10px; }}
-    .panel .ph {{ font-size: 22px; color: {LOAD}; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }}
-    .row {{ white-space: nowrap; display: flex; justify-content: space-between; font-size: 28px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.08); }}
-    .rv {{ font-variant-numeric: tabular-nums; color: {ACC}; }}
-    .strip {{ position: absolute; left: 86px; width: 1180px; bottom: 70px; padding: 18px 24px 30px; background: rgba(14,16,19,.86); border-radius: 10px; }}
+    .panel {{ position: absolute; right: 86px; top: 200px; width: 500px; padding: 24px 28px; background: rgba(28,28,30,.42); backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); border: 1px solid rgba(255,255,255,.10); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); border-radius: 18px; }}
+    .panel .ph {{ font-size: 20px; font-weight: 600; color: rgba(235,235,245,.55); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }}
+    .row {{ white-space: nowrap; display: flex; justify-content: space-between; font-size: 28px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.07); }}
+    .sw {{ display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-right: 12px; vertical-align: 1px; }}
+    .rv {{ font-variant-numeric: tabular-nums; color: #FFFFFF; font-weight: 500; }}
+    .rn {{ color: rgba(235,235,245,.72); }}
+    .strip {{ position: absolute; left: 86px; width: 1180px; bottom: 70px; padding: 20px 28px 28px; background: rgba(28,28,30,.42); backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); border: 1px solid rgba(255,255,255,.10); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); border-radius: 18px; }}
     .stop {{ display: flex; justify-content: space-between; font-size: 26px; margin-bottom: 12px; }}
     .stop .tk {{ color: {LOAD}; font-size: 24px; }}
     .bar {{ position: relative; height: 14px; background: rgba(255,255,255,.06); border-radius: 7px; }}
-    .seg {{ position: absolute; top: 0; height: 14px; background: rgba(60,201,180,.28); border-right: 2px solid {BG}; }}
+    .seg {{ position: absolute; top: 0; height: 14px; background: rgba(255,255,255,.18); border-right: 2px solid {BG}; }}
     .res {{ position: absolute; top: 0; height: 14px; background: repeating-linear-gradient(45deg, rgba(142,148,156,.25) 0 6px, transparent 6px 12px); }}
     .head {{ position: absolute; top: -6px; left: 0; width: 3px; height: 26px; background: {INK}; }}
     .ticks {{ position: relative; height: 28px; margin-top: 8px; font-size: 24px; color: {LOAD}; }}
     .ticks span {{ position: absolute; transform: translateX(-50%); white-space: nowrap; }}
     .ticks span:first-child {{ transform: none; }}
     .ticks span.tc {{ transform: translateX(-100%); }}
-    .card {{ position: absolute; right: 86px; top: 610px; width: 500px; padding: 26px 26px; background: rgba(14,16,19,.92);
-             border: 2px solid {ACC}; border-radius: 12px; text-align: center; opacity: 0; }}
+    .card {{ position: absolute; right: 86px; top: 760px; width: 500px; padding: 26px 28px; background: rgba(28,28,30,.42); backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); border: 1px solid rgba(255,255,255,.10); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); border-radius: 18px; text-align: center; opacity: 0; }}
     .card .big {{ font-size: 46px; white-space: nowrap; }}
-    .card .big b {{ color: {ACC}; font-weight: 700; }}
+    .card .big b {{ color: #FFFFFF; font-weight: 700; }}
+    .card .big {{ color: rgba(235,235,245,.72); }}
     .card .small {{ font-size: 26px; color: {LOAD}; margin-top: 10px; }}
 """
-    data = dict(t=t, d={k: dist[k] for k in dist}, segs=segs, T=T, takt=takt, c0=c0, F=fr_t, fps=vid["fps"],
+    data = dict(t=t, d={k: dist[k] for k in dist}, segs=segs, T=T, takt=takt, c0=c0, F=fr_t, fps=vid["fps"], VAF=VAF,
                 mins={k: v for k, v in mins.items()})
     script = f"""
     const D = {json.dumps(data, separators=(",", ":"))};
     const keys = Object.keys(D.d);
     function at(fi) {{
-      const tr = D.F[Math.max(0, Math.min(D.F.length - 1, Math.round(fi)))];
+      const fj = Math.max(0, Math.min(D.F.length - 1, Math.round(fi)));
+      const tr = D.F[fj];
+      const vaf = D.VAF[fj];
+      document.getElementById("s9-vv").textContent = vaf[0].toFixed(2) + " m/s";
+      document.getElementById("s9-va").textContent = vaf[1].toFixed(1) + " m/s²";
+      document.getElementById("s9-vf").textContent = vaf[2] > 0 ? vaf[2].toFixed(1) + " N" : "open";
       const tc = tr - D.c0;                       // time in the followed cycle
       const i = Math.max(0, Math.min(D.t.length - 1, Math.round(tc / 0.01)));
-      document.getElementById("s9-clock").textContent = tc < 0 ? "" : "t = " + tc.toFixed(2) + " s";
+      document.getElementById("s9-clock").textContent = tc < 0 || tc > D.takt ? "" : "t = " + tc.toFixed(2) + " s";
       document.getElementById("s9-head").style.left = (100 * Math.min(D.takt, Math.max(0, tc)) / D.takt) + "%";
       let si = 0;
       D.segs.forEach((s, k) => {{ if (tc >= s[1]) si = k; }});
       if (tc > D.T) si = -1;
       document.getElementById("s9-sname").textContent = tc < 0 ? "waiting at the pick" : (si < 0 ? "on the carrier, into the machine" : D.segs[si][0]);
-      D.segs.forEach((s, k) => {{ document.getElementById("s9-seg" + k).style.background = tc < 0 ? "rgba(60,201,180,.22)" : (k === si ? "{ACC}" : (k < si || si < 0 ? "rgba(60,201,180,.55)" : "rgba(60,201,180,.22)")); }});
+      D.segs.forEach((s, k) => {{ document.getElementById("s9-seg" + k).style.background = tc < 0 ? "rgba(255,255,255,.18)" : (k === si ? "#FFFFFF" : (k < si || si < 0 ? "rgba(255,255,255,.5)" : "rgba(255,255,255,.18)")); }});
       keys.forEach((k) => {{                      // running minimum over the cycle: ends on the closest approach
         const el = document.getElementById("s9-v-" + k);
         if (tc < 0) {{ el.innerHTML = "&ndash;"; return; }}
@@ -183,7 +201,9 @@ def s9():
     tl.fromTo("#s9-a", {{ opacity: 1 }}, {{ opacity: 0, duration: 0.4, ease: "power1.in" }}, {v_follow - 0.4:.2f});
     tl.fromTo("#s9-b, .clock", {{ opacity: 0, y: 8 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }}, {v_follow:.2f});
     tl.fromTo(".panel, .strip", {{ opacity: 0, y: 12 }}, {{ opacity: 1, y: 0, duration: 0.6, ease: "power2.out", stagger: 0.1 }}, {v_follow + 0.2:.2f});
-    tl.fromTo("#s9-card", {{ opacity: 0, scale: 0.96 }}, {{ opacity: 1, scale: 1, duration: 0.6, ease: "power2.out" }}, {v_card + 0.3:.2f});"""
+    tl.fromTo("#s9-card", {{ opacity: 0, scale: 0.96 }}, {{ opacity: 1, scale: 1, duration: 0.6, ease: "power2.out" }}, {v_card + 0.3:.2f});
+    tl.to("#s9-card, #s9-b, .strip, .clock", {{ opacity: 0, duration: 0.3, ease: "power1.in" }}, {v_mech - 0.3:.2f});
+    tl.fromTo("#s9-c", {{ opacity: 0, y: 8 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }}, {v_mech:.2f});"""
     return scene("s9", body, script, style), vdur + S9_HOLD
 
 

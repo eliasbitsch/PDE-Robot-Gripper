@@ -132,8 +132,10 @@ def render_video(rec, path, slowmo=0.1, fps=30, label="", force_scale=0.15):
         opt.flags[f] = 1
     m.vis.map.force = force_scale / 35.0 * m.stat.meanmass
     ms = m.stat.meansize                            # vis.scale is relative to it
-    m.vis.scale.contactwidth, m.vis.scale.contactheight, m.vis.scale.forcewidth = 0.004 / ms, 0.0008 / ms, 0.0015 / ms
+    m.vis.scale.contactwidth, m.vis.scale.contactheight, m.vis.scale.forcewidth = 0.004 / ms, 0.0008 / ms, 0.003 / ms
     m.vis.rgba.contactpoint[:] = (1.0, 0.85, 0.1, 1)
+    m.vis.rgba.contactforce[:] = (0.92, 0.12, 0.08, 1)        # normal force red, friction orange: readable on the white part
+    m.vis.rgba.contactfriction[:] = (1.0, 0.55, 0.1, 1)
     r = mujoco.Renderer(m, PANEL[1], PANEL[0])
     f_big, f_small = _font(17), _font(14)
     step = max(1, int(round(slowmo / fps / rec.dt)))   # sim seconds per video frame = slowmo / fps
@@ -154,7 +156,7 @@ def render_video(rec, path, slowmo=0.1, fps=30, label="", force_scale=0.15):
             m.geom_rgba[:] = rgba0
             if see:
                 m.geom_rgba[geoms[5], 3] = 0.18
-                m.geom_rgba[part_vis, 3] = 0.45             # pads and force arrows sit inside the part
+                m.geom_rgba[part_vis, 3] = 0.28             # pads and force arrows sit inside the part
             for _, a, b in hits:                       # colliding parts in red
                 for g, n in geoms[0].items():
                     if n in (a, b):

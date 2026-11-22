@@ -177,7 +177,7 @@ def machine():
     # other walls and roof (hollow housing so the window shows the interior)
     g["grey"][1] += [box((x0, y1 - t, 0.15), (x1, y1, H - 0.2)), box((x0, y0, 0.15), (x0 + t, y1, H - 0.2)),
                      box((x0, y0, H - 0.22), (x1, y1, H - 0.2))]
-    g["anth"][1].append(box((x0, y0, 0.15), (x1, y0 + 0.03, 0.75)))               # lower front strip, operator side
+    g["anth"][1].append(box((x0, y0 - 0.006, 0.15), (x1, y0 + 0.03, 0.75)))       # lower front strip, operator side (proud of the wall: no coplanar faces)
     # interior: machine bed, table with a fixture, spindle head on a column, chip guard
     cx = 0.5 * (wx0 + wx1)
     g["anth"][1].append(box((wx0, y0 + 0.25, 0.15), (wx1, y1 - 0.25, 0.8)))
@@ -210,8 +210,8 @@ def machine():
                                                         ("Zuführung WT-Ketten 1 + 2   |   Takt 5,0 s", 0.13, False, (60, 60, 60))])
     quad(os.path.join(out, plate_obj), (x1 + 0.002, -0.45, 1.75), (0, 0.9, 0), (0, 0, 0.22))
     tex = [(hmi_obj, hmi_png, "hmi"), (plate_obj, plate_png, "plate")]
-    tex += logo(out, "logo1", (x1 + 0.002, -1.0, 1.55), (0, 0.46, 0), 0)           # robot-facing wall
-    tex += logo(out, "logo2", (wx0, y0 - 0.002, 0.3), (0.5, 0, 0), 0)               # operator side, lower strip
+    tex += logo(out, "logo1", (x1 + 0.002, -1.16, 1.55), (0, 0.46, 0), 0)          # robot-facing wall, outside the fence (y -0.6)
+    tex += logo(out, "logo2", (wx0, y0 - 0.009, 0.3), (0.5, 0, 0), 0)               # operator side, lower strip
     emit("machine", g, tex)
 
 

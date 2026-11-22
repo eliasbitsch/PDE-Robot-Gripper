@@ -69,7 +69,11 @@ def build():
     for i in range(7):
         decimate(os.path.join(MESH, f"robot_link{i}.stl"), os.path.join(MESH, f"robot_link{i}_s.stl"))
         assets.append(f'<mesh name="link{i}" file="{os.path.join(MESH, f"robot_link{i}_s.stl")}" scale="{MM} {MM} {MM}"/>')
-    assets.append(f'<mesh name="part_b" file="{os.path.join(MESH, "part_b.stl")}" scale="{MM} {MM} {MM}"/>')
+    # part B has 24 vertices: MuJoCo's averaged normals smear across its 90 degree edges (blotchy shading), so the
+    # visual mesh gets its vertices split at sharp edges, with the normals in an OBJ
+    import trimesh
+    trimesh.load(os.path.join(MESH, "part_b.stl")).smooth_shaded.export(os.path.join(MESH, "part_b_render.obj"), include_normals=True)
+    assets.append(f'<mesh name="part_b" file="{os.path.join(MESH, "part_b_render.obj")}" scale="{MM} {MM} {MM}"/>')
     # looks over the exact boxes, if built: SimReady belt, fence, floor + own machine, buffer housing, chains, cabinet
     sr_assets, sr_geoms, sr_used = SR.mjcf()
     assets += sr_assets
