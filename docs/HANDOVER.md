@@ -17,7 +17,8 @@
 ## Open
 
 - [ ] Elias: cuts or continuous? `out/flight_preview_C_new_bass.mp4` (cuts with 0.8 s dips) vs
-      `out/flight_preview_cont_C_new_bass.mp4` (VARIANT=_cont: one move, a view every 57 frames = 4 beats at 126 BPM).
+      `out/flight_preview_cont_C_new_bass.mp4` (VARIANT=_cont: one move, a view every 57 frames = 4 beats at 126 BPM,
+      dips to dark at the fastest point between views, frames 86/143/200/300 - what Elias meant by "swoosh").
       Music chosen: C = Mixkit 720 "New Bass 01" from 45.76 s (on a downbeat): `python music_flight.py 720 45.76
       C_new_bass [_cont]`. Both with the new reveal: black, a glint from behind sweeps the top edges (frames 1-56),
       rims 8-50, key 28-72, fill/top 40-80, pool 50-85; camera starts close, low, 100 mm.

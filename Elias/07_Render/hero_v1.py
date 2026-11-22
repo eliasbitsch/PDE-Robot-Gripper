@@ -316,6 +316,8 @@ elif mode == "flight":
                   (411, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90, 1.0),
                   (440, drive_t, (-0.9, -1.5, 0.75), 0.50, 85, 0.5), (515, drive_t, (-0.78, -1.6, 0.7), 0.47, 85, 0.5),
                   (600, drive_t, (-0.6, -1.65, 0.62), 0.43, 85, 0.6)]]
+    # continuous variant: no cuts, but a dip to dark at the fastest point between two views (review 22 Nov)
+    DIPS = [86, 143, 200, 300] if VARIANT == "_cont" else None
     JAWS_D = [(40, 72, D_OPEN, D_GRIP), (150, 180, D_GRIP, D_OPEN), (268, 300, D_OPEN, D_GRIP),
               (330, 352, D_GRIP, D_OPEN), (358, 380, D_OPEN, D_GRIP), (450, 475, D_GRIP, D_OPEN),
               (490, 512, D_OPEN, D_GRIP), (528, 552, D_GRIP, D_OPEN), (562, 584, D_OPEN, D_GRIP)]
@@ -442,7 +444,7 @@ elif mode == "flight":
     vs = sc.view_settings
     for f in range(1, END + 1):
         e = 0.0
-        for cf in cuts:
+        for cf in (DIPS if DIPS else cuts):
             if cf - 12 <= f < cf + 12:                  # 0.8 s dip; 5 frames felt cheap (review 22 Nov)
                 e = -8 * (1 - ease(abs(f - (cf - 0.5)) / 12))
         if f >= END_FADE[0]:
@@ -450,7 +452,7 @@ elif mode == "flight":
         vs.exposure = e
         vs.keyframe_insert("exposure", frame=f)
     vs.exposure = 0.0
-    json.dump({"fps": FPS, "end": END, "cuts": cuts, "jaws": JAWS_D, "fade": FADE, "end_fade": END_FADE,
+    json.dump({"fps": FPS, "end": END, "cuts": cuts, "jaws": JAWS_D, "fade": FADE, "end_fade": END_FADE, "dips": DIPS or cuts,
                "moves": [(145, 195), (380, 440)]},   # the two flowing camera moves
               open(os.path.join(HERE, "out", f"flight_timeline{VARIANT}.json"), "w"))
     sc.camera = cam
