@@ -18,8 +18,20 @@ else:
     BG, INK, MU, SAF, ACC, LOAD, PART, PAD = ("#0E1013", "#E8E6E1", "#5AA9F0", "#F08A4B", "#3CC9B4", "#8E949C",
                                               "#191C21", "#5A606B")
 config.background_color = BG
-M, G, A, S, MU_V = 0.602, 9.81, 4.96, 2.0, 0.2
-F = S * M * (G + A) / (2 * MU_V)
+import json
+import sys
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# all inputs from the design parameters, so film, notebook and report cannot drift apart
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "02_CAD_Body"))
+import gripper_params as P  # noqa: E402
+M, G, A, A0, S, MU_V = P.B_MASSE, P.G, P.A_PATH_REAL, P.A_BAHN, P.S_SICHERHEIT, P.MU_OILY
+F = P.F_GRIP_SET
+assert abs(F - S * M * (G + A) / (P.N_BACKEN * MU_V)) < 1e-9
+
+
+def n(v, d=2):
+    return f"{v:.{d}f}".rstrip("0").rstrip(".")
 
 
 def tex(*parts, **kw):
@@ -66,10 +78,10 @@ class GripForce(Scene):
 
         # the inputs, each with why it is that value
         rows = VGroup(
-            Tex(r"$\mu = 0.2$", r"\; pad on an oily part (worst case)", color=INK, font_size=28),
-            Tex(r"$S = 2$", r"\; quasi-static safety (VDI 2860)", color=INK, font_size=28),
-            Tex(r"$m = 0.602$ kg", r"\; part B", color=INK, font_size=28),
-            Tex(r"$a = 4.96$ m/s$^2$", r"\; real robot path (straight line: 2.05)", color=INK, font_size=28),
+            Tex(rf"$\mu = {n(MU_V)}$", r"\; pad on an oily part (worst case)", color=INK, font_size=28),
+            Tex(rf"$S = {n(S)}$", r"\; quasi-static safety (VDI 2860)", color=INK, font_size=28),
+            Tex(rf"$m = {M:.3f}$ kg", r"\; part B", color=INK, font_size=28),
+            Tex(rf"$a = {n(A)}$ m/s$^2$", rf"\; real robot path (straight line: {n(A0)} m/s$^2$)", color=INK, font_size=28),
         ).arrange(DOWN, aligned_edge=LEFT, buff=0.22).next_to(e2, DOWN, buff=0.55).align_to(e2, LEFT).shift(0.6 * LEFT)
         rows[0][0].set_color(MU), rows[1][0].set_color(SAF), rows[3][0].set_color(ACC)
         for r in rows:
@@ -78,8 +90,9 @@ class GripForce(Scene):
         self.play(Indicate(rows[3][0], color=ACC, scale_factor=1.12), run_time=0.8)
 
         # numbers in, result out
-        e3 = tex(r"F", r"=", r"{", r"2", r"\cdot 0.602\,(9.81+4.96)", r"\over", r"2", r"\cdot 0.2", r"}",
-                 font_size=52).move_to(x0)
+        U = r"\,\mathrm{m/s^2}"                         # units always written with the values
+        e3 = tex(r"F", r"=", r"{", n(S), rf"\cdot {M:.3f}\,\mathrm{{kg}}\cdot({n(G)}{U}+{n(A)}{U})", r"\over",
+                 str(P.N_BACKEN), rf"\cdot {n(MU_V)}", r"}", font_size=42).move_to(x0)
         e3[3].set_color(SAF), e3[7].set_color(MU)
         self.play(TransformMatchingTex(e2, e3), run_time=1.2)
         self.wait(0.5)
@@ -91,4 +104,10 @@ class GripForce(Scene):
         self.play(Create(box), FadeIn(per), run_time=0.7)
         l_res = tex(f"{F:.1f}" + r"\,\mathrm{N}", font_size=34, color=ACC).next_to(fn[0], UP, buff=0.08)
         self.play(ReplacementTransform(l_fn, l_res), Indicate(fn, color=ACC, scale_factor=1.05), run_time=0.9)
-        self.wait(1.5)
+        # the dynamic check lives in the validation notebook; the film only states its result
+        res = json.load(open(os.path.join(HERE, "..", "..", "04_Simulation", "out", "grip_results.json")))
+        sp = next(c for c in res["cases"] if c["case"] == "setpoint")
+        note = Tex(rf"\mbox{{with twist and robot dynamics: peak friction use {sp['util_max']:.2f} $<$ 1, held (validation notebook)}}",
+                   color=LOAD, font_size=24).to_edge(DOWN, buff=0.45)
+        self.play(FadeIn(note, shift=0.1 * UP), run_time=0.7)
+        self.wait(2.0)
