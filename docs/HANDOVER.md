@@ -49,7 +49,14 @@
       (0 ms), -15.9 LUFS, -1.6 dBTP after AAC; open per critique: no music track (critical vs launch films), mids
       a bit low (-24 dB share, refs from -19), all sounds synthesized (bank has no screw / ratchet recordings).
 - [ ] Only after approval: final Cycles render (≈ 50 min for 270 frames at 1080p / 128 samples).
-- [ ] New shot 5b in RENDER_PLAN: partial exploded view up to the mechanism, motor forward/back a few times.
+- [ ] Elias' feedback on the 480p previews `out/explode_preview_C.mp4` (shot 5b, `hero_v1.py -- explode`, 14 s:
+      shell lifts off with spring overshoot, drive train free, three strokes, closes without overshoot) and
+      `out/assemble_preview_C.mp4` (shot 4, `-- assemble`, 16 s: white lab, order and directions from
+      parts/demo_seq.py, critically damped landing + 3 % scale pulse + bounce on big parts, screws turn in).
+      Known: in the white lab the aluminium reads almost white/plastic and the gripper is small in frame (camera
+      0.86 m) -> needs an HDRI or darker floor for reflections and a closer camera.
+- [x] 22 Nov: board https://claude.ai/artifact/3gQTn4NuiM27SdwwwSC6XU updated (Current state: three film previews,
+      key numbers, changes since the last update; tasks crosscheck/e2/e3/e4/e7 notes, v1 -> review, new hero-film).
 - [ ] Next hero shots per RENDER_PLAN: self-assembly in the white lab (spring easing, snap), robot wake-up,
       mechanism section; explainer film scenes 1, 3, 5, 9 for the interim presentation (3 Dec).
 - [ ] Send Viktoriia the change message (English, text in the chat of 21 Nov): V1 new, V2 §§ 2a/3/5/6a/7/8/9/10,

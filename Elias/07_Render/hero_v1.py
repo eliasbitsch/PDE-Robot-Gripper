@@ -474,6 +474,233 @@ elif mode == "flight":
     sc.render.filepath = os.path.join(HERE, "out", "flight" + VARIANT, "f_")
     bpy.ops.render.render(animation=True)
     print("flight done", sc.render.engine)
+elif mode == "explode":
+    # shot 5b: partial exploded view until the drive train is free, motor drives three strokes, then closes again.
+    # Parts move along their mounting axes with a damped spring (zeta 0.65 -> ~7 % overshoot), outer parts first.
+    END = 420
+    root.animation_data_clear()
+    root.rotation_euler = (0, 0, 0)
+    for ob in objs.values():
+        ob.animation_data_clear()
+        ob.hide_render = False
+    sc.timeline_markers.clear()
+
+    def spring(t, zeta=0.65):
+        """0 -> 1 over t in [0, 1], settled (~2 %) at t = 1; zeta >= 1 never overshoots."""
+        if t <= 0:
+            return 0.0
+        if t >= 1.3:
+            return 1.0
+        if zeta >= 1:
+            return 1 - (1 + 6 * t) * math.exp(-6 * t)
+        w = 4.0 / zeta
+        wd = w * math.sqrt(1 - zeta * zeta)
+        return 1 - math.exp(-zeta * w * t) * (math.cos(wd * t) + zeta * w / wd * math.sin(wd * t))
+
+    UP, BACK, FRONT = Vector((0, 0, 1)), Vector((0, 1, 0)), Vector((0, -1, 0))
+    GROUPS = [  # (name prefixes, offset mm, start frame, frames to settle)
+        (("Screw_ISO10642-M4x16_Adapter",), UP * 175, 40, 26),
+        (("Screw_ISO10642-M3x8_Window",), UP * 110 + FRONT * 45, 44, 26),
+        (("Screw_ISO4762-M4x12_Hood",), UP * 110, 66, 34),   # leave with the hood
+        (("Window_Plate", "Cable_Gland"), UP * 110 + FRONT * 28, 56, 30),
+        (("Adapter_ISO9409",), UP * 150, 62, 32),
+        (("Hood",), UP * 110, 70, 34),
+        (("Housing", "Rail", "Screw_ISO4762-M3x8_Rail", "Cover", "Screw_ISO10642-M3x10_Cover"), BACK * 200, 92, 38),
+    ]
+    OPEN_AT, CLOSE_AT = (40, 135), (330, 395)          # explode window, close-up window
+    for prefixes, off, f0, dur in GROUPS:
+        c0 = CLOSE_AT[0] + (OPEN_AT[1] - (f0 + dur)) * 0.6   # closing in reverse order, a little faster
+        for name, ob in objs.items():
+            if not name.startswith(prefixes):
+                continue
+            base = ob.location.copy()
+            for f in range(1, END + 1):
+                s = spring((f - f0) / dur) * (1 - spring((f - c0) / (dur * 0.8), zeta=1.0))  # no dive into the body
+                ob.location = base + off * MM * s
+                ob.keyframe_insert("location", frame=f)
+            ob.location = base
+    # motor: three strokes forward and back while the drive train is free
+    JAWS_D = [(160, 190, D_OPEN, D_GRIP), (200, 230, D_GRIP, D_OPEN), (240, 268, D_OPEN, D_GRIP),
+              (276, 304, D_GRIP, D_OPEN), (310, 326, D_OPEN, D_GRIP), (400, 418, D_GRIP, D_OPEN)]
+    for p_ in piv.values():
+        p_.animation_data_clear()
+    for f in range(1, END + 1):
+        d = D_OPEN
+        for f0, f1, a, b in JAWS_D:
+            if f >= f0:
+                d = a + (b - a) * ease(min((f - f0) / (f1 - f0), 1.0))
+        piv[-1].location.x, piv[1].location.x = -d * MM, d * MM
+        piv["rot"].rotation_euler.z = piv["rotx"].rotation_euler.x = d / R_PIN
+        for k in (-1, 1):
+            piv[k].keyframe_insert("location", index=0, frame=f)
+        piv["rot"].keyframe_insert("rotation_euler", index=2, frame=f)
+        piv["rotx"].keyframe_insert("rotation_euler", index=0, frame=f)
+    # camera: slow orbit; wider while it opens, pushes in on the drive train during the strokes
+    mech = Vector((-10, -5, 25)) * MM
+    keys = [(1, c, (1.0, -1.35, 0.5), 0.78, 50), (130, (c + mech) / 2, (0.75, -1.45, 0.62), 0.95, 50),
+            (320, mech + Vector((-5, 0, -15)) * MM, (0.4, -1.5, 0.22), 0.56, 60), (420, c, (0.15, -1.55, 0.35), 0.80, 55)]
+    cam = camera("CamExplode", c, keys[0][2], keys[0][3], keys[0][4], 8.0)
+    cam.constraints.clear()
+    foc = cam.data.dof.focus_object
+
+    def cr(p0, p1, p2, p3, t):
+        return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3)
+
+    pos = [k[1] + Vector(k[2]).normalized() * k[3] for k in keys]
+    tg = [k[1].copy() for k in keys]
+    for f in range(1, END + 1):
+        k = min(max(i for i in range(len(keys)) if keys[i][0] <= f), len(keys) - 2)
+        t = (f - keys[k][0]) / (keys[k + 1][0] - keys[k][0])
+        t = 0.5 * t + 0.5 * ease(t)                    # gentle: never stops
+        ip = lambda arr: cr(arr[max(k - 1, 0)], arr[k], arr[k + 1], arr[min(k + 2, len(arr) - 1)], t)
+        cam.location, foc.location = ip(pos), ip(tg)
+        cam.data.lens = keys[k][4] + (keys[k + 1][4] - keys[k][4]) * t
+        cam.rotation_euler = (foc.location - cam.location).to_track_quat("-Z", "Y").to_euler()
+        cam.keyframe_insert("location", frame=f)
+        cam.keyframe_insert("rotation_euler", frame=f)
+        cam.data.keyframe_insert("lens", frame=f)
+        foc.keyframe_insert("location", frame=f)
+    sc.camera = cam
+    bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
+    pool = bpy.data.lights["Pool"]
+    pool.animation_data_clear()
+    pool.energy = 45
+    if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
+        for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
+            try:
+                sc.render.engine = eng
+                break
+            except TypeError:
+                continue
+        try:
+            sc.eevee.use_raytracing = True
+            sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
+        except AttributeError:
+            pass
+    sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
+    sc.frame_step = int(os.environ.get("STEP", "1"))
+    sc.render.filepath = os.path.join(HERE, "out", "explode", "f_")
+    bpy.ops.render.render(animation=True)
+    print("explode done", sc.render.engine)
+elif mode == "assemble":
+    # shot 4: self-assembly in a white lab, real order and directions from parts/demo_seq.py. Parts land critically
+    # damped (an overshoot would dive into the body); the spring feel comes from a 3 % scale pulse on seating, a tilt
+    # that rings out, screws spinning in and the whole assembly bouncing when a big part lands.
+    import re
+    from mathutils import Matrix, Quaternion
+    sys.path.insert(0, os.path.join(CAD, "parts"))
+    import demo_seq as DS  # noqa: E402
+    root.animation_data_clear()
+    root.rotation_euler = (0, 0, 0)
+    for k_, p_ in piv.items():                          # CAD pose, no rotation: offsets below are world offsets
+        p_.animation_data_clear()
+        p_.rotation_euler = (0, 0, 0)
+        if k_ in (-1, 1):
+            p_.location = (0, 0, 0)
+    sc.timeline_markers.clear()
+    FAST = ("Screw", "Setscrew", "Dowel", "Washer", "Key_", "Circlip", "Shim")
+    BIG = ("Bracket", "Hood", "Cover", "Jaw_", "Rail", "Holder_")
+    parts = []
+    for name, ob in objs.items():
+        ob.animation_data_clear()
+        ob.hide_render = False
+        m = re.search(r"(?:_|[a-z])([LR])\d*$", name)
+        step, off = DS.explode(name, -1 if m and m.group(1) == "L" else 1)
+        # pivot each part on its own centre (meshes come in world coordinates)
+        ctr = sum((Vector(v) for v in ob.bound_box), Vector()) / 8
+        ob.data.transform(Matrix.Translation(-ctr))
+        ob.location = ob.location + ob.matrix_basis.to_3x3() @ ctr   # objects carry the mm -> m scale
+        ob.rotation_mode = "QUATERNION"
+        parts.append((step, name.startswith(FAST), name, ob, Vector(off) * MM))
+    parts.sort(key=lambda p: (p[0], p[1], p[2]))
+    T0, DUR = 24, 16                                   # first arrival frame, frames to land
+    f = T0
+    sched, last_step = [], 0
+    for step, fast, name, ob, off in parts:
+        if step == 0:
+            continue
+        if step != last_step:
+            f += 8                                     # breath between assembly steps
+            last_step = step
+        sched.append((f, name, ob, off, fast))
+        f += 2 if fast else 6
+    END = f + DUR + 50
+    rng_ = __import__("random").Random(4)
+    bounce = [0.0] * (END + 2)
+    for f0, name, ob, off, fast in sched:
+        base, base_scale = ob.location.copy(), ob.scale.copy()
+        axis = off.normalized() if off.length > 0 else Vector((0, 0, 1))
+        tilt_ax = axis.cross(Vector((0.3, 0.7, 0.2))).normalized()
+        tilt = math.radians(rng_.uniform(6, 12))
+        seat = f0 + DUR
+        for fr in range(1, END + 1):
+            t = (fr - f0) / DUR
+            s = 0.0 if t <= 0 else min(1.0, 1 - (1 + 6 * t) * math.exp(-6 * t))
+            ob.location = base + off * (1 - s)
+            ob.hide_render = t <= 0 and off.length > 0
+            if fast and name.startswith(("Screw", "Setscrew")):
+                q = Quaternion(axis, (1 - s) * 6 * math.pi)                   # three turns in
+            else:
+                ring = math.exp(-4 * max(fr - seat, 0) / DUR) * math.cos(0.6 * max(fr - seat, 0))
+                q = Quaternion(tilt_ax, tilt * (1 - s) if fr < seat else 0.15 * tilt * ring)
+            ob.rotation_quaternion = q
+            u = fr - seat
+            ob.scale = base_scale * (1 + (0.03 * math.sin(math.pi * u / 4) if 0 <= u <= 4 else 0))
+            ob.keyframe_insert("location", frame=fr)
+            ob.keyframe_insert("rotation_quaternion", frame=fr)
+            ob.keyframe_insert("scale", frame=fr)
+            ob.keyframe_insert("hide_render", frame=fr)
+        if name.startswith(BIG):
+            for u in range(0, 24):
+                if seat + u <= END:
+                    bounce[seat + u] += -1.6 * math.exp(-u / 6) * math.cos(u * 0.75)
+    for fr in range(1, END + 1):
+        root.location = (0, 0, bounce[fr] * MM)
+        root.keyframe_insert("location", frame=fr)
+    # white lab: bright soft world, white floor; flash in from white
+    w = sc.world.node_tree.nodes["Background"]
+    w.inputs["Color"].default_value = (0.82, 0.83, 0.85, 1)
+    w.inputs["Strength"].default_value = 0.9
+    fl = bpy.data.objects["Floor"].data.materials[0]
+    fb = next(n for n in fl.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    fb.inputs["Base Color"].default_value = (0.8, 0.8, 0.82, 1)
+    fb.inputs["Roughness"].default_value = 0.45
+    bpy.data.lights["Pool"].animation_data_clear()
+    bpy.data.lights["Pool"].energy = 0
+    vs = sc.view_settings
+    for fr in range(1, 15):
+        vs.exposure = 4 * (1 - ease((fr - 1) / 13)) - 0.3
+        vs.keyframe_insert("exposure", frame=fr)
+    # camera: slow orbit around the growing assembly
+    cam = camera("CamAssemble", c, (0.9, -1.4, 0.55), 0.85, 50, 8.0)
+    cam.constraints.clear()
+    foc = cam.data.dof.focus_object
+    for fr in range(1, END + 1):
+        a = math.radians(-35 + 70 * fr / END)
+        d = Vector((math.sin(a), -math.cos(a), 0.42)).normalized()
+        cam.location = c + d * (0.86 - 0.08 * fr / END)
+        cam.rotation_euler = (c - cam.location).to_track_quat("-Z", "Y").to_euler()
+        cam.keyframe_insert("location", frame=fr)
+        cam.keyframe_insert("rotation_euler", frame=fr)
+    sc.camera = cam
+    if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
+        for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
+            try:
+                sc.render.engine = eng
+                break
+            except TypeError:
+                continue
+        try:
+            sc.eevee.use_raytracing = True
+            sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
+        except AttributeError:
+            pass
+    print("assemble frames", END, "steps", sorted({p[0] for p in parts}))
+    sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
+    sc.frame_step = int(os.environ.get("STEP", "1"))
+    sc.render.filepath = os.path.join(HERE, "out", "assemble", "f_")
+    bpy.ops.render.render(animation=True)
+    print("assemble done", sc.render.engine)
 elif mode == "preview":
     # quick look: short clips at 480p and few samples (env CLIPS="a:40-100,b:170-230", STEP=2 -> 15 fps)
     step = int(os.environ.get("STEP", "2"))
