@@ -265,13 +265,14 @@ def _(HERE, json, mo, np, os, rb_go, rb_n):
     _spec = [r for r in _res if r["study"] == "spec"]
     _stress = [r for r in _res if r["study"] == "stress"]
     _u = np.array([r["util_max"] for r in _spec])
-    _mf_fail = max(r["mu"] * r["force"] for r in _stress if not r["held"])
+    _mf_fail = max((r["mu"] * r["force"] for r in _stress if not r["held"]), default=None)
     _mf_spec = min(r["mu"] * r["force"] for r in _spec)
     _png = os.path.join(HERE, "figures", "robustness.png")
     _txt = (f"**Stored study:** {sum(r['held'] for r in _spec)} of {len(_spec)} grips inside spec held; peak friction use "
-            f"median {np.median(_u):.2f}, highest {_u.max():.2f} (safety {1 / _u.max():.2f} in the worst grip). "
-            f"Stress: {sum(not r['held'] for r in _stress)} of {len(_stress)} fail; the weakest grip in spec holds "
-            f"{_mf_spec / _mf_fail:.2f} x the mu F of the strongest failure.")
+            f"median {np.median(_u):.2f}, highest {_u.max():.2f} (safety {1 / _u.max():.2f} in the worst sampled grip). "
+            f"Stress: {sum(not r['held'] for r in _stress)} of {len(_stress)} fail; sampled friction capacity mu F per jaw: "
+            f"weakest grip in spec {_mf_spec:.2f} N, strongest failure "
+            + (f"{_mf_fail:.2f} N." if _mf_fail is not None else "none."))
     _out = [mo.md(_txt), mo.image(src=_png, width=900)]
     if rb_go.value:
         _base = json.load(open(_path))["creep_grid"]["base"]

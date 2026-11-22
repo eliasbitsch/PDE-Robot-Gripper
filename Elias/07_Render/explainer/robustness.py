@@ -18,6 +18,8 @@ STRESS = [r for r in R["results"] if r["study"] == "stress"]
 RG = R["ranges"]["spec"]
 _CORNERS = os.path.join(SIM_OUT, "robustness_corners.json")
 CORNERS = json.load(open(_CORNERS)) if os.path.exists(_CORNERS) else []
+if len({(c["offset"], c["mu"], c["force"], c["mass"]) for c in CORNERS}) != 16:
+    CORNERS = []                                       # only shown as "16 tolerance corners" when all 16 are there
 F0 = P.F_GRIP_SET
 
 
@@ -118,10 +120,11 @@ class Robustness(Scene):
                         height=ax2.c2p(0, RG["force"][1])[1] - ax2.c2p(0, RG["force"][0])[1], color=INK, stroke_width=3)
         box.move_to(ax2.c2p(np.mean(RG["mu"]), np.mean(RG["force"])))
         box_l = Tex(r"spec", color=INK, font_size=22).next_to(box, UP, buff=0.08)
-        mf_fail = max(r["mu"] * r["force"] for r in STRESS if not r["held"])
+        mf_fail = max((r["mu"] * r["force"] for r in STRESS if not r["held"]), default=None)
         mf_spec = min(r["mu"] * r["force"] for r in SPEC)
         self.play(Create(box), FadeIn(box_l), run_time=0.8)
-        end = Tex(rf"friction capacity $\mu F$ per jaw: weakest sampled grip in spec ${mf_spec:.1f}{N}$, strongest "
-                  rf"sampled failure ${mf_fail:.1f}{N}$", color=INK, font_size=24).to_edge(DOWN, buff=0.3)
+        tail = rf"strongest sampled failure ${mf_fail:.1f}{N}$" if mf_fail is not None else "no sampled failure"
+        end = Tex(rf"friction capacity $\mu F$ per jaw: weakest sampled grip in spec ${mf_spec:.1f}{N}$, {tail}",
+                  color=INK, font_size=24).to_edge(DOWN, buff=0.3)
         self.play(FadeIn(end, shift=0.1 * UP), run_time=0.6)
         self.wait(2.0)

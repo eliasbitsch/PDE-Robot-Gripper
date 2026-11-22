@@ -46,7 +46,7 @@ def sample(study, n, seed):
     rg = RANGES[study]
     u = qmc.LatinHypercube(d=4, seed=seed).random(n)
     keys = ("offset", "mu", "force", "mass")
-    return [dict(study=study, **{k: float(rg[k][0] + u[i, j] * (rg[k][1] - rg[k][0])) for j, k in enumerate(keys)})
+    return [dict(study=study, i=i, **{k: float(rg[k][0] + u[i, j] * (rg[k][1] - rg[k][0])) for j, k in enumerate(keys)})
             for i in range(n)]
 
 
@@ -103,6 +103,7 @@ def main(n_spec=10000, n_stress=2000, workers=None):
             res.append(r)
             if (k + 1) % 250 == 0:
                 print(f"{k + 1}/{len(todo)}  {time.time() - t0:.0f} s", flush=True)
+    res.sort(key=lambda r: (r["study"], r["i"]))             # completion order differs from run to run
     json.dump(dict(ranges=RANGES, slip_ok=V.SLIP_OK, creep_grid=dict(mu=MU_GRID.tolist(), base=list(base_grid)),
                    runtime_s=time.time() - t0, results=res),
               open(os.path.join(S.B.OUT, "robustness.json"), "w"))
@@ -161,7 +162,7 @@ def corners(workers=6):
     rg = RANGES["spec"]
     keys = ("offset", "mu", "force", "mass")
     base = json.load(open(os.path.join(S.B.OUT, "robustness.json")))["creep_grid"]["base"]
-    todo = [dict(study="corner", **{k: rg[k][(i >> j) & 1] for j, k in enumerate(keys)}) for i in range(16)]
+    todo = [dict(study="corner", i=i, **{k: rg[k][(i >> j) & 1] for j, k in enumerate(keys)}) for i in range(16)]
     with Pool(workers) as pool:
         res = pool.map(one, [(c, base) for c in todo])
     json.dump(res, open(os.path.join(S.B.OUT, "robustness_corners.json"), "w"), indent=1)

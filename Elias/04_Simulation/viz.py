@@ -39,7 +39,8 @@ class Recorder:
             return
         self._next = d.time + self.dt
         self.frames.append(dict(t=d.time, qpos=d.qpos.copy(), qvel=d.qvel.copy(), act=d.act.copy(),
-                                ctrl=d.ctrl.copy(), warm=d.qacc_warmstart.copy(), info=info))
+                                ctrl=d.ctrl.copy(), warm=d.qacc_warmstart.copy(), info=info,
+                                frange=m.actuator_forcerange.copy()))   # the e-stop brake changes it mid-run
 
 
 def _mesh_name(m, g):
@@ -160,6 +161,8 @@ def render_video(rec, path, slowmo=0.1, fps=30, label="", force_scale=0.15):
     worst = (1.0, "", "")
     for k, fr in enumerate(frames):
         d.qpos[:], d.qvel[:], d.act[:], d.ctrl[:], d.qacc_warmstart[:] = fr["qpos"], fr["qvel"], fr["act"], fr["ctrl"], fr["warm"]
+        if "frange" in fr:
+            m.actuator_forcerange[:] = fr["frange"]
         mujoco.mj_forward(m, d)
         cl = clearances(m, d, geoms)
         hits = [c for c in cl if c[0] < 0]

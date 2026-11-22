@@ -14,6 +14,7 @@ FILM = os.path.join(HERE, "film")
 
 BG, INK, ACC, SAF, LOAD, MU = "#0E1013", "#E8E6E1", "#3CC9B4", "#F08A4B", "#8E949C", "#5AA9F0"
 S5_LEAD, S5_CURVES = 4.5, 19.1           # closing videos, then the Manim curves (s5_curves.mp4)
+SLOW_DOWN = 10                           # slow motion of the closing clips in the film
 S9_VIDEO, S9_HOLD = 11.0, 2.5
 
 STYLE = f"""
@@ -44,13 +45,14 @@ def s5():
     tol = next(c for c in clo["cases"] if c["profile"] == "tolerant" and c["offset_mm"] > 0 and c["v_touch"] > 0.015
                and not c["blocked"])
     dire = next(c for c in clo["cases"] if c["profile"] == "direct" and abs(c["t_fast"] - 0.12) < 1e-6)
+    slow_down = SLOW_DOWN
     body = f"""
     <div id="s5-lead" class="clip" data-start="0" data-duration="{S5_LEAD + 0.5}">
       <div class="cap">Closing on the part</div>
-      <div class="sub">MuJoCo, slowed down 10&times;</div>
+      <div class="sub">MuJoCo, slowed down {slow_down:.0f}&times;</div>
       <div id="s5-l" class="pane" style="left:56px">
         <div class="ph" style="color:{SAF}">direct</div>
-        <div class="ps">full speed until contact, closed in {dire['t_fast'] * 1000:.0f} ms</div>
+        <div class="ps">full speed until contact, {dire['t_fast'] * 1000:.0f} ms commanded stroke</div>
       </div>
       <div id="s5-r" class="pane" style="left:984px">
         <div class="ph" style="color:{ACC}">two-stage (built)</div>
@@ -92,7 +94,10 @@ def s9():
     VAF = [(f["v"], f["a"], f["f"]) for f in vid["frames"]]
     t_mech = vid["see_mech"]                                    # cut to the next grip with the shell hidden (cell_video)
     v_mech = next(i for i, x in enumerate(fr_t) if x >= t_mech - 0.2) / vid["fps"]
-    v_card = next(i for i, x in enumerate(fr_t) if x >= c0 + T) / vid["fps"]
+    # result card once the part sits on the carrier (the full cycle ends in the cut to the next grip), held until the cut
+    t_set = next(s["t_start"] for s in cyc["segments"] if s["segment"] == "lower onto the carrier")
+    v_card = next(i for i, x in enumerate(fr_t) if x >= c0 + t_set) / vid["fps"]
+    assert v_card + 0.3 + 0.6 + 1.5 <= v_mech - 0.3, (v_card, v_mech)   # at least 1.5 s readable before it fades
     segs = [(s["segment"], s["t_start"], s["duration"]) for s in cyc["segments"]]
     rows = list(csv.DictReader(open(os.path.join(SIM, "e4_collision_log_chain1.csv")), delimiter=";"))
     show = [("belt", "belt [mm]", "buffer belt"), ("carrier_1", "carrier_1 [mm]", "workpiece carrier"),
@@ -249,15 +254,18 @@ def sync_assets():
     shutil.copyfile(os.path.join(fig, "cell_clean.mp4"), os.path.join(ast, "cell_cycle.mp4"))
     subprocess.run(ff + ["-sseof", "-0.05", "-i", os.path.join(ast, "cell_cycle.mp4"), "-frames:v", "1",
                          os.path.join(ast, "cell_cycle_last.png")], check=True)
-    # the front panel of the 2 x 2 closing videos (both jaws), played in S5_LEAD + 0.07 s
-    for src, dst in (("closing_direct_120ms.mp4", "closing_direct.mp4"),
-                     ("closing_tolerant_50ms_off5mm_slow20.mp4", "closing_tolerant.mp4")):
-        f = os.path.join(fig, src)
-        dur = float(subprocess.run([shutil.which("ffprobe"), "-v", "error", "-show_entries", "format=duration", "-of",
-                                    "csv=p=0", f], capture_output=True, text=True).stdout)
-        k = (S5_LEAD + 0.066) / dur
-        subprocess.run(ff + ["-i", f, "-vf", f"crop=640:360:640:40,setpts={k:.5f}*PTS,scale=944:-2", "-an", "-r", "30",
-                             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", os.path.join(ast, dst)], check=True)
+    # the front panel (both jaws) of the closing videos that closing_time.py recorded in its results: the source
+    # plays at 0.05x (20x slow motion), sped up 2x here, so the film shows SLOW_DOWN x slow motion from the start
+    clo = json.load(open(os.path.join(SIM, "closing_results.json")))["cases"]
+    pick = {"closing_direct.mp4": lambda c: c["profile"] == "direct" and abs(c["t_fast"] - 0.12) < 1e-6,
+            "closing_tolerant.mp4": lambda c: c["profile"] == "tolerant" and c["offset_mm"] > 0 and c["v_touch"] > 0.015
+            and not c["blocked"]}
+    for dst, sel in pick.items():
+        f = os.path.join(SIM, "..", next(c for c in clo if sel(c) and c.get("video"))["video"])
+        k = SLOW_DOWN * 0.05                                       # output time per input time
+        subprocess.run(ff + ["-i", f, "-t", f"{S5_LEAD + 0.07:.3f}", "-vf",
+                             f"crop=640:360:640:40,setpts={k:.4f}*PTS,scale=944:-2", "-an", "-r", "30", "-c:v", "libx264",
+                             "-pix_fmt", "yuv420p", "-crf", "20", os.path.join(ast, dst)], check=True)
 
 
 if __name__ == "__main__":

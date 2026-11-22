@@ -18,12 +18,13 @@
   loaded 4.96 m/s²), CAD mass properties of part B, "held" = both pads in contact and below the friction limit at
   every step. Governing instant is the lift (design case): setpoint peak 0.52, S_eff 1.93 (servo overshoot to
   5.9 m/s²; hand 2.0). Monte Carlo 10 000 in spec all held (max 0.557, S 1.80), 16 tolerance corners all held (worst
-  S 1.78), stress boundary mu F 4.38 ... 4.56 N vs 4.45 N by hand, saturated part held (S 1.75). Width: within ISO
+  S 1.78), stress: lowest held mu F 4.38 N, highest failed 4.56 N (overlap; hand 4.45 N), heavier (saturated) part
+  held (S 1.75). Width: within ISO
   2768-m fine; > 0.75 mm too thin is lifted before the force is complete (fixed-time lift), control is out of scope.
-  The old 0.74 was a snap-close transient at the lift start. Flicker fixes (coplanar faces), side camera keys,
+  The old 0.74 came with the snap start at the lift start; e-stop now replayed on chain 1 (governing). Flicker fixes (coplanar faces), side camera keys,
   cell_grid.py (100 cells). S = 2 kept (Elias): reasons in 04_Simulation/README.md.
 - Part mass scatter: +0 ... +3 % = PA 6 moisture in standard climate (hall agreed as standard climate, Elias 22 Nov);
-  saturated part +9 ... +10 % checked separately: 200/200 held, peak 0.51.
+  heavier part as if saturated (+9 ... +10 %) checked separately: 200/200 held, peak 0.571 (S 1.75).
 
 ## Open
 

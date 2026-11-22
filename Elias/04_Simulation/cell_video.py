@@ -36,27 +36,47 @@ NAMES_DE = ["Greifen", "Anheben", "Transfer (beladen)", "Absenken auf Werkstück
 
 
 class Encoder:
-    """Streams RGB frames to ffmpeg as they are rendered (holding a whole film in memory got cut short silently)."""
+    """Streams RGB frames to ffmpeg as they are rendered (holding a whole film in memory got cut short silently).
+    Writes to a temporary file and replaces the target only after ffmpeg succeeded with the expected frame count."""
 
     def __init__(self, path, w, h, fps, crf=22):
         import shutil
         import subprocess
-        self.path, self.n = path, 0
+        self.path, self.tmp, self.n, self.shape = path, path + ".part.mp4", 0, (h, w, 3)
         self.p = subprocess.Popen([shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt",
                                    "rgb24", "-s", f"{w}x{h}", "-r", str(fps), "-i", "-", "-c:v", "libx264", "-pix_fmt",
-                                   "yuv420p", "-crf", str(crf), path], stdin=subprocess.PIPE)
+                                   "yuv420p", "-crf", str(crf), self.tmp], stdin=subprocess.PIPE)
 
     def add(self, img):
-        self.p.stdin.write(np.ascontiguousarray(img).tobytes())
+        a = np.ascontiguousarray(img, dtype=np.uint8)
+        if a.shape != self.shape:
+            raise ValueError(f"frame {a.shape}, expected {self.shape}")
+        self.p.stdin.write(a.tobytes())
         self.n += 1
 
+    def abort(self):
+        try:
+            self.p.stdin.close()
+        finally:
+            self.p.kill()
+            self.p.wait()
+            if os.path.exists(self.tmp):
+                os.remove(self.tmp)
+
     def close(self, expected=None):
+        import shutil
+        import subprocess
         self.p.stdin.close()
         if self.p.wait() != 0:
             raise RuntimeError(f"ffmpeg failed on {self.path}")
-        if expected is not None and self.n != expected:
-            raise RuntimeError(f"{self.path}: {self.n} frames written, {expected} expected")
-        print(self.path, self.n, "frames")
+        n = int(subprocess.run([shutil.which("ffprobe"), "-v", "error", "-count_frames", "-select_streams", "v",
+                                "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", self.tmp],
+                               capture_output=True, text=True).stdout.strip() or 0)
+        want = self.n if expected is None else expected
+        if n != want or self.n != want:
+            raise RuntimeError(f"{self.path}: {self.n} frames sent, {n} encoded, {want} expected")
+        os.replace(self.tmp, self.path)
+        print(self.path, n, "frames")
 
 
 def timeline(m, d, side):
@@ -157,8 +177,17 @@ def main(n_cycles=4, clean=False, slow=1.0, hook=None, ts_given=None):
     segment) for the overlays of the explainer film; slow: video time per real second. hook(i, t, m, d): called with
     the posed model at each real time of ts_given instead of rendering (cell_grid.py)."""
     global W, H
+    size0 = (W, H)
+    part_place.clear()                                         # no part poses left over from an earlier call
     if clean:
         W, H = 1920, 1080
+    try:
+        return _main(n_cycles, clean, slow, hook, ts_given)
+    finally:
+        W, H = size0
+
+
+def _main(n_cycles, clean, slow, hook, ts_given):
     # explainer film: no see-through fence bays; transparent geoms are re-sorted every frame and flicker when the camera
     # moves. The wire mesh is open anyway.
     m, d = build(os.path.join(S.B.OUT, "cell.xml"), cut=0 if clean else +1, film=clean)
@@ -256,92 +285,116 @@ def main(n_cycles=4, clean=False, slow=1.0, hook=None, ts_given=None):
         S.set_robot(m, d2, q, jaw=jaw * MM)
         return d2.xpos[gfb] + d2.xmat[gfb].reshape(3, 3) @ S.PART_OFFSET
 
-    for i, t in enumerate(ts):
-        k, tc, T, seg, q, jaw, seg_name = robot_state(t)
-        side = side_of(k)
-        tl = sides[side][0]
-        S.set_robot(m, d, q, jaw=jaw * MM)
-        gb = m.body("gripper_frame").id
-        Rg, pg = d.xmat[gb].reshape(3, 3), d.xpos[gb]
-        qg = np.zeros(4)
-        mujoco.mju_mat2Quat(qg, Rg.flatten())
-        # carriers
-        cpos = {}
-        for lane, y in ((0, -CP.DY_CHAIN * MM), (1, CP.DY_CHAIN * MM)):
-            ix = idx(lane, t)
-            for j in range(N_CARR):
-                s = S_LOAD + PITCH_CHAIN * (j - 6 + ix)
-                mb = m.body(f"wt{lane}_{j}").mocapid[0]
-                if -math.pi * RC - 0.5 < s < 0.75:
-                    xz, th = carrier_pose(s)
-                    d.mocap_pos[mb] = (xz[0], y, xz[1])
-                    d.mocap_quat[mb] = (math.cos(th / 2), 0, math.sin(th / 2), 0)
-                    cpos[(lane, j)] = np.array([xz[0], y, xz[1]])
+    try:
+        for i, t in enumerate(ts):
+            k, tc, T, seg, q, jaw, seg_name = robot_state(t)
+            side = side_of(k)
+            tl = sides[side][0]
+            S.set_robot(m, d, q, jaw=jaw * MM)
+            gb = m.body("gripper_frame").id
+            Rg, pg = d.xmat[gb].reshape(3, 3), d.xpos[gb]
+            qg = np.zeros(4)
+            mujoco.mju_mat2Quat(qg, Rg.flatten())
+            # carriers
+            cpos = {}
+            for lane, y in ((0, -CP.DY_CHAIN * MM), (1, CP.DY_CHAIN * MM)):
+                ix = idx(lane, t)
+                for j in range(N_CARR):
+                    s = S_LOAD + PITCH_CHAIN * (j - 6 + ix)
+                    mb = m.body(f"wt{lane}_{j}").mocapid[0]
+                    if -math.pi * RC - 0.5 < s < 0.75:
+                        xz, th = carrier_pose(s)
+                        d.mocap_pos[mb] = (xz[0], y, xz[1])
+                        d.mocap_quat[mb] = (math.cos(th / 2), 0, math.sin(th / 2), 0)
+                        cpos[(lane, j)] = np.array([xz[0], y, xz[1]])
+                    else:
+                        d.mocap_pos[mb] = (0, 0, -5)
+            # parts: on the belt, in the gripper, on a carrier
+            adv = advances(t)
+            for n in range(N_PART):
+                mb = m.body(f"vp{n}").mocapid[0]
+                t_grab = n * TAKT
+                if n < n_cycles and t >= t_release(n):
+                    lane = lane_of(n)
+                    if n not in rel:
+                        j = int(round(6 - idx(lane, t_release(n))))
+                        rel[n] = (lane, j, part_place[n][0] - cpos[(lane, j)], part_place[n][1])
+                    lane, j, off, qq = rel[n]
+                    if (lane, j) in cpos and cpos[(lane, j)][0] > CPT.X_MACHINE - 0.35:
+                        d.mocap_pos[mb], d.mocap_quat[mb] = cpos[(lane, j)] + off, qq
+                    else:
+                        d.mocap_pos[mb] = (0, 0, -5)
+                elif n < n_cycles and t >= t_grab:
+                    p = pg + Rg @ S.PART_OFFSET
+                    d.mocap_pos[mb], d.mocap_quat[mb] = p, qg
+                    part_place[n] = (p.copy(), qg.copy())
                 else:
-                    d.mocap_pos[mb] = (0, 0, -5)
-        # parts: on the belt, in the gripper, on a carrier
-        adv = advances(t)
-        for n in range(N_PART):
-            mb = m.body(f"vp{n}").mocapid[0]
-            t_grab = n * TAKT
-            if n < n_cycles and t >= t_release(n):
-                lane = lane_of(n)
-                if n not in rel:
-                    j = int(round(6 - idx(lane, t_release(n))))
-                    rel[n] = (lane, j, part_place[n][0] - cpos[(lane, j)], part_place[n][1])
-                lane, j, off, qq = rel[n]
-                if (lane, j) in cpos and cpos[(lane, j)][0] > CPT.X_MACHINE - 0.35:
-                    d.mocap_pos[mb], d.mocap_quat[mb] = cpos[(lane, j)] + off, qq
-                else:
-                    d.mocap_pos[mb] = (0, 0, -5)
-            elif n < n_cycles and t >= t_grab:
-                p = pg + Rg @ S.PART_OFFSET
-                d.mocap_pos[mb], d.mocap_quat[mb] = p, qg
-                part_place[n] = (p.copy(), qg.copy())
-            else:
-                x = belt_pos[0] + PITCH_BELT * (n - adv)
-                if x < (CP.BELT_X[1] - 60) * MM:
-                    d.mocap_pos[mb] = (x, belt_pos[1], belt_pos[2])
-                    d.mocap_quat[mb] = belt_quat
-                else:
-                    d.mocap_pos[mb] = (0, 0, -5)
-        mujoco.mj_forward(m, d)
-        if hook is not None:
-            hook(i, t, m, d)
-            continue
-        if clean:
-            grip = d.xpos[m.body("gripper_frame").id] + d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ S.PART_OFFSET
-            look = film_camera(cam, t, d.mocap_pos[m.body(f"vp{FOLLOW}").mocapid[0]].copy(), grip, look)
-            opt.geomgroup[5] = 0 if SEE_MECH[0] <= t < SEE_MECH[1] else 1
-            if os.environ.get("CAMDRY"):                   # print the followed part's path, no rendering
-                if i % 15 == 0:
-                    print(f"t {t:5.2f} part {np.round(d.mocap_pos[m.body(f'vp{FOLLOW}').mocapid[0]], 3)}")
+                    x = belt_pos[0] + PITCH_BELT * (n - adv)
+                    if x < (CP.BELT_X[1] - 60) * MM:
+                        d.mocap_pos[mb] = (x, belt_pos[1], belt_pos[2])
+                        d.mocap_quat[mb] = belt_quat
+                    else:
+                        d.mocap_pos[mb] = (0, 0, -5)
+            mujoco.mj_forward(m, d)
+            if hook is not None:
+                hook(i, t, m, d)
                 continue
-        r.update_scene(d, cam, scene_option=opt)
-        if clean:
-            vec = film_vectors(r.scene, m, d, cam.distance, grip_point, t, jaw)
-        im = Image.fromarray(r.render())
-        if SS > 1:
-            im = im.resize((W, H), Image.LANCZOS)
-        done = sum(1 for n in range(n_cycles) if t >= t_release(n))
-        if clean:
-            flog.append(dict(t=round(float(t), 4), seg=seg, name=NAMES_EN[seg] if seg >= 0 else "waiting for the takt",
-                             v=round(vec[0], 3), a=round(vec[1], 3), f=round(vec[2], 1)))
-        else:
-            hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
-        if enc is None:
-            enc = Encoder(os.path.join(HERE, "figures", "cell_clean.mp4" if clean else "cell_takt.mp4"), W, H, FPS)
-        enc.add(np.asarray(im))
-        if i % 60 == 0:
-            print(f"frame {i}/{len(ts)}", flush=True)
+            if clean:
+                grip = d.xpos[m.body("gripper_frame").id] + d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ S.PART_OFFSET
+                look = film_camera(cam, t, d.mocap_pos[m.body(f"vp{FOLLOW}").mocapid[0]].copy(), grip, look)
+                opt.geomgroup[5] = 0 if SEE_MECH[0] <= t < SEE_MECH[1] else 1
+                if os.environ.get("CAMDRY"):                   # print the followed part's path, no rendering
+                    if i % 15 == 0:
+                        print(f"t {t:5.2f} part {np.round(d.mocap_pos[m.body(f'vp{FOLLOW}').mocapid[0]], 3)}")
+                    continue
+            r.update_scene(d, cam, scene_option=opt)
+            if clean:
+                vec = film_vectors(r.scene, m, d, cam.distance, grip_point, t, jaw)
+            im = Image.fromarray(r.render())
+            if SS > 1:
+                im = im.resize((W, H), Image.LANCZOS)
+            done = sum(1 for n in range(n_cycles) if t >= t_release(n))
+            if clean:
+                flog.append(dict(t=round(float(t), 4), seg=seg, name=NAMES_EN[seg] if seg >= 0 else "waiting for the takt",
+                                 v=round(vec[0], 3), a=round(vec[1], 3), f=round(vec[2], 1)))
+            else:
+                hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
+            if enc is None:
+                enc = Encoder(os.path.join(HERE, "figures", "cell_clean.mp4" if clean else "cell_takt.mp4"), W, H, FPS)
+            enc.add(np.asarray(im))
+            if i % 60 == 0:
+                print(f"frame {i}/{len(ts)}", flush=True)
+    except BaseException:
+        if enc is not None:
+            enc.abort()
+        raise
     if os.environ.get("CAMDRY") or hook is not None:
         return
+    enc.close(expected=len(ts))                                # the frame log only for a video that is complete
     if clean:
         import json
         json.dump(dict(fps=FPS, film_time=FILM_TIME, follow=FOLLOW, follow_cycle_start=FOLLOW * TAKT, cycle=T_tl[-1], see_mech=SEE_MECH[0],
                        takt=TAKT, frames=flog),
                   open(os.path.join(S.B.OUT, "cell_clean_frames.json"), "w"))
-    enc.close(expected=len(ts))
+
+
+def hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f):
+    dr = ImageDraw.Draw(im, "RGBA")
+    dr.rectangle([20, 20, 640, 250], fill=(255, 255, 255, 215), outline=(60, 60, 60, 255))
+    dr.text((36, 30), f"Takt {k + 1}    t = {t:5.2f} s", font=f_big, fill=(20, 20, 20))
+    dr.text((36, 74), f"Taktzeit 5,0 s (vorgegeben)   Roboterzyklus {T:.2f} s", font=f, fill=(40, 40, 40))
+    dr.text((36, 106), f"Kette {'2' if k % 2 == 0 else '1'}:  {seg_name}", font=f, fill=(40, 40, 40))
+    dr.text((36, 138), f"Greifer: {'geschlossen' if jaw < GP.D_OPEN - 0.1 else 'offen'}   Teile übergeben: {done}",
+            font=f, fill=(40, 40, 40))
+    x0, x1, y = 36, 620, 190
+    dr.rectangle([x0, y, x1, y + 28], fill=(225, 225, 225, 255), outline=(90, 90, 90, 255))
+    dr.rectangle([x0, y, x0 + (x1 - x0) * min(tc, T) / TAKT, y + 28], fill=(194, 65, 12, 255))
+    if tc > T:
+        dr.rectangle([x0 + (x1 - x0) * T / TAKT, y, x0 + (x1 - x0) * tc / TAKT, y + 28], fill=(150, 150, 150, 255))
+    xr = x0 + (x1 - x0) * T / TAKT
+    dr.line([xr, y - 6, xr, y + 34], fill=(20, 20, 20, 255), width=2)
+    dr.text((x0, y + 32), "Roboter in Bewegung", font=ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 16), fill=(194, 65, 12))
+    dr.text((xr + 6, y + 32), "Reserve", font=ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 16), fill=(90, 90, 90))
 
 
 part_place = {}

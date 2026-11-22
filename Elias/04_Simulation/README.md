@@ -24,11 +24,12 @@ gearbox, brake and bevel pair sit on the slides as armature (3.2 kg reflected on
 PA 6 with μ = 0.2 (oily part), elliptic friction cone, noslip solver. Part B as a free body, 0.602 kg, contact shape
 from two boxes (body with the flat grip faces, lug) because its convex hull would touch the left pad.
 
-**Path.** Pick on the belt, lift 60 mm in 0.4 s, transfer to the carrier on the ABB MoveJ path through the via
+**Path.** Pick on the belt, lift 60 mm (0.22 s on the loaded time law, see below), transfer to the carrier on the ABB MoveJ path through the via
 (see "Enclosure and transfer path"), lower 60 mm. Axis 1 turns about 160°, so the TCP sees up to 5 m/s², not the 2.05 m/s²
 of a straight 1.8 m line that the hand calculation assumes. E-stop (category 0) at the worst instant found by
 `e_stop.py`: each axis brakes on its own with its deceleration from the ABB product specification (3HAC070393
-rev. M, p. 91) and the robot leaves the path; 14.2 m/s² at the TCP. The brake locks the drive with the preload kept.
+rev. M, p. 91) and the robot leaves the path; 14.2 m/s² at the TCP. Assumption: the brake locks the drive with the
+preload kept (full grip force at brake engagement).
 
 **Results, 22 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`), wide T-jaw pad, part B with the mass
 properties of its CAD mesh. Timing as the robot runs it (`e4_cycle.py`): the built two-stage close from fully open
@@ -36,7 +37,9 @@ properties of its CAD mesh. Timing as the robot runs it (`e4_cycle.py`): the bui
 TCP acceleration <= 4.96 m/s² (WorldAccLim). The simulated robot following it overshoots to 5.9 m/s² for a moment
 (servo response); the friction use includes it. Friction use = |vector sum of the pad friction forces| / (μ ΣF_n),
 median over the moving phases and 50 ms peak. "Held" = both pads in contact and each below its friction limit at
-every physics step, part not dropped, movement beyond the creep base < 0.5 mm.
+every physics step, part not dropped, movement beyond the creep base < 0.5 mm. This is retention during the
+unsupported motion; the per-pad check uses each pad's resultant, so local sliding inside one pad is not resolved, and
+the placing accuracy on the carrier is not evaluated (the run ends with the jaws closed).
 
 | Case | Force per jaw | friction use median / peak (where) | worst pad, every step | part movement (raw / beyond creep base) | |
 |---|---|---|---|---|---|
@@ -48,18 +51,19 @@ every physics step, part not dropped, movement beyond the creep base < 0.5 mm.
 
 The governing instant is the lift: straight up at the loaded acceleration, so m (g + a) acts on the pads in full,
 which is exactly the design case of V2 (S = 2 at the commanded 4.96 m/s²; the simulation's 1.93 comes from the
-servo overshoot). The e-stop margin here (1.79) is the reciprocal of the filtered net friction use in the dynamic
+servo overshoot). The e-stop runs on chain 1, whose worst stop needs the most force (e_stop.py). Its margin (1.79) is the reciprocal of the filtered net friction use in the dynamic
 replay; the separate shear-and-twist check below gives 1.30 for the same stop (worst pad, twist included).
 
 Until 21 Nov the jaws started 0.3 mm before the part, snapped shut at full force and the lift came 0.4 s later at a
-gentle 1.7 m/s². The snap left a friction transient right at the start of the lift (0.74 at the setpoint, whether
-the lift starts at 0.50 or 0.70 s) which was read as a via-corner peak; the gentle lift hid the real governing case.
+gentle 1.7 m/s². That run showed its peak (0.74 at the setpoint) right at the start of the lift, whether the lift
+started at 0.50 or 0.70 s; it was read as a via-corner peak, and the gentle lift hid the real governing case.
 `run(offset=None)` still reproduces the old start.
 
 **Why S = 2 is enough here.** No higher factor is prescribed by the task. μ = 0.2 is the worst-case literature value
 for NBR on oily PA 6, not a measured one (the grooved pad's expected 0.3 is the reserve). Normal operation has no
 shocks; the category 0 e-stop is checked as its own load case and held. A dropped part stays inside the fenced cell
-and endangers nobody. Pad wear and a drifting current limit are caught by the force calibration at commissioning.
+and endangers nobody. The grip force is calibrated at commissioning; pad wear and a drifting current limit are a
+maintenance item (re-check the grip force at the service interval).
 
 ## Emergency stop anywhere in the cycle (`e_stop.py`, `out/e_stop.json`, `figures/e_stop.png`)
 
@@ -69,7 +73,7 @@ and endangers nobody. Pad wear and a drifting current limit are caught by the fo
 |---|---|---|
 | 17 m/s² | ABB stop data axis 1 (p. 91) times the full reach 1.4 m: conservative lever | V2 § 2, hand calculation |
 | 12.1 m/s² | the same axis 1 rate at our largest TCP radius (1.0 m) | `05_FEM/load_cases.A_STOP` (reported) |
-| 22.3 m/s² | part acceleration incl. gravity with every axis braking at its ABB rate, worst instant of the cycle | `e_stop.py`, governing for the grip |
+| 22.3 m/s² | \|a_CoM - g\| of the part with every axis braking at its ABB rate, worst instant of the cycle | `e_stop.py`, governing for the grip |
 | 82 m/s² | ABB design value for tool strength (p. 54, nominal load) | FEM LC4 (strength) |
 | 7.0 m/s² | braking along the path, superseded | - |
 
@@ -112,14 +116,16 @@ use with m (a - g) / (mu N) evaluated on the *simulated* part acceleration and n
 0.1 %, but that only checks the friction bookkeeping, it is no validation of V2 (circular). The independent
 comparison is against the design inputs:
 
-| at the setpoint 44.5 N, mu 0.2 | V2 (translation only, a 4.96 m/s²) | grip_check (with twist, uniform / tilted pad) | MuJoCo |
+| at the setpoint 44.5 N, mu 0.2 | V2 (translation only, a 4.96 m/s²) | grip_check (horizontal path case with twist, uniform / tilted pad) | MuJoCo |
 |---|---|---|---|
 | friction use, median over the moving phases | 0.50 | - | 0.33 |
 | friction use, peak | 0.50 | 0.40 / 0.43 | **0.52** (lift) |
 | safety against slip at the peak | 2.0 | 2.48 / 2.30 | **1.93** (mu 0.3: 2.90) |
 
-The simulated peak sits at the lift and equals the quasi-static value at that instant (0.517); it is 3 % above V2's
-0.50 because the robot overshoots the commanded acceleration for a moment. The quasi-static value is a balance check
+The grip_check column is the horizontal path case (4.96 m/s² along the pad, gravity added), not the vertical lift, so
+it is no prediction for the MuJoCo peak. The simulated peak sits at the lift and equals the quasi-static value at that
+instant (0.517); it is 3 % above V2's 0.50, consistent with the simulated robot exceeding the commanded acceleration
+(TCP up to 5.9 m/s²). The quasi-static value is a balance check
 on the simulated acceleration and normal force, not an independent prediction. The part does not slip anywhere.
 
 **Monte Carlo study** (`robustness.py`, `out/robustness.json`, `figures/robustness.png`): 10 000 full cycles,
@@ -129,15 +135,16 @@ Latin hypercube over the part position (+-5 mm, CAD_PLAN point 0, assumed), pad 
 step 0.84; the highest sampled 50 ms friction use is 0.557 (S 1.80), always at the lift. The Latin hypercube does not
 hit the joint extremes, so the 16 corners are run as well (`--corners`): all held, the worst (μ 0.2, F -5 %, mass
 +3 %) at 0.561, S 1.78 (hand calculation 1.85). Stress set (2 000 cycles, μ down to 0.08, F down to 50 %): the
-sampled boundary lies between μF = 4.38 N (held) and 4.56 N (failed) per jaw, around the hand calculation without
-safety, 4.45 N; the weakest sampled grip in spec has μF = 8.47 N. These ranges are a sensitivity study, not a
-measured production distribution. A water-saturated part (+9 ... +10 %, `--saturated`, 200 cycles, μ 0.2 ... 0.3)
-still holds: peak 0.571, S 1.75.
+lowest sampled μF that held is 4.38 N per jaw, the highest that failed 4.56 N (different mass and offset, so the two
+overlap; the hand calculation without safety gives 4.45 N); the weakest sampled grip in spec has μF = 8.47 N. These ranges are a sensitivity study, not a
+measured production distribution. A heavier part as if water-saturated (+9 ... +10 % mass and inertia, `--saturated`, 200 cycles, μ 0.2 ... 0.3,
+seating free as in spec) still holds: peak 0.571, S 1.75.
 
 **Part width** (`--width`, `out/width_tolerance.json`), assumed within ISO 2768-m (+-0.3 mm): both jaws are within
-5 % of the setpoint at 370 ... 385 ms, before the lift at 400 ms. The cycle lifts at a fixed time, so a part more
-than about 0.75 mm too thin is lifted before the grip force is complete (1 mm: 37 N at the lift, still held;
-1.5 mm: 14 N, at the friction limit); from 2 mm thinner it is lost. Guarding against that (a "part gripped" signal
+5 % of the setpoint at 370 ... 385 ms (5 ms log samples), before the lift at 400 ms. The cycle lifts at a fixed
+time, so a part more than about 0.75 mm too thin is lifted before the grip force is complete; the drive keeps closing
+during the lift (1 mm: 37 N at the last sample before the lift, 1.5 mm: 14 N, both held); a part 2 mm thinner slips
+in the jaws. The width is modelled by widening the contact box (the lug stays). Guarding against that (a "part gripped" signal
 before the lift) belongs to the control system, which is not part of this task.
 
 **Slip.** Slip measured beyond the 100 N reference run (creep base above) is a secondary check: MuJoCo's soft
