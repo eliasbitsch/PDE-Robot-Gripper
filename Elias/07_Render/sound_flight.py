@@ -49,27 +49,52 @@ travel = KIN["d_open"] - KIN["d_grip"]       # mm per jaw
 T = np.arange(N) / SR
 big = t_of(TL["fade"][0])                    # contact at the jaw macro, where the shell starts to fade
 
-# 1. bed: D sub drone, swells towards the big contact, stop-down just before it
-env = np.clip(T / 1.2, 0, 1) * (0.55 + 0.45 * np.exp(-((T - big) / 3.0) ** 2)) * np.clip((LEN - T) / 0.6, 0, 1)
-drone = sum(a * np.sin(2 * np.pi * f * T + p) for f, a, p in ((36.71, 0.55, 0), (73.42, 0.75, 1.1),
-                                                              (110.0, 0.22, 0.4), (146.8, 0.10, 2.0)))
-drone *= 1 + 0.08 * np.sin(2 * np.pi * 0.23 * T)
-air = lp(rng.standard_normal(N), 420) * 0.25
-env *= 1 - 0.8 * np.clip((T - (big - 0.4)) / 0.15, 0, 1) * np.clip((big - T) / 0.02, 0, 1)
-bed = np.tanh(1.4 * (drone + air)) * env
-place(np.stack([bed, np.roll(bed, 48)], 1), 0.0, -17)
+# 1. music bed: clean pad in D minor (Dm9 - Bbmaj7 - Gm9 - Asus4), bass an octave down, soft 120 BPM pulse; no
+#    saturation and nothing pitched below its native range (v3 sounded slowed down and crackly)
+def saw(f, n):
+    t = np.arange(n) / SR
+    y = np.zeros(n)
+    for det in (-0.004, 0.0, 0.004):
+        ph = rng.uniform(0, 2 * np.pi)
+        for h in range(1, int(3500 / f) + 1):
+            y += np.sin(2 * np.pi * f * (1 + det) * h * t + ph * h) / h
+    return y / 3
 
-# 2. cold open: one deep hit on the first frame; a soft low hit on every cut
-sfx("impact/deep", 0.02, -6, pitch="D1")
+
+NOTE = lambda name: 440 * 2 ** ((("C C# D D# E F F# G G# A A# B".split().index(name[:-1])) + 12 * (int(name[-1]) - 4) - 9) / 12)
+CHORDS = [("D2", "D3 F3 A3 C4 E4"), ("A#1", "A#2 D3 F3 A3 C4"), ("G1", "G2 A#2 D3 F3 A3"), ("A1", "A2 D3 E3 G3 A3")]
+seg = LEN / len(CHORDS)
+pad = np.zeros(N)
+for i, (bass, notes) in enumerate(CHORDS):
+    a0, a1 = max(0.0, i * seg - 0.8), min(LEN, (i + 1) * seg + 0.8)
+    n = int((a1 - a0) * SR)
+    u = np.arange(n) / SR
+    env = np.clip(u / 0.9, 0, 1) * np.clip((a1 - a0 - u) / 0.9, 0, 1)
+    y = sum(saw(NOTE(x), n) for x in notes.split()) / 5 + 0.45 * np.sin(2 * np.pi * NOTE(bass) * u)
+    i0 = int(a0 * SR)
+    pad[i0:i0 + n] += (y * env)[:N - i0]
+pad = lp(pad, 2800, 2)
+pad = sosfilt(butter(2, 55, "highpass", fs=SR, output="sos"), pad)
+pad *= (0.85 + 0.15 * np.cos(2 * np.pi * 4 * T))            # 8ths at 120 BPM
+big = t_of(TL["fade"][0])                    # contact at the jaw macro, where the shell starts to fade
+swell = np.clip(T / 1.5, 0, 1) * (0.6 + 0.4 * np.exp(-((T - big) / 3.0) ** 2))
+swell *= 1 - 0.85 * np.clip((T - (big - 0.4)) / 0.15, 0, 1) * np.clip((big - T) / 0.02, 0, 1)   # stop-down
+for f in TL["cuts"]:                         # dip with the picture
+    swell *= 1 - 0.5 * np.exp(-((T - t_of(f)) / 0.12) ** 2)
+pad *= swell * np.clip((LEN - T) / 0.5, 0, 1)
+place(np.stack([pad, np.roll(pad, 24)], 1), 0.0, -14)
+
+# 2. cold open; every cut: a suck into the dip, a soft hit when the picture comes back
+sfx("pro_impact/deep", 0.02, -6)
 for f in TL["cuts"]:
-    sfx("pro_impact/air", t_of(f), -15, pitch="D2")
+    sfx("whoosh_fast/reverse", t_of(f), -16, at="peak")
+    sfx("pro_impact/air", t_of(f) + 0.12, -14)
 
-# 3. the two flowing camera moves: a low whoosh peaking mid-move; the second (into the drive) longer
+# 3. the two flowing camera moves: a whoosh peaking mid-move
 for k, (f0, f1) in enumerate(TL["moves"]):
     a, b = t_of(f0), t_of(f1)
     d = min(b - a, 2.0)
-    sfx(("pro_whoosh_big/long", "pro_whoosh_big/swell")[k], (a + b) / 2, -13, at="peak", dur=d, apex=d * 0.55,
-        pitch="D1")
+    sfx(("whoosh_big/swell", "whoosh_big/deep")[k], (a + b) / 2, -14, at="peak", dur=d, apex=d * 0.55)
 
 # 4. mechanism: motor whir with speed, a tick per mm of rack travel, a metal clack at contact / end stop
 for t0, t1, closing in moves:
@@ -86,27 +111,27 @@ for t0, t1, closing in moves:
         sfx("click/thock", t0 + i / SR, -24 - 4 * (mm % 2), dur=0.06)
         sfx("hover_tick/detent", t0 + i / SR, -24)          # steel tooth on top of the body
     if closing:                               # jaws hit the part: layered metal clack, the second one big
-        hit = abs(t1 - big) < 0.05 or t1 > LEN - 0.2
+        hit = abs(t1 - big) < 0.05 or t1 > LEN - 0.7
         sfx("click/thock", t1, -8)
         sfx("click/snap", t1, -9)                         # bright steel edge of the clack
         sfx("pro_click/mouse", t1 + 0.004, -12)
         sfx("hover_tick/detent", t1 + 0.012, -16)
-        sfx("tap/knuckle", t1, -10, pitch="D3")
+        sfx("tap/knuckle", t1, -10)
         sfx("pro_pop_in/deep", t1, -10)
-        sfx("pro_impact/deep" if hit else "pro_impact/short", t1, -4 if hit else -9, pitch="D1" if hit else "D2")
+        sfx("pro_impact/deep" if hit else "pro_impact/short", t1, -5 if hit else -11)
     else:                                     # back at the end stop: softer
         sfx("click/thock", t1, -14)
         sfx("click/snap", t1, -20)
-        sfx("tap/table", t1, -17, pitch="D3")
+        sfx("tap/table", t1, -17)
 
 # 5. a reverse swell into the big contact
-sfx("pro_whoosh_big/reverse", big, -15, at="peak", dur=1.4, apex=1.1, pitch="D2")
+sfx("pro_whoosh_big/reverse", big, -16, at="peak", dur=1.4, apex=1.1)
 
 # master: gentle limiter, -1 dBFS sample peak, fade out the last 0.25 s
-mix = sosfilt(butter(2, 32, "highpass", fs=SR, output="sos"), mix, axis=0)
+mix = sosfilt(butter(2, 35, "highpass", fs=SR, output="sos"), mix, axis=0)
 mix *= np.clip((LEN - T) / 0.25, 0, 1)[:, None]
 mix /= np.abs(mix).max()
-DRIVE = 1.7
+DRIVE = 2.6
 mix = np.tanh(mix * DRIVE) / np.tanh(DRIVE)
 mix = lp(mix.T, 16000, 6).T                   # AAC turned a few ultrasonic tick spikes into +5 dBTP overshoot
 from scipy.signal import resample_poly

@@ -288,22 +288,27 @@ if mode == "anim":
     bpy.ops.render.render(animation=True)
     print("anim done")
 elif mode == "flight":
-    # the approved views (review 21 Nov) as shots with cuts (review 22 Nov: slower at the views, cuts allowed): each
-    # shot drifts slowly through its view without stopping; two flowing moves (three-quarter -> top, jaws -> drive).
-    # env ENGINE=EEVEE for quick previews, STEP (frame step), FRAMES (end frame)
+    # the approved views (review 21 Nov) as shots (review 22 Nov): every shot starts close and pulls out, is slow at its
+    # view, then pushes in on a detail; the cut falls inside that push with a short dip to black. Flowing moves:
+    # three-quarter -> top, jaws -> drive. env ENGINE=EEVEE for quick previews, STEP, FSTART, FRAMES
     zp = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) * MM
     jaw_t, drive_t = Vector((0, 0, zp)), Vector((-42, -5, 2)) * MM
-    SHOTS = [  # per shot: keys (frame, target, direction, distance, lens); a new shot = a cut
-        [(1, c, (0.62, -1.6, -0.02), 1.04, 85), (84, c, (1.0, -1.55, -0.05), 0.95, 85)],
-        [(85, c, (1.2, -0.85, 0.58), 1.10, 70), (130, c, (0.95, -1.05, 0.66), 1.05, 70),
-         (195, c, (0.08, -0.35, 1.0), 1.05, 70), (240, c, (-0.1, -0.38, 1.0), 0.99, 70)],
-        [(241, c, (-1.0, -0.32, 0.08), 0.99, 85), (300, c, (-1.0, 0.06, 0.03), 0.93, 85)],
-        [(301, jaw_t, (0.22, -1.0, 0.10), 0.38, 100), (372, jaw_t, (0.45, -1.0, 0.14), 0.35, 100),
-         (401, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90),   # pull back: do not fly through the parts
-         (430, drive_t, (-0.9, -1.5, 0.75), 0.50, 85), (500, drive_t, (-0.72, -1.6, 0.68), 0.45, 85)]]
-    JAWS_D = [(35, 68, D_OPEN, D_GRIP), (100, 130, D_GRIP, D_OPEN), (250, 282, D_OPEN, D_GRIP),
-              (305, 330, D_GRIP, D_OPEN), (345, 372, D_OPEN, D_GRIP), (440, 468, D_GRIP, D_OPEN),
-              (478, 498, D_OPEN, D_GRIP)]
+    flange = Vector((c.x, c.y, hi.z))
+    SHOTS = [  # per shot: keys (frame, target, direction, distance, lens, speed at the key); a new shot = a cut
+        [(1, c, (0.75, -1.6, 0.0), 0.76, 85, 1.3), (55, c, (0.85, -1.6, -0.04), 0.98, 85, 0.3),
+         (105, (c + jaw_t) / 2, (0.95, -1.6, -0.06), 0.68, 85, 1.4)],
+        [(106, c, (1.1, -0.9, 0.62), 0.80, 70, 1.3), (145, c, (1.0, -1.0, 0.65), 1.05, 70, 0.35),
+         (195, c, (0.08, -0.35, 1.0), 1.05, 70, 0.35), (230, flange, (0.05, -0.3, 1.0), 0.62, 70, 1.4)],
+        [(231, c, (-1.0, -0.2, 0.06), 0.74, 85, 1.3), (275, c, (-1.0, -0.12, 0.05), 0.95, 85, 0.35),
+         (320, (c + jaw_t) / 2, (-1.0, -0.3, 0.08), 0.6, 95, 1.3)],
+        [(321, jaw_t, (0.22, -1.0, 0.10), 0.44, 100, 1.2), (380, jaw_t, (0.45, -1.0, 0.14), 0.35, 100, 0.35),
+         (411, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90, 1.0),   # pull back: do not fly through the parts
+         (440, drive_t, (-0.9, -1.5, 0.75), 0.50, 85, 0.5), (515, drive_t, (-0.78, -1.6, 0.7), 0.47, 85, 0.5),
+         (600, drive_t, (-0.6, -1.65, 0.62), 0.43, 85, 0.6)]]
+    JAWS_D = [(40, 72, D_OPEN, D_GRIP), (150, 180, D_GRIP, D_OPEN), (268, 300, D_OPEN, D_GRIP),
+              (330, 352, D_GRIP, D_OPEN), (358, 380, D_OPEN, D_GRIP), (450, 475, D_GRIP, D_OPEN),
+              (490, 512, D_OPEN, D_GRIP), (528, 552, D_GRIP, D_OPEN), (562, 584, D_OPEN, D_GRIP)]
+    END_FADE = (586, 600)
     END = SHOTS[-1][-1][0]
     root.animation_data_clear()
     root.rotation_euler = (0, 0, 0)
@@ -321,7 +326,7 @@ elif mode == "flight":
         piv["rot"].keyframe_insert("rotation_euler", index=2, frame=f)
         piv["rotx"].keyframe_insert("rotation_euler", index=0, frame=f)
     # shell fades out on the way from the jaws to the drive; own material copies so the inner parts stay opaque
-    FADE = (372, 412)
+    FADE = (380, 420)
     shell_mats = {}
     for name, ob in objs.items():
         if name.startswith(SHELL):
@@ -348,7 +353,7 @@ elif mode == "flight":
     # top view: the floor pool spot and the top light's floor reflection blow out the frame -> dip around frame 100
     pool = bpy.data.lights["Pool"]
     pool.animation_data_clear()
-    for f, e in ((1, 70), (145, 70), (185, 10), (240, 10), (241, 70), (FADE[0], 70), (FADE[1], 12)):
+    for f, e in ((1, 70), (170, 70), (190, 10), (230, 10), (231, 70), (FADE[0], 70), (FADE[1], 12)):
         pool.energy = e
         pool.keyframe_insert("energy", frame=f)
     bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
@@ -366,14 +371,15 @@ elif mode == "flight":
 
     cuts, moves = [], []
     for keys in SHOTS:
-        # spline through the keys in space; time -> spline parameter by a Hermite warp whose slope at a key is the
-        # mean of its neighbours (no stop between drift and move), 0.6 of the segment slope at the shot ends
+        # spline through the keys in space; time -> spline parameter by a Hermite warp, slope at a key = mean of the
+        # neighbouring segment slopes times the key's speed factor
         F = [k[0] for k in keys]
         pos = [k[1] + Vector(k[2]).normalized() * k[3] for k in keys]
         tgt = [k[1].copy() for k in keys]
         lens = [float(k[4]) for k in keys]
         sl = [1 / (F[i + 1] - F[i]) for i in range(len(F) - 1)]
-        m = [0.6 * sl[0]] + [0.5 * (sl[i - 1] + sl[i]) for i in range(1, len(sl))] + [0.6 * sl[-1]]
+        m = [sl[0]] + [0.5 * (sl[i - 1] + sl[i]) for i in range(1, len(sl))] + [sl[-1]]
+        m = [mi * k[5] for mi, k in zip(m, keys)]       # slow at the views, moving through the cuts
         for f in range(F[0], F[-1] + 1):
             k = min(max(i for i in range(len(F)) if F[i] <= f), len(F) - 2)
             h = F[k + 1] - F[k]
@@ -399,8 +405,20 @@ elif mode == "flight":
         for fc in fcurves(idb.animation_data.action):
             for kp in fc.keyframe_points:
                 kp.interpolation = "CONSTANT" if int(kp.co.x) + 1 in cuts else "LINEAR"
-    json.dump({"fps": FPS, "end": END, "cuts": cuts, "jaws": JAWS_D, "fade": FADE,
-               "moves": [(130, 195), (372, 430)]},   # the two flowing camera moves
+    # dip to black across every cut, fade out at the end
+    vs = sc.view_settings
+    for f in range(1, END + 1):
+        e = 0.0
+        for cf in cuts:
+            if cf - 5 <= f < cf + 5:
+                e = -7 * (1 - ease(abs(f - (cf - 0.5)) / 5))
+        if f >= END_FADE[0]:
+            e = -10 * ease((f - END_FADE[0]) / (END_FADE[1] - END_FADE[0]))
+        vs.exposure = e
+        vs.keyframe_insert("exposure", frame=f)
+    vs.exposure = 0.0
+    json.dump({"fps": FPS, "end": END, "cuts": cuts, "jaws": JAWS_D, "fade": FADE, "end_fade": END_FADE,
+               "moves": [(145, 195), (380, 440)]},   # the two flowing camera moves
               open(os.path.join(HERE, "out", "flight_timeline.json"), "w"))
     sc.camera = cam
     if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):

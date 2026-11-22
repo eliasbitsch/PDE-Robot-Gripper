@@ -16,7 +16,15 @@
 
 ## Open
 
-- [ ] Elias' feedback on `Elias/07_Render/out/flight_preview_sound.mp4` v3 (16.7 s, EEVEE 480p, with sound).
+- [ ] Elias' feedback on `Elias/07_Render/out/flight_preview_sound.mp4` v4 (20 s, EEVEE 480p, with sound).
+- [x] 22 Nov, review of v3 (Elias): cuts felt random, the camera should drive towards a part and away; the last
+      part (smooth zoom into the moving mechanism) is good; the music sounded slowed down / rumbly. Reference: two
+      Apple iPhone 17 films (yt-dlp, scratchpad): one move per shot, dips to dark between angles, cuts ~1.5 s,
+      music-led at ~130 BPM, full spectrum. v4: every shot pulls out from close, is slow at its view (speed factor
+      per key), pushes in on a detail; the cut falls inside that push with a 5-frame exposure dip; end part longer
+      (9 jaw strokes), fade to black 586-600. Sound: everything had been pitched to D1/D2 and saturated -> now a
+      clean D-minor pad (Dm9-Bbmaj7-Gm9-Asus4, 120 BPM pulse), bank sounds at native pitch, suck + soft hit per
+      cut. earshot critique: launch-grade, every band in range, -15.3 LUFS, -1.6 dBTP, cues on the frame.
 - [x] 22 Nov, review of v2 (Elias): "slower at the points, ease in/out, cuts from different angles are fine". v3: four
       shots with 3 cuts, each drifting slowly through its view (Hermite time warp, no stop), flowing moves only
       three-quarter -> top and jaws -> drive (pull-back key at 401 so the camera does not fly through the parts),
