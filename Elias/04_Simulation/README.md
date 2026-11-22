@@ -30,18 +30,24 @@ of a straight 1.8 m line that the hand calculation assumes. E-stop (category 0) 
 `e_stop.py`: each axis brakes on its own with its deceleration from the ABB product specification (3HAC070393
 rev. M, p. 91) and the robot leaves the path; 14.2 m/s² at the TCP. The brake locks the drive with the preload kept.
 
-**Results, 21 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`), wide T-jaw pad, on the transfer
+**Results, 22 Nov 2026** (`out/grip_results.json`, `figures/grip_slip.png`), wide T-jaw pad, closing from fully open
+with the built two-stage profile (`closing_time.py`), on the transfer
 through the via (the 1200 mm enclosure, see below) at the time law with TCP acceleration <= 4.96 m/s2 (the
 simulated robot following it shows peaks of 5.35 m/s2: servo response at the corner path; the friction use includes it). Friction use = |vector sum
 of the pad friction forces| / (μ ΣF_n), median over the moving phases and 50 ms peak.
 
 | Case | Force per jaw | friction use median / peak | part movement (raw / beyond creep base) | |
 |---|---|---|---|---|
-| required (hand calc., 2.05 m/s²) | 35.7 N | 0.41 / 0.80 | 2.18 / +0.02 mm | held |
+| required (hand calc., 2.05 m/s²) | 35.7 N | 0.41 / 0.58 | 2.25 / +0.00 mm | held |
 | no safety (F / S) | 17.9 N | - / 1.00 | dropped | expected: sized for 2.05 m/s², the path needs 4.96 |
-| **setpoint** (path 4.96 m/s², WorldAccLim) | 44.5 N | 0.33 / 0.72 (S_eff 1.39) | 2.17 / +0.02 mm | held |
-| e-stop at required, category 0, axes brake on their own | 35.7 N | 0.41 / 0.80 | 0.58 / +0.00 mm | held |
-| e-stop at setpoint | 44.5 N | 0.33 / 0.72 | 0.58 / +0.00 mm | held |
+| **setpoint** (path 4.96 m/s², WorldAccLim) | 44.5 N | 0.33 / 0.46 (S_eff 2.16) | 2.25 / -0.00 mm | held |
+| e-stop at required, category 0, axes brake on their own | 35.7 N | 0.41 / 0.69 | 0.33 / +0.00 mm | held |
+| e-stop at setpoint | 44.5 N | 0.33 / 0.55 (S_eff 1.80) | 0.33 / -0.00 mm | held |
+
+Until 21 Nov the jaws started 0.3 mm before the part and snapped shut at full force. That left a friction transient
+at the start of the lift (peak 0.74 at the setpoint, 0.80 at the required force) which was read as the via-corner
+peak. The built gripper closes in two stages and has no such transient; `run(offset=None)` still reproduces the old
+start.
 
 ## Emergency stop anywhere in the cycle (`e_stop.py`, `out/e_stop.json`, `figures/e_stop.png`)
 
@@ -97,14 +103,14 @@ comparison is against the design inputs:
 | at the setpoint 44.5 N, mu 0.2 | V2 (translation only, a 4.96 m/s²) | grip_check (with twist, uniform / tilted pad) | MuJoCo |
 |---|---|---|---|
 | friction use, median over the transfer | 0.50 | - | 0.33 |
-| friction use, peak | 0.50 | 0.40 / 0.43 | **0.74** |
-| safety against slip at the peak | 2.0 | 2.48 / 2.30 | **1.36** (mu 0.3: 1.71) |
+| friction use, peak | 0.50 | 0.40 / 0.43 | **0.46** |
+| safety against slip at the peak | 2.0 | 2.48 / 2.30 | **2.16** (mu 0.3: 3.24) |
 
-V2 is conservative for the bulk of the transfer, but the short peaks at the via corner are about 50 % above any hand
-model: the fast axis 1 turn on the small radius turns the part in the jaws, dynamics the hand formulas do not
-contain. The part does not slip there (friction use < 1 on both pads at every instant), but the dynamic safety at
-that instant is 1.36 with the worst-case mu 0.2, not 2. The design proof S 2 is the quasi-static one (VDI 2860);
-the simulation shows the margin that is left at the peak.
+V2 is conservative over the whole transfer: the peak at the via corner (0.46, a = 4.94 m/s²) equals the quasi-static
+value at that instant (0.463) and stays below V2's 0.50, which assumes the full 4.96 m/s² throughout. The part does
+not slip anywhere (friction use < 1 on both pads at every instant). The Monte Carlo study (`robustness.py`, 10 000
+cycles with scattered position, friction, force and mass) confirms it: all held, peak 0.50, safety >= 2.0 in the
+worst grip.
 
 **Slip.** The primary "held" criterion is friction use < 1 on each pad at every instant. Slip measured beyond the
 100 N reference run (creep base above) is a secondary check: MuJoCo's soft contacts creep 2.3-2.4 mm at any grip

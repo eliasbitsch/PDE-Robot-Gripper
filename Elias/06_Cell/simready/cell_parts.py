@@ -113,9 +113,9 @@ def tex_hmi(path, w=0.30, h=0.22, px=2400):
     im = Image.new("RGB", (W, H), (20, 26, 34))
     d = ImageDraw.Draw(im)
     d.rectangle([0, 0, W, int(0.13 * H)], fill=(36, 70, 110))
-    d.text((int(0.03 * W), int(0.02 * H)), "BZ-2   AUTOMATIK", font=font(int(0.08 * H), True), fill=(240, 240, 240))
-    rows = [("Programm", "O2041  Teil B, Nut + Bohrung"), ("Takt", "5,0 s"), ("Spindel", "18 000 1/min"),
-            ("Werkzeug", "T03  VHM-Fräser d4"), ("Stückzahl", "1 248"), ("Zuführung", "WT-Kette 1 + 2  bereit")]
+    d.text((int(0.03 * W), int(0.02 * H)), "MC-2   AUTO MODE", font=font(int(0.08 * H), True), fill=(240, 240, 240))
+    rows = [("Program", "O2041  Part B, slot + bore"), ("Takt", "5.0 s"), ("Spindle", "18 000 rpm"),
+            ("Tool", "T03  carbide end mill d4"), ("Count", "1 248"), ("Feed", "carrier chains 1 + 2 ready")]
     for k, (a, b) in enumerate(rows):
         y = int((0.19 + 0.1 * k) * H)
         d.text((int(0.04 * W), y), a, font=font(int(0.06 * H)), fill=(150, 170, 190))
@@ -205,12 +205,12 @@ def machine():
     g["black"][1].append(cyl_z(0.03, H + 0.27, H + 0.29, sx, sy))
     # name plate and warning on the robot-facing wall
     plate_png, plate_obj = "plate.png", "plate.obj"
-    tex_label(os.path.join(out, plate_png), 0.9, 0.22, [("BZ-2  Bearbeitungszentrum", 0.22, True, (25, 25, 25)),
-                                                        ("Nachbearbeitung Teil B: Nut, Bohrung, Entgraten", 0.13, False, (60, 60, 60)),
-                                                        ("Zuführung WT-Ketten 1 + 2   |   Takt 5,0 s", 0.13, False, (60, 60, 60))])
+    tex_label(os.path.join(out, plate_png), 0.9, 0.22, [("MC-2  Machining centre", 0.22, True, (25, 25, 25)),
+                                                        ("Part B finishing: slot, bore, deburring", 0.13, False, (60, 60, 60)),
+                                                        ("Feed: carrier chains 1 + 2   |   takt 5.0 s", 0.13, False, (60, 60, 60))])
     quad(os.path.join(out, plate_obj), (x1 + 0.002, -0.45, 1.75), (0, 0.9, 0), (0, 0, 0.22))
     tex = [(hmi_obj, hmi_png, "hmi"), (plate_obj, plate_png, "plate")]
-    tex += logo(out, "logo1", (x1 + 0.002, -1.16, 1.55), (0, 0.46, 0), 0)          # robot-facing wall, outside the fence (y -0.6)
+    tex += logo(out, "logo1", (x1 + 0.009, -1.06, 1.55), (0, 0.36, 0), 0)          # robot-facing wall, between wall edge (-1.1) and fence (-0.64)
     tex += logo(out, "logo2", (wx0, y0 - 0.009, 0.3), (0.5, 0, 0), 0)               # operator side, lower strip
     emit("machine", g, tex)
 
@@ -227,9 +227,11 @@ def buffer_housing():
     g["anth"][1].append(box((x0, y0, 0), (x1, y1, 0.12)))
     g["grey"][1] += wall_with_holes(0, x0 + t, t, (y0, y1), (0.12, H), [tun])
     # tunnel: the belt passes 850 mm through a hood, so the opening gives no reach to the robot (ISO 13857 tab. 4)
-    g["anth"][1] += [box((x0 - 0.0, tun[0] - 0.02, tun[3]), (x0 + 0.85, tun[1] + 0.02, tun[3] + 0.02)),
-                     box((x0, tun[0] - 0.02, tun[2]), (x0 + 0.85, tun[0], tun[3])),
-                     box((x0, tun[1], tun[2]), (x0 + 0.85, tun[1] + 0.02, tun[3]))]
+    # hood starts behind the wall: faces flush with the wall (front face, opening edges) z-fight
+    hx = x0 + t
+    g["anth"][1] += [box((hx, tun[0] - 0.02, tun[3]), (x0 + 0.85, tun[1] + 0.02, tun[3] + 0.02)),
+                     box((hx, tun[0] - 0.02, tun[2]), (x0 + 0.85, tun[0], tun[3])),
+                     box((hx, tun[1], tun[2]), (x0 + 0.85, tun[1] + 0.02, tun[3]))]
     g["grey"][1] += [box((x1 - t, y0, 0.12), (x1, y1, H)), box((x0, y1 - t, 0.12), (x1, y1, H)), box((x0, y0, 0.12), (x1, y0 + t, H))]
     # lid with a window over the queue
     lw0, lw1 = x0 + 0.15, x1 - 0.15
@@ -243,8 +245,8 @@ def buffer_housing():
     g["amber"][1].append(cyl_z(0.03, H + 0.11, H + 0.17, x1 - 0.1, y0 + 0.1))
     g["yellow"][1] += [box((x0 + 0.3, y0 - 0.005, 1.25), (x0 + 0.38, y0, 1.33))]
     png, obj = "label.png", "label.obj"
-    tex_label(os.path.join(out, png), 0.6, 0.16, [("PS-1  Pufferstrecke", 0.26, True, (25, 25, 25)),
-                                                  ("Teil B, PA 6   |   Vereinzelung + Anschlag", 0.16, False, (60, 60, 60))])
+    tex_label(os.path.join(out, png), 0.6, 0.16, [("BL-1  Buffer line", 0.26, True, (25, 25, 25)),
+                                                  ("Part B, PA 6   |   separation + end stop", 0.16, False, (60, 60, 60))])
     quad(os.path.join(out, obj), (x0 + 0.45, y0 - 0.002, 1.2), (0.6, 0, 0), (0, 0, 0.16))
     # end stop at the pick position (part B face at x = X_PICK - 60 mm)
     g["alu"][1].append(box((CP.X_PICK * MM - 0.06 - 0.02, -0.05, zb), (CP.X_PICK * MM - 0.06, 0.05, zb + 0.03)))
@@ -295,12 +297,12 @@ def fence_fill():
     g = {"black": [BLACK, []], "yellow": [[0.84, 0.47, 0.0], []]}
     xf, Y, Hf = X_BUFFER + 0.0, (CP.Y_FENCE + 75) * MM, CP.H_FENCE * MM
     for s in (-1, 1):                                        # beside the buffer housing
-        a, b_ = sorted((s * 0.4, s * Y))
+        a, b_ = sorted((s * 0.43, s * Y))                     # panels start at the post faces, not inside the posts
         mesh_panel(g, a, b_, xf - 0.02, 0.1, Hf, axis=1)
-        g["yellow"][1].append(box((xf - 0.05, s * Y - 0.03, 0), (xf + 0.01, s * Y + 0.03, Hf)))
+        # no post at s * Y: the fence bay mesh ends in its own post there, two posts in one place z-fight
         g["yellow"][1].append(box((xf - 0.08, s * Y - 0.06, 0), (xf + 0.04, s * Y + 0.06, 0.008)))
         g["yellow"][1].append(box((xf - 0.05, s * 0.4 - 0.03, 0), (xf + 0.01, s * 0.4 + 0.03, Hf)))
-    mesh_panel(g, -0.4, 0.4, xf - 0.02, 1.53, Hf, axis=1)    # above the housing
+    mesh_panel(g, -0.37, 0.37, xf - 0.02, 1.53, Hf, axis=1)  # above the housing, between the posts
     emit("fence_fill", g)
 
 

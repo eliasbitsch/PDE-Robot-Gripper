@@ -112,10 +112,18 @@ def estop_instant(t_transfer):
     return 0.5 * t_transfer
 
 
-def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None, creep_ref=None):
+def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None, creep_ref=None,
+        offset=0.0, mass_scale=1.0):
     """One cycle. mu: pad friction (default MU_PAD), t_transfer: transfer time (default T_EINWEG, ramps T/3),
-    rec: viz.Recorder for the slow-motion video."""
+    rec: viz.Recorder for the slow-motion video. offset [m]: close from fully open with the built two-stage profile
+    (closing_time.py) on a part this far off centre along the grip axis. None: the old start 0.3 mm before the part,
+    snapping shut at full force; it leaves a friction transient at the start of the lift (0.74 at the setpoint) that
+    the built gripper does not have. mass_scale: part mass and inertia factor."""
     m, d = S.load()
+    if mass_scale != 1.0:
+        pb = m.body("part").id
+        m.body_mass[pb] *= mass_scale
+        m.body_inertia[pb] *= mass_scale
     m.opt.timestep = 0.0005
     mu = S.B.MU_PAD if mu is None else mu
     m.pair_friction[:, 0:2] = mu
@@ -131,14 +139,25 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
     def transfer(t):                                   # (u, du/dt), stretched to T_TR if a transfer time is given
         u, du = law(t * k_t)
         return u, du * k_t
-    # jaws start just before the part: the closing stroke and its impact are closing_time.py's subject
-    S.set_robot(m, d, q0, jaw=(GP.D_GRIP + 0.3) * MM)
-    S.place_part_in_gripper(m, d)
-    set_force(m, force)
     ja = m.actuator("jaw").id
-    d.ctrl[ja] = -0.001                       # close against the part: the force limit sets the grip force
+    close_ref, t_close = None, T_CLOSE
+    if offset is None:
+        # jaws start just before the part: the closing stroke and its impact are closing_time.py's subject
+        S.set_robot(m, d, q0, jaw=(GP.D_GRIP + 0.3) * MM)
+        S.place_part_in_gripper(m, d)
+        d.ctrl[ja] = -0.001                   # close against the part: the force limit sets the grip force
+    else:
+        import closing_time as CT
+        S.set_robot(m, d, q0, jaw=GP.D_OPEN * MM)
+        S.place_part_in_gripper(m, d)
+        adr = m.joint("part").qposadr[0]
+        d.qpos[adr:adr + 3] += d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ np.array([offset, 0.0, 0.0])
+        mujoco.mj_forward(m, d)
+        close_ref = CT.profile("tolerant", CT.T_FAST_BUILT, CT.V_TOUCH_BUILT)
+        t_close = CT.T_REQ + 0.05             # closing budget plus settling before the lift
+    set_force(m, force)
 
-    t_lift0 = T_CLOSE + T_SETTLE
+    t_lift0 = t_close + T_SETTLE
     t_tr0 = t_lift0 + T_LIFT
     t_low0 = t_tr0 + T_TR
     t_end = t_low0 + T_LIFT + 0.3
@@ -156,6 +175,8 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
         t = k * m.opt.timestep
         if t < t_lift0:
             q = q0
+            if close_ref is not None:
+                d.ctrl[ja] = close_ref(t)
         elif t < t_tr0:
             s, _ = trapezoid(t - t_lift0, T_LIFT, T_LIFT / 3)
             q = q0 + s * (q1 - q0)
@@ -192,7 +213,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
             rel = part_in_gripper(m, d)
             rec(m, d, phase=ph, mu=mu, jaw_mm=d.ten_length[m.tendon("jaws").id] / MM,
                 slip_mm=float(np.linalg.norm(rel - ref) / MM) if ref is not None else 0.0)
-        if t >= T_CLOSE + T_SETTLE * 0.9 and ref is None:
+        if t >= t_close + T_SETTLE * 0.9 and ref is None:
             ref = part_in_gripper(m, d)
         if k % int(dt_log / m.opt.timestep) == 0:
             rel = part_in_gripper(m, d)
@@ -241,7 +262,8 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
                slip_end=float(slip[-1]), util_max=u_max, util_median=u_cruise, util_pad_max=u_pad,
                safety_eff=float(1.0 / u_max) if u_max > 0 else float("inf"),
                held=bool(not dropped and excess < SLIP_OK),
-               a_tcp_max=float(a_mag[win].max()), dropped=dropped)
+               a_tcp_max=float(a_mag[win].max()), dropped=dropped,
+               seat_mm=((ref - S.PART_OFFSET) / MM).tolist() if ref is not None else None)   # part in the jaws after closing
     return res, log
 
 

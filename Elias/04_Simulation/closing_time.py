@@ -30,6 +30,7 @@ GP, MM = S.GP, S.MM
 T_REQ = 0.4                           # s; 0.3 s in the V2 handover, 0.4 s since review 1.11 (slow phase over +-5 mm, cycle reserve)
 D_OPEN, D_GRIP = GP.D_OPEN * MM, GP.D_GRIP * MM
 V_TOUCH = 0.010                       # m/s, approach speed for the last millimetre
+T_FAST_BUILT, V_TOUCH_BUILT = 0.05, 0.020   # the profile the gripper is built with: 'tolerant', 50 ms fast, then 20 mm/s
 TOL = 0.005                           # m, part position on the belt along the grip axis (CAD_PLAN point 0: +-5 mm)
 T_SETTLE0 = 0.1                       # s, part settles on the belt before the close command
 # NBR 70 Shore A pad, 3 mm thick on its plate: effective compression modulus with the shape factor of a wide

@@ -22,6 +22,8 @@ ACCENT = (194, 65, 12)
 # gripper parts the part must never touch (only the pads may), and cell objects the gripper/robot must clear
 GRIPPER_KEEP_OUT = ("Jaw_", "PadPlate_", "Holder_", "Cover", "Housing", "Plunger_", "Screw_ISO4762-M3x6_Pad")
 CELL_KEEP_OUT = ("belt", "carrier", "pedestal")
+PAD_NEAR = 0.055                      # m: contact markers within this distance of a pad centre are shown
+SEE_ALPHA = 0.2                       # share of the see-through parts in the composited panels
 SEE_THROUGH = ("Housing", "Cover", "Hood", "Rail", "Window_Plate", "Bracket", "Carriage_")
 
 
@@ -127,6 +129,7 @@ def render_video(rec, path, slowmo=0.1, fps=30, label="", force_scale=0.15):
     geoms = _geoms(m)
     rgba0 = m.geom_rgba.copy()
     part_vis = [g for g in range(m.ngeom) if m.geom_bodyid[g] == m.body("part").id and m.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH]
+    see_g = list(geoms[5]) + part_vis               # pads and force arrows sit inside the part
     opt = mujoco.MjvOption()
     for f in (mujoco.mjtVisFlag.mjVIS_CONTACTPOINT, mujoco.mjtVisFlag.mjVIS_CONTACTFORCE, mujoco.mjtVisFlag.mjVIS_CONTACTSPLIT):
         opt.flags[f] = 1
@@ -136,7 +139,16 @@ def render_video(rec, path, slowmo=0.1, fps=30, label="", force_scale=0.15):
     m.vis.rgba.contactpoint[:] = (1.0, 0.85, 0.1, 1)
     m.vis.rgba.contactforce[:] = (0.92, 0.12, 0.08, 1)        # normal force red, friction orange: readable on the white part
     m.vis.rgba.contactfriction[:] = (1.0, 0.55, 0.1, 1)
-    r = mujoco.Renderer(m, PANEL[1], PANEL[0])
+    # the model spans ~17 m, so the default near plane (~0.17 m) sits in front of the 0.13 m close-up and the depth
+    # buffer runs out: coplanar faces z-fight. Fit near/far to the cameras, drop the shimmering fence shadows, supersample.
+    ext = m.stat.extent
+    m.vis.map.znear, m.vis.map.zfar = 0.005 / ext, 20.0 / ext
+    m.light_castshadow[:] = 0
+    m.vis.headlight.diffuse[:], m.vis.headlight.ambient[:] = 0.35, 0.15
+    ss = 3
+    m.vis.global_.offwidth = max(m.vis.global_.offwidth, PANEL[0] * ss)
+    m.vis.global_.offheight = max(m.vis.global_.offheight, PANEL[1] * ss)
+    r = mujoco.Renderer(m, PANEL[1] * ss, PANEL[0] * ss)
     f_big, f_small = _font(17), _font(14)
     step = max(1, int(round(slowmo / fps / rec.dt)))   # sim seconds per video frame = slowmo / fps
     frames = rec.frames[::step]
@@ -152,17 +164,36 @@ def render_video(rec, path, slowmo=0.1, fps=30, label="", force_scale=0.15):
         worst = min(worst, lo, key=lambda c: c[0])
         pf, others = pad_forces(m, d)
         canvas = Image.new("RGB", (2 * PANEL[0], 2 * PANEL[1] + 70), (245, 245, 243))
+        pad_c = [d.geom("pad_L").xpos.copy(), d.geom("pad_R").xpos.copy()]
         for i, (title, cam, see) in enumerate(views(m, d)):
-            m.geom_rgba[:] = rgba0
+            def shot(alpha):
+                m.geom_rgba[:] = rgba0
+                if alpha is not None:
+                    m.geom_rgba[see_g, 3] = alpha
+                for _, a, b in hits:                   # colliding parts in red
+                    for g, n in geoms[0].items():
+                        if n in (a, b):
+                            m.geom_rgba[g] = (0.9, 0.1, 0.1, 1)
+                r.update_scene(d, cam, scene_option=opt)
+                for j in range(r.scene.ngeom):
+                    sg = r.scene.geoms[j]
+                    if sg.category != mujoco.mjtCatBit.mjCAT_DECOR:
+                        continue
+                    # contacts away from the pads (part rocking on the belt) open and close every frame: hide them
+                    if min(np.linalg.norm(sg.pos - p) for p in pad_c) > PAD_NEAR:
+                        sg.rgba[3] = 0.0
+                    elif sg.type in (mujoco.mjtGeom.mjGEOM_ARROW, mujoco.mjtGeom.mjGEOM_ARROW1, mujoco.mjtGeom.mjGEOM_ARROW2):
+                        sg.emission = 0.8              # force arrows in full colour, not shaded pale
+                return r.render().astype(np.float32)
             if see:
-                m.geom_rgba[geoms[5], 3] = 0.18
-                m.geom_rgba[part_vis, 3] = 0.28             # pads and force arrows sit inside the part
-            for _, a, b in hits:                       # colliding parts in red
-                for g, n in geoms[0].items():
-                    if n in (a, b):
-                        m.geom_rgba[g] = (0.9, 0.1, 0.1, 1)
-            r.update_scene(d, cam, scene_option=opt)
-            img = Image.fromarray(r.render())
+                # see-through by compositing, not GL transparency: the part and housing lie almost flush with pads and
+                # jaws, and MuJoCo's per-frame sorting of transparent faces made them flicker
+                inner, solid = shot(0.0), shot(1.0)
+                cover = np.any(inner != solid, axis=2, keepdims=True)
+                px = np.where(cover, (1 - SEE_ALPHA) * inner + SEE_ALPHA * solid, inner)
+            else:
+                px = shot(None)
+            img = Image.fromarray(px.clip(0, 255).astype(np.uint8)).resize(PANEL, Image.LANCZOS)
             _d = ImageDraw.Draw(img)
             _d.rectangle(_d.textbbox((10, 8), title, font=f_small), fill=(255, 255, 255))
             _d.text((10, 8), title, fill=(20, 20, 20), font=f_small)

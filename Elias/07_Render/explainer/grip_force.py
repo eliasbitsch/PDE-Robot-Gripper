@@ -83,10 +83,10 @@ class GripForce(Scene):
         self.play(Create(box), FadeIn(per), run_time=0.7)
         l_res = tex(f"{F:.1f}" + r"\,\mathrm{N}", font_size=34, color=ACC).next_to(fn[0], UP, buff=0.08)
         self.play(ReplacementTransform(l_fn, l_res), Indicate(fn, color=ACC, scale_factor=1.05), run_time=0.9)
-        # the dynamic check lives in the validation notebook; the film only states its result
-        res = json.load(open(os.path.join(SIM_OUT, "grip_results.json")))
-        sp = next(c for c in res["cases"] if c["case"] == "setpoint")
-        note = Tex(rf"\mbox{{with twist and robot dynamics: peak friction use {sp['util_max']:.2f} $<$ 1, held (validation notebook)}}",
-                   color=LOAD, font_size=24).to_edge(DOWN, buff=0.45)
+        # the dynamic check lives in the Monte Carlo study (04_Simulation/robustness.py); the film only states its result
+        rb = [r for r in json.load(open(os.path.join(SIM_OUT, "robustness.json")))["results"] if r["study"] == "spec"]
+        u_max = max(r["util_max"] for r in rb)
+        note = Tex(rf"\mbox{{{len(rb):,} simulated grips with scattered inputs: all held, peak friction use "
+                   rf"{u_max:.2f} $<$ 1}}", color=LOAD, font_size=24).to_edge(DOWN, buff=0.45)
         self.play(FadeIn(note, shift=0.1 * UP), run_time=0.7)
         self.wait(2.0)

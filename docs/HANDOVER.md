@@ -14,6 +14,17 @@
 - Render: `Elias/07_Render/RENDER_PLAN.md`, `hero_v1.py` (recovered from the session log) with modes
   `views` (stills), `preview` (480p clips), `flight` (one camera move), `anim` (final Cycles).
 
+- 22 Nov evening: grip proof now closes with the built two-stage profile (`validate_grip.run(offset=0.0)`); the old
+  start 0.3 mm before the part left a friction transient at the lift start (0.74) that README and shot list had
+  read as a via-corner peak 50 % above the hand model. Corrected: via-corner peak 0.46 = quasi-static 0.463 < V2
+  0.50, S_eff 2.16 (e-stop at setpoint 0.55 / 1.80). Monte Carlo study `robustness.py` (10 000 cycles in spec:
+  all held, peak 0.50; 2 000 stress cycles: boundary mu F 4.1 N vs hand 4.45 N), notebook section, Manim scene
+  `explainer/robustness.py`. Flicker: coplanar faces (tunnel hood flush with the buffer wall, doubled corner
+  post, fence panels inside the posts) fixed in `cell_parts.py`; see-through panels composited in `viz.py`.
+  Cell tour camera checked per frame for near-lens occluders; 'side' camera keys keep the arm out of the line of
+  sight. `cell_grid.py`: 100 cells in one shared scene. English labels in the cell, cabinet label above the switches.
+- Open: part mass scatter +0 ... +3 % (PA 6 moisture) is an assumption without a source yet.
+
 ## Open
 
 - [ ] Elias' approval of `out/flight_preview_C_new_bass.mp4` for the final Cycles render (then also the music mux
@@ -59,7 +70,9 @@
       Demucs bass + drums, epic sub boosts) sounded unfinished. Tools stay: MUSIC_LP and derived mixes in
       music_flight.py, Demucs in ~/tools/demucs. Private comparison only (never on the board or in the film):
       out/private/ holds the Google Pixel "Fur Elise" spot without the speaker and a 20 s loop of its choir part.
-- [ ] Waiting for Viktoriia's answer on the wider T-shaped jaw (asked 22 Nov as a proposal; the variant is the current
+- [x] 22 Nov: Viktoriia agreed to the wider T-shaped jaw (it was already the current model, nothing to rebuild).
+- [ ] Board: put the three film previews back (out/*_C.mp4), see the next point for the background.
+- [ ] (was) Waiting for Viktoriia's answer on the wider T-shaped jaw (asked 22 Nov as a proposal; the variant is the current
       model in Viktoriia/03_CAD_Jaws). Until she agrees the board shows only her original V3 jaw
       (img/jaw_v3_viktoriia.png from commit da4f7f5) and no film previews. If yes: put the three previews back on the
       board (out/*_C.mp4). If no: rebuild with her contour (jaws.py at da4f7f5) and rerun FEM, V4, grip_check, E4.

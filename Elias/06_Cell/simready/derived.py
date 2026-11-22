@@ -147,16 +147,17 @@ def tex_door(path, w_mm, h_mm, px=1.2):
     d.polygon([(cx, ty + m(10)), (cx - s // 2 + m(9), ty + h3 - m(5)), (cx + s // 2 - m(9), ty + h3 - m(5))], fill=(250, 200, 0))
     d.polygon([(cx + m(6), ty + m(24)), (cx - m(8), ty + m(46)), (cx + m(1), ty + m(46)), (cx - m(6), ty + m(64)),
                (cx + m(9), ty + m(38)), (cx, ty + m(38))], fill=(15, 15, 15))
-    d.rectangle([m(80), m(170), W - m(80), m(232)], fill=(246, 246, 241), outline=(80, 80, 80), width=2)
-    d.text((m(92), m(178)), "=GR1  Greiferantrieb", font=font(m(17), True), fill=(20, 20, 20))
-    d.text((m(92), m(204)), "24 V DC  |  CL4-E  |  PDE Gruppe 10", font=font(m(12)), fill=(50, 50, 50))
-    for k, (c, t) in enumerate([((40, 200, 60), "Betrieb"), ((235, 160, 20), "Bremse offen"), ((210, 30, 30), "Störung")]):
+    # label ends above the main switch and E-stop (they start 210 mm from the top)
+    d.rectangle([m(80), m(140), W - m(80), m(200)], fill=(246, 246, 241), outline=(80, 80, 80), width=2)
+    d.text((m(92), m(147)), "=GR1  Gripper drive", font=font(m(17), True), fill=(20, 20, 20))
+    d.text((m(92), m(173)), "24 V DC  |  CL4-E  |  PDE group 10", font=font(m(12)), fill=(50, 50, 50))
+    for k, (c, t) in enumerate([((40, 200, 60), "Run"), ((235, 160, 20), "Brake open"), ((210, 30, 30), "Fault")]):
         x = m(120 + 140 * k)
         d.ellipse([x - m(18), m(560), x + m(18), m(596)], fill=(60, 60, 60))
         d.ellipse([x - m(13), m(565), x + m(13), m(591)], fill=c)
         d.text((x - m(32), m(602)), t, font=font(m(12)), fill=(40, 40, 40))
-    d.text((m(36), m(305)), "Hauptschalter", font=font(m(11)), fill=(40, 40, 40))
-    d.text((W // 2 - m(25), m(330)), "NOT-HALT", font=font(m(11), True), fill=(40, 40, 40))
+    d.text((m(36), m(305)), "Main switch", font=font(m(11)), fill=(40, 40, 40))
+    d.text((W // 2 - m(25), m(330)), "E-STOP", font=font(m(11), True), fill=(40, 40, 40))
     for k in range(10):                                                       # vent grille
         y = H - m(160) + m(12) * k
         d.rounded_rectangle([m(150), y, W - m(150), y + m(6)], radius=2, fill=(115, 117, 115))

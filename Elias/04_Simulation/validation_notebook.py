@@ -236,5 +236,55 @@ def _(HERE, fem_go, json, lc, mo, os):
     return
 
 
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ## Robustness - Monte Carlo over the scattered inputs
+    Full cycles (built two-stage closing from fully open, lift, transfer, lower) with the part position (+-5 mm),
+    pad friction (0.2 ... 0.3), grip force (44.5 N +-5 %) and part mass (+0 ... +3 %) scattered by Latin hypercube;
+    a stress set pushes friction and force far below spec. The stored study comes from `python robustness.py`
+    (12 000 cycles, about an hour on 9 processes); the button below runs a small serial sample in the notebook.
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    rb_n = mo.ui.slider(4, 40, step=4, value=8, label="sample: grips inside spec", show_value=True)
+    rb_go = mo.ui.run_button(label="Run sample")
+    mo.hstack([rb_n, rb_go], justify="start", gap=2)
+    return rb_go, rb_n
+
+
+@app.cell
+def _(HERE, json, mo, np, os, rb_go, rb_n):
+    import robustness as _R
+    _path = os.path.join(HERE, "out", "robustness.json")
+    mo.stop(not os.path.exists(_path), mo.md("_No study yet - run `python robustness.py`._"))
+    _res = json.load(open(_path))["results"]
+    _spec = [r for r in _res if r["study"] == "spec"]
+    _stress = [r for r in _res if r["study"] == "stress"]
+    _u = np.array([r["util_max"] for r in _spec])
+    _mf_fail = max(r["mu"] * r["force"] for r in _stress if not r["held"])
+    _mf_spec = min(r["mu"] * r["force"] for r in _spec)
+    _png = os.path.join(HERE, "figures", "robustness.png")
+    _txt = (f"**Stored study:** {sum(r['held'] for r in _spec)} of {len(_spec)} grips inside spec held; peak friction use "
+            f"median {np.median(_u):.2f}, highest {_u.max():.2f} (safety {1 / _u.max():.2f} in the worst grip). "
+            f"Stress: {sum(not r['held'] for r in _stress)} of {len(_stress)} fail; the weakest grip in spec holds "
+            f"{_mf_spec / _mf_fail:.2f} x the mu F of the strongest failure.")
+    _out = [mo.md(_txt), mo.image(src=_png, width=900)]
+    if rb_go.value:
+        _base = json.load(open(_path))["creep_grid"]["base"]
+        with mo.status.spinner(title=f"{rb_n.value} cycles, about 3 s each ..."):
+            _smp = [_R.one((s, _base)) for s in _R.sample("spec", rb_n.value, int(np.random.default_rng().integers(1 << 30)))]
+        _rows = ["| offset [mm] | mu | F [N] | mass x | peak friction use | slip beyond creep [mm] | |", "|---|---|---|---|---|---|---|"]
+        for r in _smp:
+            _rows.append(f"| {r['offset'] * 1000:+.1f} | {r['mu']:.3f} | {r['force']:.1f} | {r['mass']:.3f} | {r['util_max']:.2f} | "
+                         f"{r['slip_excess']:+.3f} | {'held' if r['held'] else 'SLIPS'} |")
+        _out.append(mo.md("**Fresh sample:**" + chr(10) * 2 + chr(10).join(_rows)))
+    mo.vstack(_out)
+    return
+
+
 if __name__ == "__main__":
     app.run()

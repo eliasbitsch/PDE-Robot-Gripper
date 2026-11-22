@@ -128,9 +128,10 @@ def build(m0_path, cut=+1, film=False):
     return m, mujoco.MjData(m)
 
 
-def main(n_cycles=4, clean=False, slow=1.0):
+def main(n_cycles=4, clean=False, slow=1.0, hook=None, ts_given=None):
     """clean: no HUD, 1920 x 1080, writes figures/cell_clean.mp4 and out/cell_clean_frames.json (per frame: real time,
-    segment) for the overlays of the explainer film; slow: video time per real second."""
+    segment) for the overlays of the explainer film; slow: video time per real second. hook(i, t, m, d): called with
+    the posed model at each real time of ts_given instead of rendering (cell_grid.py)."""
     global W, H
     if clean:
         W, H = 1920, 1080
@@ -140,7 +141,7 @@ def main(n_cycles=4, clean=False, slow=1.0):
     # the model spans ~17 m (plant, belt), so MuJoCo's default near/far (0.17 m ... 870 m) and the 35 m shadow box
     # leave too little depth and shadow resolution: coplanar faces z-fight and the shadows shimmer. Fit both to the cell.
     ext = m.stat.extent
-    m.vis.map.znear, m.vis.map.zfar = 0.3 / ext, 20.0 / ext
+    m.vis.map.znear, m.vis.map.zfar = (0.05 if clean else 0.3) / ext, 20.0 / ext
     m.vis.map.shadowclip = 3.5 / ext
     m.vis.quality.shadowsize, m.vis.quality.offsamples = 8192, 8
     SS = 2 if clean else 1                                     # supersampling against shimmer on the wire mesh
@@ -205,6 +206,7 @@ def main(n_cycles=4, clean=False, slow=1.0):
             ts += list(np.arange(a, b, 1.0 / (FPS * sl)))
     else:
         ts = [i / FPS / slow for i in range(int((n_cycles * TAKT + 0.5) * FPS * slow))]
+    ts = ts_given if ts_given is not None else ts
     look = None
 
     def robot_state(t):
@@ -213,6 +215,12 @@ def main(n_cycles=4, clean=False, slow=1.0):
         tl, T, _ = sides[side_of(k)]
         if tc < T:
             seg, q, jaw = at(tl, tc)
+            if clean and seg in (0, 4):                        # jaws move over their segment instead of jumping
+                u = min(1.0, max(0.0, (tc - tl[seg][0]) / tl[seg][1]))
+                if seg == 0:                                   # close: fast, then slow onto the part (two-stage)
+                    jaw = GP.D_OPEN + (GP.D_GRIP - GP.D_OPEN) * (1 - (1 - u) ** 3)
+                else:
+                    jaw = GP.D_GRIP + (GP.D_OPEN - GP.D_GRIP) * u * u * (3 - 2 * u)
             return k, tc, T, seg, q, jaw, NAMES_DE[seg]
         return k, tc, T, -1, q_wait, GP.D_OPEN, "Warten auf Takt"
 
@@ -274,11 +282,13 @@ def main(n_cycles=4, clean=False, slow=1.0):
                 else:
                     d.mocap_pos[mb] = (0, 0, -5)
         mujoco.mj_forward(m, d)
+        if hook is not None:
+            hook(i, t, m, d)
+            continue
         if clean:
             grip = d.xpos[m.body("gripper_frame").id] + d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ S.PART_OFFSET
             look = film_camera(cam, t, d.mocap_pos[m.body(f"vp{FOLLOW}").mocapid[0]].copy(), grip, look)
             opt.geomgroup[5] = 0 if SEE_MECH[0] <= t < SEE_MECH[1] else 1
-            m.vis.map.znear = max(0.02, min(0.3, 0.25 * cam.distance)) / ext
             if os.environ.get("CAMDRY"):                   # print the followed part's path, no rendering
                 if i % 15 == 0:
                     print(f"t {t:5.2f} part {np.round(d.mocap_pos[m.body(f'vp{FOLLOW}').mocapid[0]], 3)}")
@@ -296,7 +306,9 @@ def main(n_cycles=4, clean=False, slow=1.0):
         else:
             hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
         frames.append(np.asarray(im))
-    if os.environ.get("CAMDRY"):
+        if i % 60 == 0:
+            print(f"frame {i}/{len(ts)}", flush=True)
+    if os.environ.get("CAMDRY") or hook is not None:
         return
     out = os.path.join(HERE, "figures", "cell_clean.mp4" if clean else "cell_takt.mp4")
     if clean:
@@ -316,12 +328,14 @@ part_place = {}
 
 # explainer film: real time ranges and their slow-down (video s per real s); part 3 (fourth cycle, chain 1 on the
 # camera side) is followed, so the robot first loads both chains a few times while the camera tours the cell
-FILM_TIME = [(0.0, 14.7, 1.0), (14.7, 15.6, 3.0), (15.6, 18.6, 2.0), (18.6, 24.6, 1.0), (24.6, 25.6, 3.0),
-             (25.6, 26.3, 1.0)]   # ends before axis 6 turns the arm in front
-FOLLOW, FILM_CYCLES = 3, 6
-SEE_MECH = (24.4, 27.1)                             # gripper shell hidden: racks, slides, drive visible
-HIDE_SHELL = ("g_Housing", "g_Cover", "g_Hood", "g_Window", "g_Tower", "g_Lid", "g_Screw_ISO10642-M3x10_Cover",
-              "g_Screw_ISO10642-M3x8_Window")
+FILM_TIME = [(0.0, 13.4, 1.0), (13.4, 14.7, 2.0), (14.7, 15.6, 3.0), (15.6, 18.6, 2.0), (18.6, 19.5, 1.0),
+             (19.6, 20.7, 3.0), (20.7, 21.6, 1.5)]
+FOLLOW, FILM_CYCLES = 3, 5
+SEE_MECH = (19.55, 22.0)                            # cut to the next grip with the gripper shell hidden
+HIDE_SHELL = ("g_Housing", "g_Cover", "g_Hood", "g_Window", "g_Tower", "g_Lid", "g_Cable_Gland",
+              "g_Screw_ISO10642-M3x10_Cover", "g_Screw_ISO10642-M3x8_Window", "g_Screw_ISO4762-M4x12_Hood",
+              "g_Screw_ISO10642-M4x16_Adapter")      # screws whose parts are hidden would float
+FENCE_IN = ((-1.07, 0.97), 0.52, 2.25)              # x range, |y|, height: the camera never crosses the fence
 # camera stations: (real t, look-at point or "part" / "grip", camera offset from it [m], cut before this key)
 P = np.array
 CAM_KEYS = [
@@ -329,30 +343,40 @@ CAM_KEYS = [
     (3.5, P([0.0, -0.3, 1.0]), P([2.2, -3.2, 2.2]), False),
     (6.0, P([-0.9, -1.0, 1.35]), P([1.1, -1.1, 0.35]), False),      # ABB OmniCore on the cabinet, FHTW logo on the machine
     (7.5, P([-0.95, -1.0, 1.45]), P([0.9, -0.9, 0.25]), False),
-    (9.0, P([1.8, -0.40, 1.28]), P([0.25, -1.0, 0.15]), False),     # PS-1 buffer line sign
-    (10.2, P([2.0, 0.0, 1.05]), P([0.05, -0.22, 0.8]), False),      # lid window: the queue before the ISO 13857 hood
-    (11.6, P([1.92, 0.0, 1.05]), P([0.0, -0.3, 0.8]), False),
-    (12.6, P([1.0, 0.0, 1.05]), P([-0.1, -0.4, 1.25]), False),      # over the fence (2.1 m) into the cell
-    (13.9, "part", P([-0.55, -0.5, 0.45]), False),                  # the pick
+    (9.0, P([1.8, -0.40, 1.28]), P([0.25, -1.0, 0.15]), False),     # BL-1 buffer line sign
+    (10.6, P([2.0, 0.0, 1.1]), P([0.35, -0.55, 1.0]), False),      # lid window over the queue end (the hood covers the rest)
+    (12.3, P([0.9, 0.0, 1.1]), P([0.4, -0.8, 1.8]), False),         # up over the fence corner, clear of the posts
+    (13.0, P([0.75, 0.0, 1.05]), P([-0.2, -0.45, 1.2]), False),     # down into the cell
+    (14.0, "part", P([-0.5, -0.35, 0.4]), False),                   # the pick
     (14.9, "part", P([-0.25, -0.28, 0.12]), False),                 # close: the jaws close on the part
-    (15.5, "part", P([-0.2, -0.32, 0.1]), False),
-    (16.4, "part", P([-0.6, -0.4, 0.6]), False),                    # lift and swing (camera stays inside the fence)
-    (17.4, "part", P([0.2, -0.45, 0.85]), False),
-    (18.1, "part", P([0.35, -0.25, 0.2]), False),                   # set down on chain 1
-    (19.4, "part", P([0.55, -0.25, 0.3]), False),                   # the carrier takes it into the machine
-    (20.5, P([-1.7, -0.7, 1.3]), P([1.3, -1.0, 1.6]), False),       # up, outside the fence, clear of the machine roof
-    (22.0, P([-2.0, -0.3, 1.15]), P([0.25, -1.9, 0.15]), False),    # machine window: table and spindle
-    (23.3, P([-2.0, -0.1, 1.05]), P([0.15, -1.5, 0.25]), False),
-    (24.4, "grip", P([-0.3, -0.35, 0.15]), True),                   # cut: the next grip, shell hidden
-    (25.0, "grip", P([-0.22, -0.3, 0.08]), False),
-    (25.6, "grip", P([-0.25, -0.22, 0.12]), False),
-    (27.0, "grip", P([-0.3, -0.2, 0.18]), False),                   # stays inside the fence
+    (15.5, "part", P([-0.2, -0.3, 0.1]), False),
+    (16.4, "part", ("side", 0.9, 0.3, 0.35), False),               # lift and swing, beside the arm plane
+    (17.4, "part", ("side", 0.9, 0.3, 0.3), False),
+    (18.1, "part", ("side", 0.8, -0.1, 0.3), False),               # set down on chain 1 (outwards is the machine wall)
+    (19.5, "part", P([0.5, -0.22, 0.28]), False),                   # the carrier takes it towards the machine
+    (19.55, "grip", P([-0.3, -0.3, 0.15]), True),                   # cut: the next grip, shell hidden
+    (20.3, "grip", P([-0.22, -0.28, 0.08]), False),
+    (21.6, "grip", P([-0.28, -0.2, 0.18]), False),
 ]
 
 
 def _ease(u):
     u = min(max(u, 0.0), 1.0)
     return u * u * (3 - 2 * u)
+
+
+ROBOT_XY = np.array([-0.1, 0.0])                    # robot base axis
+
+
+def _offset(spec, look):
+    """('side', across, out, up): beside the vertical plane through the robot axis and the look point (the arm lies in
+    it, so it never crosses the line of sight), a little outwards and up. Otherwise a fixed offset."""
+    if isinstance(spec, tuple) and spec[0] == "side":
+        rad = look[:2] - ROBOT_XY
+        rad = rad / max(np.linalg.norm(rad), 1e-6)
+        across = np.array([rad[1], -rad[0]])           # clockwise: operator side at the pick, far side at the place
+        return np.array([*(spec[1] * across + spec[2] * rad), spec[3]])
+    return spec
 
 
 def film_camera(cam, t, part, grip, look_prev):
@@ -368,14 +392,22 @@ def film_camera(cam, t, part, grip, look_prev):
 
     k = max(i for i, key in enumerate(CAM_KEYS) if key[0] <= t) if t >= CAM_KEYS[0][0] else 0
     if k == len(CAM_KEYS) - 1 or CAM_KEYS[k + 1][3]:
-        look, off = pt(CAM_KEYS[k][1]), CAM_KEYS[k][2]
+        look = pt(CAM_KEYS[k][1])
+        off = _offset(CAM_KEYS[k][2], look)
     else:
         (ta, la, oa, _), (tb, lb, ob, _) = CAM_KEYS[k], CAM_KEYS[k + 1]
         w = _ease((t - ta) / (tb - ta))
         look = pt(la) * (1 - w) + pt(lb) * w
+        oa, ob = _offset(oa, look), _offset(ob, look)
         na, nb = np.linalg.norm(oa), np.linalg.norm(ob)
         dirv = oa / na * (1 - w) + ob / nb * w
         off = dirv / np.linalg.norm(dirv) * (na * (1 - w) + nb * w)   # direction and distance blended separately
+    (xa, xb), ya, za = FENCE_IN
+    if xa < look[0] < xb and abs(look[1]) < ya:                 # looking into the cell: stay on this side of the fence
+        c = look + off
+        if c[2] < za:
+            c[0], c[1] = min(max(c[0], xa), xb), min(max(c[1], -ya), ya)
+            off = c - look
     f = -off / np.linalg.norm(off)
     cam.lookat[:] = look
     cam.distance = float(np.linalg.norm(off))
@@ -384,7 +416,7 @@ def film_camera(cam, t, part, grip, look_prev):
     return look
 
 
-V_RGB, A_RGB, F_RGB = (1.0, 0.82, 0.2, 1), (1.0, 0.5, 0.1, 1), (0.9, 0.12, 0.08, 1)
+V_RGB, A_RGB, F_RGB = (1.0, 0.8, 0.0, 1), (1.0, 0.42, 0.0, 1), (0.95, 0.05, 0.02, 1)
 
 
 def _arrow(scn, a, b, width, rgba):
@@ -393,6 +425,7 @@ def _arrow(scn, a, b, width, rgba):
     g = scn.geoms[scn.ngeom]
     mujoco.mjv_initGeom(g, mujoco.mjtGeom.mjGEOM_ARROW, np.zeros(3), np.zeros(3), np.eye(3).flatten(), np.array(rgba, np.float32))
     mujoco.mjv_connector(g, mujoco.mjtGeom.mjGEOM_ARROW, width, a, b)
+    g.emission = 0.7                                   # full colour regardless of the light
     scn.ngeom += 1
 
 
@@ -403,18 +436,18 @@ def film_vectors(scn, m, d, dist, grip_point, t, jaw, h=0.01):
     p0, pm, pp = grip_point(t), grip_point(t - h), grip_point(t + h)
     v = (pp - pm) / (2 * h)
     a = (pp - 2 * p0 + pm) / (h * h)
-    w = 0.006 * dist
+    w = 0.0035 * dist
     if np.linalg.norm(v) > 0.02:
-        _arrow(scn, p0, p0 + v * 0.10 * dist, w, V_RGB)
+        _arrow(scn, p0, p0 + v * 0.045 * dist, w, V_RGB)
     if np.linalg.norm(a) > 0.3:
-        _arrow(scn, p0, p0 + a * 0.012 * dist, w, A_RGB)
+        _arrow(scn, p0, p0 + a * 0.005 * dist, w, A_RGB)
     f = GP.F_GRIP_SET if jaw <= GP.D_GRIP + 0.05 else 0.0
     if f:
         gb = m.body("gripper_frame").id
         x = d.xmat[gb].reshape(3, 3)[:, 0]
         for name, sgn in (("pad_L", -1), ("pad_R", 1)):
             pc = d.geom(name).xpos.copy()
-            _arrow(scn, pc + sgn * x * 0.16 * dist, pc + sgn * x * 0.01, w * 1.2, F_RGB)
+            _arrow(scn, pc + sgn * x * 0.07 * dist, pc + sgn * x * 0.008, w * 1.2, F_RGB)
     return float(np.linalg.norm(v)), float(np.linalg.norm(a)), float(f)
 
 
