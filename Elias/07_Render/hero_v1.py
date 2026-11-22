@@ -1152,7 +1152,7 @@ elif mode == "robot":
     TW0, TW1 = 118, 132                                 # nut turned home
     SH = 36                                             # everything after the plug-in moves later by this
     R0, R1 = 106 + SH, 170 + SH                         # rise
-    L0, L1 = 186 + SH, 216 + SH                         # turn to the camera
+    L0, L1 = 162 + SH, 216 + SH                         # turn to the camera, starts while the rise settles
     W0, W1 = 272 + SH, 326 + SH                         # wave
     CUTS = (61, 106 + SH, 181 + SH)                     # shots: flange, cable + plug-in, rise, look
     END = 350 + SH
@@ -1160,25 +1160,25 @@ elif mode == "robot":
     def lerp_q(a, b, u):
         return [x + (y - x) * u for x, y in zip(a, b)]
 
+    def soft(u):                                       # quintic: no jerk at start and end, motion fades in and out
+        u = min(1.0, max(0.0, u))
+        return u * u * u * (u * (6 * u - 15) + 10)
+
+    def bump(u):                                       # 0 -> 1 -> 0 with zero slope at both ends
+        return math.sin(math.pi * min(1.0, max(0.0, u))) ** 2
+
     def pose(fr):
-        if fr < R0:
-            q = list(SLEEP)
-            if SEAT <= fr < SEAT + 12:                  # the arm gives a little when the gripper snaps on
-                q[4] += 1.6 * math.exp(-(fr - SEAT) / 3) * math.sin(math.pi * (fr - SEAT) / 5)
-            return q
-        if fr < R1:
-            u = (fr - R0) / (R1 - R0)
-            return lerp_q(SLEEP, UP, ease(u) + 0.04 * math.sin(math.pi * u) ** 2 * (u > 0.7))   # a slight stretch
-        if fr < L0:
-            return list(UP)
-        if fr < L1:
-            return lerp_q(UP, LOOK, ease((fr - L0) / (L1 - L0)))
-        q = list(LOOK)
-        if L1 <= fr < L1 + 24:                          # curious lean towards the camera and back
-            q[1] += 5 * math.sin(math.pi * (fr - L1) / 24)
+        q = list(SLEEP)
+        if SEAT <= fr < SEAT + 12:                      # the arm gives a little when the gripper snaps on
+            q[4] += 1.6 * math.exp(-(fr - SEAT) / 3) * math.sin(math.pi * (fr - SEAT) / 5)
+        q = lerp_q(q, UP, soft((fr - R0) / (R1 - R0)))
+        q[1] += -3 * bump((fr - R0 - 0.55 * (R1 - R0)) / (0.6 * (R1 - R0)))   # a slight stretch over the top
+        q = lerp_q(q, LOOK, soft((fr - L0) / (L1 - L0)))
+        if fr >= L1 - 8:                                # curious lean towards the camera and back
+            q[1] += 5 * bump((fr - L1 + 8) / 32)
         if W0 <= fr < W1:
             u = (fr - W0) / (W1 - W0)
-            env = math.sin(math.pi * u)
+            env = bump(u)
             q[5] += 28 * env * math.sin(4 * math.pi * u)
             q[0] += 6 * env * math.sin(4 * math.pi * u)
         return q
