@@ -765,22 +765,114 @@ elif mode == "assemble":
         for u in range(0, 10):
             if seat + u <= END:
                 nudge_loc[seat + u] += -axis * amp * MM * math.exp(-u / 2.5) * math.sin(math.pi * u / 4)
-    # white lab: bright soft world, white floor; flash in from white
-    w = sc.world.node_tree.nodes["Background"]
-    w.inputs["Color"].default_value = (0.82, 0.83, 0.85, 1)
-    w.inputs["Strength"].default_value = 0.9
-    fl = bpy.data.objects["Floor"].data.materials[0]
-    fb = next(n for n in fl.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
-    fb.inputs["Base Color"].default_value = (0.8, 0.8, 0.82, 1)
-    fb.inputs["Roughness"].default_value = 0.45
+    # lab set after Elias' reference (22 Nov): polished concrete floor 1 m below, ceiling grid with light strips and
+    # spots at 3.2 m, glass walls, white machines in the distance; Poly Haven "Autoshop 01" (CC0) as environment for
+    # the reflections. Real geometry, so the joint rise of gripper and camera shows parallax. Flash in from white.
+    import urllib.request
+    FLOOR_Z, CEIL_Z, RISE = -1.0, 2.2, 1.1
+    hdr = os.path.join(HERE, "out", "env", "autoshop_01_2k.hdr")
+    if not os.path.exists(hdr):
+        os.makedirs(os.path.dirname(hdr), exist_ok=True)
+        req = urllib.request.Request("https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/autoshop_01_2k.hdr",
+                                     headers={"User-Agent": "Mozilla/5.0"})
+        open(hdr, "wb").write(urllib.request.urlopen(req).read())
+    wn = sc.world.node_tree
+    bg = wn.nodes["Background"]
+    env = wn.nodes.new("ShaderNodeTexEnvironment")
+    env.image = bpy.data.images.load(hdr)
+    wn.links.new(env.outputs["Color"], bg.inputs["Color"])
+    bg.inputs["Strength"].default_value = 0.8
+    # the HDRI only lights and reflects (it shows cars); the camera sees the set, and a plain grey where nothing is
+    lp = wn.nodes.new("ShaderNodeLightPath")
+    plain = wn.nodes.new("ShaderNodeBackground")
+    plain.inputs["Color"].default_value = (0.55, 0.57, 0.6, 1)
+    mix = wn.nodes.new("ShaderNodeMixShader")
+    out_w = next(n for n in wn.nodes if n.type == "OUTPUT_WORLD")
+    wn.links.new(lp.outputs["Is Camera Ray"], mix.inputs["Fac"])
+    wn.links.new(bg.outputs["Background"], mix.inputs[1])
+    wn.links.new(plain.outputs["Background"], mix.inputs[2])
+    wn.links.new(mix.outputs["Shader"], out_w.inputs["Surface"])
     bpy.data.lights["Pool"].animation_data_clear()
     bpy.data.lights["Pool"].energy = 0
+    for n_ in ("Key", "Top", "Fill"):                   # the environment lights the room; keep the rims for the edges
+        bpy.data.lights[n_].energy *= 0.6
+
+    def box(name, lo_, hi_, m):
+        me = bpy.data.meshes.new(name)
+        x0, y0, z0 = lo_; x1, y1, z1 = hi_
+        v = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]
+        me.from_pydata(v, [], [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)])
+        ob_ = bpy.data.objects.new(name, me)
+        sc.collection.objects.link(ob_)
+        ob_.data.materials.append(m)
+        return ob_
+
+    def emit(name, strength):
+        m = bpy.data.materials.new(name)
+        m.use_nodes = True
+        nt = m.node_tree
+        nt.nodes.remove(next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"))
+        e = nt.nodes.new("ShaderNodeEmission")
+        e.inputs["Strength"].default_value = strength
+        nt.links.new(e.outputs["Emission"], next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])
+        return m
+
+    fl_ob = bpy.data.objects["Floor"]
+    fl_ob.data.vertices.foreach_set("co", [c_ for v in fl_ob.data.vertices for c_ in (v.co.x * 4, v.co.y * 4, FLOOR_Z)])
+    fm = fl_ob.data.materials[0]
+    fbsdf = next(n for n in fm.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    noise = fm.node_tree.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 6.0
+    ramp = fm.node_tree.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (0.30, 0.31, 0.32, 1)
+    ramp.color_ramp.elements[1].color = (0.42, 0.43, 0.44, 1)
+    fm.node_tree.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    fm.node_tree.links.new(ramp.outputs["Color"], fbsdf.inputs["Base Color"])
+    fbsdf.inputs["Roughness"].default_value = 0.12             # polished concrete
+    beam = mat("beam", (0.85, 0.86, 0.87), 0.0, 0.5)
+    strip, spot = emit("strip", 6.0), emit("spot", 25.0)
+    for i in range(-4, 5):                                      # ceiling grid, 1.2 m pitch, strips on every other beam
+        box(f"BeamX{i}", (-6, i * 1.2 - 0.04, CEIL_Z), (6, i * 1.2 + 0.04, CEIL_Z + 0.12), beam)
+        box(f"BeamY{i}", (i * 1.2 - 0.04, -6, CEIL_Z + 0.12), (i * 1.2 + 0.04, 6, CEIL_Z + 0.2), beam)
+        if i % 2 == 0:
+            box(f"Strip{i}", (-5.5, i * 1.2 - 0.025, CEIL_Z - 0.01), (5.5, i * 1.2 + 0.025, CEIL_Z), strip)
+        for j in range(-4, 5):
+            if (i + j) % 2:
+                box(f"Spot{i}_{j}", (j * 1.2 + 0.3, i * 1.2 + 0.25, CEIL_Z - 0.06), (j * 1.2 + 0.36, i * 1.2 + 0.31, CEIL_Z), spot)
+    glass = bpy.data.materials.new("glass")
+    glass.use_nodes = True
+    gb = next(n for n in glass.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    # see-through by alpha, not transmission: EEVEE refracts the world probe (the HDRI with its cars), not the set
+    gb.inputs["Alpha"].default_value = 0.14
+    gb.inputs["Roughness"].default_value = 0.03
+    gb.inputs["Base Color"].default_value = (0.8, 0.9, 0.93, 1)
+    if hasattr(glass, "surface_render_method"):
+        glass.surface_render_method = "BLENDED"
+    frame_m = mat("frame", (0.6, 0.62, 0.64), 1.0, 0.3)
+    for k_, (x0, x1, y0, y1) in enumerate(((-6, 6, 2.6, 2.62), (-3.2, -3.18, -6, 6))):   # glass walls behind and left
+        box(f"Glass{k_}", (x0, y0, FLOOR_Z), (x1, y1, CEIL_Z), glass)
+        n_ = 10
+        for q in range(n_ + 1):
+            u = q / n_
+            px_, py_ = x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
+            box(f"Mullion{k_}_{q}", (px_ - 0.02, py_ - 0.02, FLOOR_Z), (px_ + 0.02, py_ + 0.02, CEIL_Z), frame_m)
+    wall = mat("wall", (0.78, 0.79, 0.8), 0.0, 0.6)    # room walls beyond the glass, so the camera sees only the set
+    for k_, (lo_w, hi_w) in enumerate((((-7, 6.4, FLOOR_Z), (7, 6.6, CEIL_Z + 0.4)), ((-6.6, -7, FLOOR_Z), (-6.4, 7, CEIL_Z + 0.4)),
+                                       ((6.4, -7, FLOOR_Z), (6.6, 7, CEIL_Z + 0.4)), ((-7, -7, CEIL_Z + 0.4), (7, 7, CEIL_Z + 0.5)))):
+        box(f"Wall{k_}", lo_w, hi_w, wall)
+    for k_, x in enumerate((-4.8, -2.4, 0.0, 2.4, 4.8)):                  # window bands in the back wall, like the reference
+        box(f"WinBand{k_}", (x - 0.9, 6.35, FLOOR_Z + 0.9), (x + 0.9, 6.4, CEIL_Z - 0.3), emit(f"winband{k_}", 2.5))
+    white = mat("machine", (0.86, 0.87, 0.88), 0.0, 0.35)
+    dark = mat("machine_glass", (0.05, 0.07, 0.09), 0.0, 0.1)
+    for k_, (x, y) in enumerate(((-1.6, 4.2), (0.6, 4.6), (2.6, 4.0), (-4.6, 1.4), (-4.8, -1.2))):
+        box(f"Machine{k_}", (x - 0.55, y - 0.5, FLOOR_Z), (x + 0.55, y + 0.5, FLOOR_Z + 1.9), white)
+        box(f"MachineWin{k_}", (x - 0.35, y - 0.52, FLOOR_Z + 0.8), (x + 0.35, y - 0.5, FLOOR_Z + 1.5), dark)
     vs = sc.view_settings
     for fr in range(1, 15):
-        vs.exposure = 4 * (1 - ease((fr - 1) / 13)) - 0.3
+        vs.exposure = 4 * (1 - ease((fr - 1) / 13)) - 0.2
         vs.keyframe_insert("exposure", frame=fr)
     # camera fixed in front; the gripper turns. Between two states the move takes the TRANS frames before arrival.
-    cam = camera("CamAssemble", c, CD, 0.9, 50, 8.0)
+    cam = camera("CamAssemble", c, CD, 0.9, 50, 3.5)   # shallower depth of field: the room goes soft
     cam.constraints.clear()
     foc = cam.data.dof.focus_object
     root.rotation_mode = "QUATERNION"
@@ -798,10 +890,11 @@ elif mode == "assemble":
         if os.environ.get("NOZOOM"):                    # whole gripper always in frame: only the turns
             poi, dist = c, 0.82
         root.rotation_quaternion = qv
-        root.location = qv @ nudge_loc[fr]
+        rise = Vector((0, 0, RISE * ease(fr / END)))      # gripper and camera rise together through the room
+        root.location = qv @ nudge_loc[fr] + rise
         root.keyframe_insert("rotation_quaternion", frame=fr)
         root.keyframe_insert("location", frame=fr)
-        t_ = qv @ poi
+        t_ = qv @ poi + rise
         cam.location, foc.location = t_ + CD * dist, t_
         cam.rotation_euler = (-CD).to_track_quat("-Z", "Y").to_euler()
         cam.keyframe_insert("location", frame=fr)
