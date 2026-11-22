@@ -16,9 +16,11 @@
 
 ## Open
 
-- [ ] Elias picks the music: `out/flight_preview_{A_digital_clouds,B_scifi_score,C_new_bass}.mp4` (v4 picture with
-      0.8 s dips). Build: `python music_flight.py <mixkit id> <start s> <tag>` (A 175 @0, B 464 @23.03 so its
-      swell at 35.66 s lands on the big contact, C 720 @45.55).
+- [ ] Elias: cuts or continuous? `out/flight_preview_C_new_bass.mp4` (cuts with 0.8 s dips) vs
+      `out/flight_preview_cont_C_new_bass.mp4` (VARIANT=_cont: one move, a view every 57 frames = 4 beats at 126 BPM).
+      Music chosen: C = Mixkit 720 "New Bass 01" from 45.76 s (on a downbeat): `python music_flight.py 720 45.76
+      C_new_bass [_cont]`. Both with the new reveal: black, a glint from behind sweeps the top edges (frames 1-56),
+      rims 8-50, key 28-72, fill/top 40-80, pool 50-85; camera starts close, low, 100 mm.
 - [x] 22 Nov, review of v4 (Elias): cut swoosh too fast / cheap, music still distorted (limiter drive 2.6 -> clipped),
       the effects only disturb -> no effects, library music instead. Apple ad music is not openly licensed; Mixkit
       (free in videos, no attribution, not on its own) used instead. earshot ranked 20 Mixkit tracks; Digital Clouds

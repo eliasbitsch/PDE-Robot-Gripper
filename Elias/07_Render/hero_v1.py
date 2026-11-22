@@ -295,7 +295,7 @@ elif mode == "flight":
     jaw_t, drive_t = Vector((0, 0, zp)), Vector((-42, -5, 2)) * MM
     flange = Vector((c.x, c.y, hi.z))
     SHOTS = [  # per shot: keys (frame, target, direction, distance, lens, speed at the key); a new shot = a cut
-        [(1, c, (0.75, -1.6, 0.0), 0.76, 85, 1.3), (55, c, (0.85, -1.6, -0.04), 0.98, 85, 0.3),
+        [(1, c, (0.55, -1.6, -0.2), 0.56, 100, 0.6), (55, c, (0.85, -1.6, -0.04), 0.98, 85, 0.3),
          (105, (c + jaw_t) / 2, (0.95, -1.6, -0.06), 0.68, 85, 1.4)],
         [(106, c, (1.1, -0.9, 0.62), 0.80, 70, 1.3), (145, c, (1.0, -1.0, 0.65), 1.05, 70, 0.35),
          (195, c, (0.08, -0.35, 1.0), 1.05, 70, 0.35), (230, flange, (0.05, -0.3, 1.0), 0.62, 70, 1.4)],
@@ -305,6 +305,17 @@ elif mode == "flight":
          (411, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90, 1.0),   # pull back: do not fly through the parts
          (440, drive_t, (-0.9, -1.5, 0.75), 0.50, 85, 0.5), (515, drive_t, (-0.78, -1.6, 0.7), 0.47, 85, 0.5),
          (600, drive_t, (-0.6, -1.65, 0.62), 0.43, 85, 0.6)]]
+    VARIANT = os.environ.get("VARIANT", "")
+    if VARIANT == "_cont":
+        # one continuous move, slow at every view; a view every 57 frames = 4 beats of the music at 126 BPM
+        SHOTS = [[(1, c, (0.55, -1.6, -0.2), 0.56, 100, 0.6), (57, c, (0.85, -1.6, -0.04), 0.98, 85, 0.3),
+                  (115, c, (1.0, -1.0, 0.65), 1.05, 70, 0.3), (172, c, (0.08, -0.35, 1.0), 1.05, 70, 0.3),
+                  (229, c, (-1.0, -0.12, 0.05), 0.95, 85, 0.3),
+                  (300, (c + jaw_t) / 2, (-0.2, -1.0, 0.1), 0.62, 92, 1.0),   # swing round the front, outside the parts
+                  (343, jaw_t, (0.4, -1.0, 0.14), 0.36, 100, 0.3), (380, jaw_t, (0.45, -1.0, 0.14), 0.35, 100, 0.3),
+                  (411, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90, 1.0),
+                  (440, drive_t, (-0.9, -1.5, 0.75), 0.50, 85, 0.5), (515, drive_t, (-0.78, -1.6, 0.7), 0.47, 85, 0.5),
+                  (600, drive_t, (-0.6, -1.65, 0.62), 0.43, 85, 0.6)]]
     JAWS_D = [(40, 72, D_OPEN, D_GRIP), (150, 180, D_GRIP, D_OPEN), (268, 300, D_OPEN, D_GRIP),
               (330, 352, D_GRIP, D_OPEN), (358, 380, D_OPEN, D_GRIP), (450, 475, D_GRIP, D_OPEN),
               (490, 512, D_OPEN, D_GRIP), (528, 552, D_GRIP, D_OPEN), (562, 584, D_OPEN, D_GRIP)]
@@ -353,9 +364,31 @@ elif mode == "flight":
     # top view: the floor pool spot and the top light's floor reflection blow out the frame -> dip around frame 100
     pool = bpy.data.lights["Pool"]
     pool.animation_data_clear()
-    for f, e in ((1, 70), (170, 70), (190, 10), (230, 10), (231, 70), (FADE[0], 70), (FADE[1], 12)):
+    for f, e in ((1, 0), (50, 0), (85, 70), (170, 70), (190, 10), (230, 10), (231, 70), (FADE[0], 70), (FADE[1], 12)):
         pool.energy = e
         pool.keyframe_insert("energy", frame=f)
+    # reveal (review 22 Nov: more epic): black, one glint sweeps over the hood, then rims, key, fill and top come up
+    for name, (f0, f1) in {"RimL": (8, 45), "RimR": (14, 50), "Key": (28, 72), "Fill": (40, 80), "Top": (40, 80)}.items():
+        ld = bpy.data.lights[name]
+        full = ld.energy
+        for f in range(f0, f1 + 1, 2):
+            ld.energy = full * ease((f - f0) / (f1 - f0))
+            ld.keyframe_insert("energy", frame=f)
+        ld.energy = 0.0
+        ld.keyframe_insert("energy", frame=1)
+    sw = bpy.data.lights.new("Sweep", "AREA")
+    sw.shape, sw.size, sw.color = "DISK", 0.03, (1.0, 0.97, 0.93)
+    swo = bpy.data.objects.new("Sweep", sw)
+    sc.collection.objects.link(swo)
+    swo.visible_camera = False
+    swo.light_linking.receiver_collection = bpy.data.collections["Product"]
+    tt = swo.constraints.new("TRACK_TO")
+    tt.target, tt.track_axis, tt.up_axis = tgt, "TRACK_NEGATIVE_Z", "UP_Y"
+    for f, x, e in ((1, -0.55, 0), (6, -0.45, 22), (40, 0.4, 22), (56, 0.55, 0)):   # from behind: edges only
+        swo.location = c + Vector((x, 0.35, 0.28))
+        sw.energy = e
+        swo.keyframe_insert("location", frame=f)
+        sw.keyframe_insert("energy", frame=f)
     bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
     sc.timeline_markers.clear()
     cam = camera("CamFlight", c, SHOTS[0][0][2], SHOTS[0][0][3], SHOTS[0][0][4], 5.6)
@@ -419,7 +452,7 @@ elif mode == "flight":
     vs.exposure = 0.0
     json.dump({"fps": FPS, "end": END, "cuts": cuts, "jaws": JAWS_D, "fade": FADE, "end_fade": END_FADE,
                "moves": [(145, 195), (380, 440)]},   # the two flowing camera moves
-              open(os.path.join(HERE, "out", "flight_timeline.json"), "w"))
+              open(os.path.join(HERE, "out", f"flight_timeline{VARIANT}.json"), "w"))
     sc.camera = cam
     if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
         for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
@@ -435,7 +468,7 @@ elif mode == "flight":
             pass
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "flight", "f_")
+    sc.render.filepath = os.path.join(HERE, "out", "flight" + VARIANT, "f_")
     bpy.ops.render.render(animation=True)
     print("flight done", sc.render.engine)
 elif mode == "preview":
