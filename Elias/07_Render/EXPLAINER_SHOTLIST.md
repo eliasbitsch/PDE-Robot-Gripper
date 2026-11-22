@@ -24,11 +24,12 @@ open), captions top left in one line, a numbered feature card on the right when 
 Interim presentation (3 Dec): scenes 1, 3, 5 and 9 (about 45 s), as planned in `RENDER_PLAN.md`. The rest by the
 final review (22 Jan).
 
-## Open decisions
+## Decisions (Elias, 22 Nov)
 
-- Language of the on-screen text (English as the report and the team, or German for the presentation).
-- Voice-over or captions only.
-- Overlay tool: HyperFrames (HTML over the sim videos, text and charts crisp, fast to change) or the Blender
-  compositor. Proposal: HyperFrames.
+- On-screen text in English, captions only, no voice-over.
+- Overlays and edit in HyperFrames (HTML over the sim videos).
+- Proposed: the diagram cards (formula build-up in scene 3, force-flow schematic in 4, force-time curves in 5 and 7,
+  friction limit surface) in Manim CE (3Blue1Brown style), rendered as clips and placed in HyperFrames; the sim
+  footage stays MuJoCo / Blender.
 - Scene 2 shows the wide T-jaw, which still waits for Viktoriia's answer; with her original jaw only the pad
   picture changes.
