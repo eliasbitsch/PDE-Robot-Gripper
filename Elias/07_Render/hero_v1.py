@@ -1083,19 +1083,30 @@ elif mode == "robot":
     ZTOP = hi.z                                         # flange face of the adapter in the gripper frame
     anchor = bpy.data.objects.new("CableAnchor", None)  # cable socket on the side of the upper arm
     sc.collection.objects.link(anchor)
-    anchor.location = BASE + Vector((CP.A2_X + 120, -78, CP.A2_Z + CP.L2 - 60)) * MM
+    anchor.location = BASE + Vector((CP.A2_X + 25, -141, CP.A2_Z + 0.45 * CP.L2)) * MM   # outer side face of the upper arm
     bpy.context.view_layer.update()
-    keep_parent(anchor, joints[2][0])
+    keep_parent(anchor, joints[1][0])
+    sock = bpy.data.meshes.new("Socket")                # visible socket on the arm, axis along -y at home
+    sn, sr, sl = 20, 0.012, 0.012
+    sv = [(sr * math.cos(2 * math.pi * k / sn), z, sr * math.sin(2 * math.pi * k / sn)) for z in (0.0, -sl) for k in range(sn)]
+    sf = [(k, (k + 1) % sn, sn + (k + 1) % sn, sn + k) for k in range(sn)] + [tuple(range(sn - 1, -1, -1))]
+    sock.from_pydata(sv, [], sf)
+    socko = bpy.data.objects.new("Socket", sock)
+    sc.collection.objects.link(socko)
+    socko.data.materials.append(mat("socket", (0.08, 0.08, 0.085), 1.0, 0.35))
+    socko.location = anchor.matrix_world.translation
+    bpy.context.view_layer.update()
+    keep_parent(socko, joints[1][0])
 
     SLEEP = [0, 30, 45, 0, 40, 0]                      # bowed: upper arm forward, forearm and wrist down
     UP = [-25, -12, -14, 0, 26, 0]                     # upright, gripper level
     LOOK = [-40, 4, -22, 0, 18, 14]                    # facing the camera, gripper level, tilted like a head
     G0, SEAT = 24, 38                                   # gripper flight
-    C0, C1, PLUG = 66, 88, 92                           # cable draws, plug clicks
+    C0, C1, PLUG = 64, 80, 88                           # cable draws, plug clicks
     R0, R1 = 106, 170                                   # rise
     L0, L1 = 186, 216                                   # turn to the camera
     W0, W1 = 272, 326                                   # wave
-    CUTS = (61, 101, 181)                               # shots: flange, cable, rise, look
+    CUTS = (61, 106, 181)                               # shots: flange, cable, rise, look
     END = 350
 
     def lerp_q(a, b, u):
@@ -1134,7 +1145,7 @@ elif mode == "robot":
         # gripper: hidden before its flight, then pulled onto the flange like a magnet (accelerating)
         t = min(1.0, max(0.0, (fr - G0) / (SEAT - G0)))
         off = 0.22 * (1 - t ** 3)
-        root.location = (0, 0, -ZTOP * MM - off)
+        root.location = (0, 0, -ZTOP - off)             # hi is in m already (world bounds)
         root.keyframe_insert("location", frame=fr)
         # jaws: open; blink twice after the turn
         d = D_OPEN
@@ -1148,6 +1159,7 @@ elif mode == "robot":
         piv["rot"].keyframe_insert("rotation_euler", index=2, frame=fr)
         piv["rotx"].keyframe_insert("rotation_euler", index=0, frame=fr)
     for ob in objs.values():
+        ob.animation_data_clear()                       # the base setup keys the shell hidden from frame 151
         for fr, h in ((1, True), (G0, False)):
             ob.hide_render = h
             ob.keyframe_insert("hide_render", frame=fr)
@@ -1184,7 +1196,9 @@ elif mode == "robot":
         p0 = gm.translation + out_g * 0.012
         am = anchor.matrix_world
         out_a = (am.to_3x3() @ Vector((0, -1, 0))).normalized()
-        p3 = am.translation
+        v_ = min(1.0, max(0.0, (fr - (PLUG - 8)) / 8))
+        plug_tip = am.translation + out_a * (0.004 + 0.085 * (1 - v_ ** 3))   # waits in front, then snaps in
+        p3 = plug_tip + out_a * 0.03                    # the cable leaves the back of the plug
         sag = Vector((0, 0, -0.06))
         p1 = p0 + out_g * 0.09 + sag
         p2 = p3 + out_a * 0.09 + sag
@@ -1195,20 +1209,19 @@ elif mode == "robot":
         u = min(1.0, max(0.0, (fr - C0) / (C1 - C0)))
         cd_.bevel_factor_end = ease(u)
         cd_.keyframe_insert("bevel_factor_end", frame=fr)
-        v_ = min(1.0, max(0.0, (fr - (PLUG - 6)) / 6))
-        plugo.matrix_world = Matrix.Translation(p3 + out_a * (0.002 + 0.03 * (1 - v_ ** 3))) @ \
-            out_a.to_track_quat("Z", "Y").to_matrix().to_4x4()
+        plugo.matrix_world = Matrix.Translation(p3) @ out_a.to_track_quat("Z", "Y").to_matrix().to_4x4()
         plugo.keyframe_insert("location", frame=fr)
         plugo.keyframe_insert("rotation_euler", frame=fr)
-        plugo.hide_render = fr < PLUG - 6
+        plugo.hide_render = fr < C0
         plugo.keyframe_insert("hide_render", frame=fr)
         tool = (root.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized()
-        cam_pts[fr] = (mount.matrix_world.translation.copy(), p0.lerp(p3, 0.5), tool, root.matrix_world.translation.copy())
+        cam_pts[fr] = (mount.matrix_world.translation.copy(), p0.lerp(p3, 0.5), tool, root.matrix_world.translation.copy(),
+                       am.translation.copy(), out_a.copy())
 
     # lights: the studio rig is light-linked to the Product collection and set up around the gripper: add the robot
     # and the cable to that collection and scale the rig up around the robot
     prod = bpy.data.collections["Product"]
-    for ob in [o for o in sc.objects if o.name.startswith(("RobotLink", "Cable", "Plug"))]:
+    for ob in [o for o in sc.objects if o.name.startswith(("RobotLink", "Cable", "Plug", "Socket"))]:
         if ob.name not in prod.objects:
             prod.objects.link(ob)
     rob_c = BASE + Vector((0.45, 0, 0.6))
@@ -1224,11 +1237,13 @@ elif mode == "robot":
         return Vector(v).normalized()
 
     fl, cab, tool_l, grip_l = cam_pts[SEAT][0], cam_pts[PLUG][1], cam_pts[L1 + 10][2], cam_pts[L1 + 10][3]
+    sock_p, sock_d = cam_pts[PLUG][4], cam_pts[PLUG][5]
+    sock_side = (sock_d * 0.85 + sock_d.cross(Vector((0, 0, 1))).normalized() * 0.45 + Vector((0, 0, 0.25))).normalized()   # outside, in front of the socket
     face = (tool_l + tool_l.cross(Vector((0, 0, 1))).normalized() * 0.75 + Vector((0, 0, 0.25))).normalized()
     up_c = rob_c + Vector((0, 0, 0.25))
     SHOTS_R = [  # (first frame, last frame, (target, direction, distance, lens) at start, ... at end)
         (1, CUTS[0] - 1, (fl, nrm(0.35, -1, 0.15), 0.75, 70), (fl, nrm(0.15, -1, 0.2), 0.58, 70)),
-        (CUTS[0], CUTS[1] - 1, (cab, nrm(0.0, -1, 0.35), 0.62, 60), (cab, nrm(0.2, -1, 0.3), 0.52, 60)),
+        (CUTS[0], CUTS[1] - 1, (cab, nrm(0.0, -1, 0.35), 0.6, 55), (sock_p, sock_side, 0.3, 60)),   # cable, then into the socket
         (CUTS[1], CUTS[2] - 1, (up_c, nrm(0.9, -0.55, 0.0), 2.3, 30), (up_c, nrm(0.72, -0.72, 0.05), 2.0, 30)),
         (CUTS[2], END, (grip_l, face, 1.5, 70), (grip_l, face, 1.2, 70)),
     ]
