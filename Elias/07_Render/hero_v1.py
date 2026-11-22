@@ -712,9 +712,10 @@ elif mode == "assemble":
 
     DUR, HOLD, TRANS, STAG = 12, 10, 18, 2              # land, hold after landing, camera move, stagger in a group
     q0 = iso_quat(1, -1, 1)
-    states = [(1, q0, c, 0.9)]                          # (frame the camera arrives, orientation, target, distance)
+    states = [(1, q0, c, 0.9, TRANS)]                   # (frame the camera arrives, orientation, target, distance, move frames)
     sched = []
     f = 14
+    gidx = 0
     for sh in shots:
         pts = [objs[n].location for g in sh["groups"] for n in g[0]]
         lo_ = Vector([min(v[i] for v in pts) for i in range(3)])
@@ -725,24 +726,45 @@ elif mode == "assemble":
             dist = states[-1][3]                        # no small zoom steps
         q = orient(sh["cons"], states[-1][1])
         f += TRANS
-        states.append((f, q, sh["poi"], dist))
+        states.append((f, q, sh["poi"], dist, TRANS))
         f += 4
         for gi, (members, dirs, travel, _, _) in enumerate(sh["groups"]):
             for i, n in enumerate(members):
-                sched.append((f + i * STAG, n, objs[n], dirs[n] * travel))
+                sched.append((f + i * STAG, n, objs[n], dirs[n] * travel, gidx, dirs[n], travel))
+            gidx += 1
             last = gi == len(sh["groups"]) - 1        # the camera waits for the full landing; groups in a shot overlap
             f += STAG * (len(members) - 1) + (DUR + HOLD if last else int(DUR * 0.6))
         print("shot", len(states) - 1, sh["cons"], [g[0][0] for g in sh["groups"]])
     f += 24
-    states.append((f, q0, c, 0.8))                     # finished gripper: classic iso from above
-    END = f + 60
-    states.append((END, Quaternion((0, 0, 1), math.radians(35)) @ q0, c, 0.76))
+    states.append((f, q0, c, 0.8, 24))                 # finished gripper: classic iso from above
+    # finale (22 Nov): everything flies apart in reverse order along its joining axis, stacked like a sandwich
+    # (later parts further out on the same axis), the camera pulls out to show all parts in the air, a slow turn,
+    # then everything snaps back at once like pulled by a strong magnet (accelerating, not easing in).
+    G = gidx
+    E0 = f + 12
+    EX_STEP, EX_DUR, SNAP = 3, 22, 13
+    rank, seen = {}, {}
+    for f0, n, ob, off, gi, d, travel in sched:        # sandwich rank per joining direction, in assembly order
+        key = tuple(round(v) for v in d)
+        seen.setdefault(key, [])
+        if gi not in seen[key]:
+            seen[key].append(gi)
+        rank[n] = seen[key].index(gi)
+    expl = {n: (E0 + (G - 1 - gi) * EX_STEP, d * (travel * 1.3 + 0.022 * rank[n])) for f0, n, ob, off, gi, d, travel in sched}
+    EX_END = E0 + G * EX_STEP + EX_DUR
+    S0 = EX_END + 50
+    states.append((EX_END, Quaternion((0, 0, 1), math.radians(15)) @ q0, c, 1.75, EX_END - f))
+    states.append((S0, Quaternion((0, 0, 1), math.radians(40)) @ q0, c, 1.75, 50))
+    states.append((S0 + SNAP, Quaternion((0, 0, 1), math.radians(48)) @ q0, c, 0.85, SNAP))
+    END = S0 + SNAP + 60
+    states.append((END, Quaternion((0, 0, 1), math.radians(70)) @ q0, c, 0.8, 60))
     print("assemble shots", len(shots), "groups", len(groups))
 
     nudge_loc = [Vector() for _ in range(END + 2)]
     rng_ = __import__("random").Random(4)
-    for f0, name, ob, off in sched:
+    for f0, name, ob, off, gi, d, travel in sched:
         base = ob.location.copy()
+        e0, eoff = expl[name]
         axis = off.normalized()
         tilt_ax = axis.cross(Vector((0.3, 0.7, 0.2))).normalized()
         tilt = math.radians(rng_.uniform(4, 8))
@@ -750,10 +772,14 @@ elif mode == "assemble":
         for fr in range(1, END + 1):
             t = (fr - f0) / DUR
             s = 0.0 if t <= 0 else min(1.0, 1 - (1 + 7 * t) * math.exp(-7 * t)) if t < 1 else 1.0
-            ob.location = base + off * (1 - s)
+            if fr < S0:                                 # out: smooth, ease-out
+                e = ease(min(1.0, max(0.0, (fr - e0) / EX_DUR)))
+            else:                                       # magnet snap: accelerating, full speed into the seat
+                e = 1.0 - min(1.0, (fr - S0) / SNAP) ** 3
+            ob.location = base + off * (1 - s) + eoff * e
             ob.hide_render = t <= 0
             if name.startswith(("Screw", "Setscrew")):
-                q = Quaternion(axis, (1 - s) * 6 * math.pi)                   # three turns in
+                q = Quaternion(axis, ((1 - s) + e * 0.66) * 6 * math.pi)   # three turns in, two out and back
             else:
                 q = Quaternion(tilt_ax, tilt * (1 - s))                     # straightens out on the way in
             ob.rotation_quaternion = q
@@ -765,6 +791,8 @@ elif mode == "assemble":
         for u in range(0, 10):
             if seat + u <= END:
                 nudge_loc[seat + u] += -axis * amp * MM * math.exp(-u / 2.5) * math.sin(math.pi * u / 4)
+    for u in range(0, 14):                              # one firm common jolt when everything snaps home
+        nudge_loc[S0 + SNAP + u] += Vector((0, 0, -1)) * 2.5 * MM * math.exp(-u / 3) * math.sin(math.pi * u / 5)
     # lab set after Elias' reference (22 Nov): polished concrete floor 1 m below, ceiling grid with light strips and
     # spots at 3.2 m, glass walls, white machines in the distance; Poly Haven "Autoshop 01" (CC0) as environment for
     # the reflections. Real geometry, so the joint rise of gripper and camera shows parallax. Flash in from white.
@@ -882,7 +910,7 @@ elif mode == "assemble":
             v, j2 = 0.0, j
         else:
             j2 = j + 1
-            span = TRANS if j2 < len(states) - 1 else states[j2][0] - states[j][0]
+            span = min(states[j2][4], states[j2][0] - states[j][0])
             v = ease(min(1.0, max(0.0, (fr - (states[j2][0] - span)) / span)))
         qv = states[j][1].slerp(states[j2][1], v)
         poi = states[j][2].lerp(states[j2][2], v)
