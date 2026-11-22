@@ -1116,23 +1116,61 @@ elif mode == "robot":
         o.data.materials.append(blk)
         return o
 
-    # right-angle M12 plug: knurled coupling nut over the stud, head with the cable going off along the arm (+x)
+    def lathe(name, prof, material, n=96, axis="z", knurl=0, depth=0.0, kz=None):
+        """Revolved profile [(r, z)]; knurl: number of ridges on the rings with kz[0] <= z <= kz[1]."""
+        m = bpy.data.meshes.new(name)
+        vv = []
+        for r, z in prof:
+            for k in range(n):
+                t = 2 * math.pi * k / n
+                rr = r
+                if knurl and kz[0] <= z <= kz[1]:
+                    rr = r - depth * (0.5 - 0.5 * math.cos(knurl * t)) ** 2
+                a_, b_ = rr * math.cos(t), rr * math.sin(t)
+                vv.append((a_, b_, z) if axis == "z" else (z, a_, b_))
+        ff = [(i * n + k, i * n + (k + 1) % n, (i + 1) * n + (k + 1) % n, (i + 1) * n + k)
+              for i in range(len(prof) - 1) for k in range(n)]
+        if prof[0][0] > 0:
+            ff.append(tuple(range(n - 1, -1, -1)))
+        if prof[-1][0] > 0:
+            ff.append(tuple(range((len(prof) - 1) * n, len(prof) * n)))
+        m.from_pydata(vv, [], ff)
+        m.shade_smooth()
+        try:
+            m.set_sharp_from_angle(angle=math.radians(50))
+        except AttributeError:
+            pass
+        o = bpy.data.objects.new(name, m)
+        sc.collection.objects.link(o)
+        o.data.materials.append(material)
+        return o
+
+    # right-angle M12 plug (proportions of a standard M12 angled connector): nickel-plated knurled coupling nut
+    # over the stud, slim black PUR body with a rounded cap, tapered strain relief into the cable (+x)
+    nickel = mat("plug_nickel", (0.72, 0.72, 0.73), 1.0, 0.28)
+    pur = mat("plug_pur", (0.025, 0.025, 0.027), 0.0, 0.42)
     plug_h = bpy.data.objects.new("PlugRoot", None)
     sc.collection.objects.link(plug_h)
     plug_h.parent = conn
-    nut = cyl_mesh("PlugNut", 0.0085, -0.013, 0.004)
+    kz = (-0.0108, -0.0012)
+    nut_prof = [(0.0068, -0.0128), (0.0074, -0.0128), (0.0079, -0.0123), (0.0079, -0.0112)]
+    nut_prof += [(0.0080, -0.0108 + 0.0096 * i / 23) for i in range(24)]
+    nut_prof += [(0.0079, -0.0008), (0.0076, 0.0), (0.0070, 0.0004), (0.0066, 0.0004)]
+    nut = lathe("PlugNut", nut_prof, nickel, n=180, knurl=30, depth=0.00035, kz=kz)
     nut.parent = plug_h
-    for k in range(12):                                 # knurl ribs so the turn reads
-        rib = cyl_mesh(f"PlugRib{k}", 0.0012, -0.012, 0.003, n=8)
-        rib.parent = nut
-        a = 2 * math.pi * k / 12
-        rib.location = (0.0087 * math.cos(a), 0.0087 * math.sin(a), 0)
-    head = cyl_mesh("PlugHead", 0.0075, 0.004, 0.02)
+    head = lathe("PlugHead", [(0.0066, 0.0004), (0.0068, 0.0012), (0.0068, 0.0170), (0.0064, 0.0190),
+                              (0.0052, 0.0204), (0.0032, 0.0211), (0.0, 0.0213)], pur)
     head.parent = plug_h
-    arm_ = cyl_mesh("PlugArm", 0.0068, 0.0, 0.024, axis="x")
+    boot = [(0.0, 0.0), (0.0058, 0.0), (0.0058, 0.0150), (0.0055, 0.0165)]
+    for i in range(10):                                 # strain relief: taper with shallow grip grooves
+        x0 = 0.0170 + i * 0.0014
+        r0 = 0.0054 - i * 0.00011
+        boot += [(r0, x0), (r0 - 0.00025, x0 + 0.0007)]
+    boot += [(0.0043, 0.0315), (0.0, 0.0315)]
+    arm_ = lathe("PlugArm", boot, pur, n=64, axis="x")
     arm_.parent = plug_h
-    arm_.location = (0, 0, 0.013)
-    PLUG_EXIT = Vector((0.024, 0, 0.013))               # cable leaves the head here, along +x of the forearm
+    arm_.location = (0, 0, 0.0125)
+    PLUG_EXIT = Vector((0.030, 0, 0.0125))              # cable leaves the boot here, along +x of the forearm
     clip_o = bpy.data.objects.new("Clip", bpy.data.meshes.new("Clip"))
     cw, cl_, ch = 0.0075, 0.007, 0.0105                 # saddle clamp screwed on the housing
     clip_o.data.from_pydata([(-cl_, -cw, -0.0045), (cl_, -cw, -0.0045), (cl_, cw, -0.0045), (-cl_, cw, -0.0045),
