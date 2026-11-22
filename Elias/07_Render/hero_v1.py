@@ -288,6 +288,7 @@ if mode == "anim":
     bpy.ops.render.render(animation=True)
     print("anim done")
 elif mode == "flight":
+    # cuts, dip centres and the big contact sit on beats of the chosen track (Mixkit 720 from 45.76 s, 126 BPM)
     # the approved views (review 21 Nov) as shots (review 22 Nov): every shot starts close and pulls out, is slow at its
     # view, then pushes in on a detail; the cut falls inside that push with a short dip to black. Flowing moves:
     # three-quarter -> top, jaws -> drive. env ENGINE=EEVEE for quick previews, STEP, FSTART, FRAMES
@@ -296,14 +297,14 @@ elif mode == "flight":
     flange = Vector((c.x, c.y, hi.z))
     SHOTS = [  # per shot: keys (frame, target, direction, distance, lens, speed at the key); a new shot = a cut
         [(1, c, (0.55, -1.6, -0.2), 0.56, 100, 0.6), (55, c, (0.85, -1.6, -0.04), 0.98, 85, 0.3),
-         (105, (c + jaw_t) / 2, (0.95, -1.6, -0.06), 0.68, 85, 1.4)],
-        [(106, c, (1.1, -0.9, 0.62), 0.80, 70, 1.3), (145, c, (1.0, -1.0, 0.65), 1.05, 70, 0.35),
+         (102, (c + jaw_t) / 2, (0.95, -1.6, -0.06), 0.68, 85, 1.4)],
+        [(103, c, (1.1, -0.9, 0.62), 0.80, 70, 1.3), (145, c, (1.0, -1.0, 0.65), 1.05, 70, 0.35),
          (195, c, (0.08, -0.35, 1.0), 1.05, 70, 0.35), (230, flange, (0.05, -0.3, 1.0), 0.62, 70, 1.4)],
         [(231, c, (-1.0, -0.2, 0.06), 0.74, 85, 1.3), (275, c, (-1.0, -0.12, 0.05), 0.95, 85, 0.35),
-         (320, (c + jaw_t) / 2, (-1.0, -0.3, 0.08), 0.6, 95, 1.3)],
-        [(321, jaw_t, (0.22, -1.0, 0.10), 0.44, 100, 1.2), (380, jaw_t, (0.45, -1.0, 0.14), 0.35, 100, 0.35),
-         (411, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90, 1.0),   # pull back: do not fly through the parts
-         (440, drive_t, (-0.9, -1.5, 0.75), 0.50, 85, 0.5), (515, drive_t, (-0.78, -1.6, 0.7), 0.47, 85, 0.5),
+         (316, (c + jaw_t) / 2, (-1.0, -0.3, 0.08), 0.6, 95, 1.3)],
+        [(317, jaw_t, (0.22, -1.0, 0.10), 0.44, 100, 1.2), (387, jaw_t, (0.45, -1.0, 0.14), 0.35, 100, 0.35),
+         (418, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90, 1.0),   # pull back: do not fly through the parts
+         (447, drive_t, (-0.9, -1.5, 0.75), 0.50, 85, 0.5), (515, drive_t, (-0.78, -1.6, 0.7), 0.47, 85, 0.5),
          (600, drive_t, (-0.6, -1.65, 0.62), 0.43, 85, 0.6)]]
     VARIANT = os.environ.get("VARIANT", "")
     if VARIANT == "_cont":
@@ -318,8 +319,8 @@ elif mode == "flight":
                   (600, drive_t, (-0.6, -1.65, 0.62), 0.43, 85, 0.6)]]
     # continuous variant: no cuts, but a dip to dark at the fastest point between two views (review 22 Nov)
     DIPS = [86, 143, 200, 300] if VARIANT == "_cont" else None
-    JAWS_D = [(40, 72, D_OPEN, D_GRIP), (150, 180, D_GRIP, D_OPEN), (268, 300, D_OPEN, D_GRIP),
-              (330, 352, D_GRIP, D_OPEN), (358, 380, D_OPEN, D_GRIP), (450, 475, D_GRIP, D_OPEN),
+    JAWS_D = [(41, 74, D_OPEN, D_GRIP), (150, 180, D_GRIP, D_OPEN), (268, 300, D_OPEN, D_GRIP),
+              (337, 359, D_GRIP, D_OPEN), (365, 387, D_OPEN, D_GRIP), (450, 475, D_GRIP, D_OPEN),
               (490, 512, D_OPEN, D_GRIP), (528, 552, D_GRIP, D_OPEN), (562, 584, D_OPEN, D_GRIP)]
     END_FADE = (586, 600)
     END = SHOTS[-1][-1][0]
@@ -339,7 +340,7 @@ elif mode == "flight":
         piv["rot"].keyframe_insert("rotation_euler", index=2, frame=f)
         piv["rotx"].keyframe_insert("rotation_euler", index=0, frame=f)
     # shell fades out on the way from the jaws to the drive; own material copies so the inner parts stay opaque
-    FADE = (380, 420)
+    FADE = (387, 427)
     shell_mats = {}
     for name, ob in objs.items():
         if name.startswith(SHELL):

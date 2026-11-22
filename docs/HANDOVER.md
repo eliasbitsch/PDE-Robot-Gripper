@@ -16,12 +16,13 @@
 
 ## Open
 
-- [ ] Elias: cuts or continuous? `out/flight_preview_C_new_bass.mp4` (cuts with 0.8 s dips) vs
-      `out/flight_preview_cont_C_new_bass.mp4` (VARIANT=_cont: one move, a view every 57 frames = 4 beats at 126 BPM,
-      dips to dark at the fastest point between views, frames 86/143/200/300 - what Elias meant by "swoosh").
-      Music chosen: C = Mixkit 720 "New Bass 01" from 45.76 s (on a downbeat): `python music_flight.py 720 45.76
-      C_new_bass [_cont]`. Both with the new reveal: black, a glint from behind sweeps the top edges (frames 1-56),
-      rims 8-50, key 28-72, fill/top 40-80, pool 50-85; camera starts close, low, 100 mm.
+- [ ] Elias' approval of `out/flight_preview_C_new_bass.mp4` for the final Cycles render (then also the music mux
+      on the Cycles frames: `python music_flight.py 720 45.76 C_new_bass`).
+- [x] 22 Nov, decisions (Elias): music C = Mixkit 720 "New Bass 01" from 45.76 s; cut version with 0.8 s dips (the
+      continuous move, also with dips between the views, felt like "someone switching the light on and off";
+      VARIANT=_cont is kept in hero_v1.py but rejected). Reveal: black, edge glint sweep from behind, lights come
+      up, close low start. Cuts at 103/231/317 and the big contact at 387 sit on beats of the track (beats at
+      0.987 s + n * 0.476 s, measured with earshot).
 - [x] 22 Nov, review of v4 (Elias): cut swoosh too fast / cheap, music still distorted (limiter drive 2.6 -> clipped),
       the effects only disturb -> no effects, library music instead. Apple ad music is not openly licensed; Mixkit
       (free in videos, no attribution, not on its own) used instead. earshot ranked 20 Mixkit tracks; Digital Clouds
