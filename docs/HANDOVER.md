@@ -28,6 +28,12 @@
 
 ## Open
 
+- [ ] NEXT (explainer, after two Codex review rounds, Elias: technically clean): finalize - Manim scenes 3, 5
+      (curves -> film/assets/s5_curves.mp4), robustness in 1080p; re-render cell_grid.py (brighter light; the
+      untracked figures/cell_grid.mp4 is the old preview); add the robustness scene and the grid shot to the
+      HyperFrames cut (grid as lead-in to the study); python build_film.py, npx hyperframes check, preview for
+      Elias; final render only after his approval. Films stay off the board until Elias says otherwise.
+
 - [ ] Elias' approval of `out/flight_preview_C_new_bass.mp4` for the final Cycles render (then also the music mux
       on the Cycles frames: `python music_flight.py 720 45.76 C_new_bass`).
 - [x] 22 Nov, decisions (Elias): music C = Mixkit 720 "New Bass 01" from 45.76 s; cut version with 0.8 s dips (the
