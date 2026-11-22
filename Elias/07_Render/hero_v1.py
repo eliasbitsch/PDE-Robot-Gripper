@@ -583,13 +583,14 @@ elif mode == "explode":
     bpy.ops.render.render(animation=True)
     print("explode done", sc.render.engine)
 elif mode == "assemble":
-    # shot 4: self-assembly in a white lab, real order and directions from parts/demo_seq.py. Parts land critically
-    # damped (an overshoot would dive into the body); the spring feel comes from a 3 % scale pulse on seating, a tilt
-    # that rings out, screws spinning in and the whole assembly bouncing when a big part lands.
+    # shot 4: self-assembly in a white lab (review 22 Nov): groups arrive one after another along their own mounting
+    # axis, on paths that stay clear of the parts already in place; the camera goes to where parts are joining.
+    # Order follows parts/demo_seq.py STEP_TEXT, except the pinion shaft before the drive (the bevel wheel would
+    # otherwise pass through the bevel pinion) and the racks before the slides (rack R floats above slide L).
+    # Parts land critically damped (an overshoot would dive into the body); the spring feel comes from a 3 % scale
+    # pulse on seating, a tilt that rings out, screws turning in and the assembly bouncing when a big part lands.
     import re
     from mathutils import Matrix, Quaternion
-    sys.path.insert(0, os.path.join(CAD, "parts"))
-    import demo_seq as DS  # noqa: E402
     root.animation_data_clear()
     root.rotation_euler = (0, 0, 0)
     for k_, p_ in piv.items():                          # CAD pose, no rotation: offsets below are world offsets
@@ -598,47 +599,65 @@ elif mode == "assemble":
         if k_ in (-1, 1):
             p_.location = (0, 0, 0)
     sc.timeline_markers.clear()
-    FAST = ("Screw", "Setscrew", "Dowel", "Washer", "Key_", "Circlip", "Shim")
+    DOWN, UP, FRONT, RIGHT, LEFT = (0, 0, -1), (0, 0, 1), (0, -1, 0), (1, 0, 0), (-1, 0, 0)
+    GROUPS = [  # (parts by prefix, where they come from: a direction, "in" = from the centre, "out" = from outside; mm)
+        (("Rail",), DOWN, 70), (("Screw_ISO4762-M3x8_Rail",), DOWN, 40),
+        (("Pinion_Shaft", "Bearing_608_lower", "Circlip_DIN471"), DOWN, 70),
+        (("Bearing_608_upper", "Circlip_DIN472"), UP, 60), (("Shim_", "Key_"), UP, 50), (("Bevel_Wheel",), UP, 60),
+        (("Setscrew",), LEFT, 35),
+        (("Bracket", "Gearbox", "Motor", "Brake", "Encoder", "Bevel_Pinion", "Screw_ISO4762-M4x12_Gearbox"), RIGHT, 140),
+        (("Screw_ISO4762-M3x10_Bracket",), UP, 40),
+        (("Hood",), UP, 90), (("Screw_ISO4762-M4x12_Hood",), DOWN, 45),
+        (("Carriage_",), DOWN, 60), (("Rack_",), DOWN, 60), (("Slide_",), DOWN, 60),
+        (("Screw_ISO4762-M3x8_Carriage", "Screw_ISO4762-M3x10_Rack", "Dowel_ISO8734-3x14_Rack"), DOWN, 40),
+        (("Holder_",), DOWN, 60), (("Screw_ISO4762-M4x25_Holder",), DOWN, 50),
+        (("Dowel_ISO8734-4x12",), "in", 30), (("Plunger_",), "out", 50),
+        (("Cover",), DOWN, 70), (("Screw_ISO10642-M3x10_Cover",), DOWN, 40),
+        (("Jaw_",), "in", 28), (("PadPlate_", "Pad_"), "in", 18), (("Screw_ISO4762-M3x6_Pad", "Washer_"), "out", 25),
+        (("Window_Plate", "Cable_Gland"), FRONT, 60), (("Screw_ISO10642-M3x8_Window",), FRONT, 40),
+        (("Adapter_ISO9409",), UP, 80), (("Screw_ISO10642-M4x16_Adapter",), UP, 45),
+    ]
     BIG = ("Bracket", "Hood", "Cover", "Jaw_", "Rail", "Holder_")
-    parts = []
     for name, ob in objs.items():
         ob.animation_data_clear()
         ob.hide_render = False
-        m = re.search(r"(?:_|[a-z])([LR])\d*$", name)
-        step, off = DS.explode(name, -1 if m and m.group(1) == "L" else 1)
-        # pivot each part on its own centre (meshes come in world coordinates)
-        ctr = sum((Vector(v) for v in ob.bound_box), Vector()) / 8
+        ctr = sum((Vector(v) for v in ob.bound_box), Vector()) / 8      # pivot on the part's own centre
         ob.data.transform(Matrix.Translation(-ctr))
         ob.location = ob.location + ob.matrix_basis.to_3x3() @ ctr   # objects carry the mm -> m scale
         ob.rotation_mode = "QUATERNION"
-        parts.append((step, name.startswith(FAST), name, ob, Vector(off) * MM))
-    parts.sort(key=lambda p: (p[0], p[1], p[2]))
-    T0, DUR = 24, 16                                   # first arrival frame, frames to land
-    f = T0
-    sched, last_step = [], 0
-    for step, fast, name, ob, off in parts:
-        if step == 0:
+    T0, DUR, GAP = 30, 15, 5                           # first arrival, frames to land, pause between groups
+    f, sched, pois, used = T0, [], [], set()
+    for prefixes, how, dist in GROUPS:
+        members = sorted(n for n in objs if n.startswith(prefixes) and n not in used)
+        if not members:
             continue
-        if step != last_step:
-            f += 8                                     # breath between assembly steps
-            last_step = step
-        sched.append((f, name, ob, off, fast))
-        f += 2 if fast else 6
-    END = f + DUR + 50
+        used.update(members)
+        g0 = f
+        for i, n in enumerate(members):
+            s_ = -1 if objs[n].location.x < -1e-4 else 1
+            d = Vector((-s_, 0, 0)) if how == "in" else Vector((s_, 0, 0)) if how == "out" else Vector(how)
+            sched.append((g0 + i * 2, n, objs[n], d * dist * MM))
+        f = g0 + 2 * (len(members) - 1) + DUR + GAP
+        locs = [objs[n].location for n in members]
+        lo_ = Vector([min(v[i] for v in locs) for i in range(3)])
+        hi_ = Vector([max(v[i] for v in locs) for i in range(3)])
+        pois.append((g0, (lo_ + hi_) / 2, (hi_ - lo_).length + dist * MM, how))
+    print("assemble unplaced:", sorted(set(objs) - used))
+    END = f + 75
     rng_ = __import__("random").Random(4)
     bounce = [0.0] * (END + 2)
-    for f0, name, ob, off, fast in sched:
+    for f0, name, ob, off in sched:
         base, base_scale = ob.location.copy(), ob.scale.copy()
-        axis = off.normalized() if off.length > 0 else Vector((0, 0, 1))
+        axis = off.normalized()
         tilt_ax = axis.cross(Vector((0.3, 0.7, 0.2))).normalized()
-        tilt = math.radians(rng_.uniform(6, 12))
+        tilt = math.radians(rng_.uniform(4, 8))
         seat = f0 + DUR
         for fr in range(1, END + 1):
             t = (fr - f0) / DUR
             s = 0.0 if t <= 0 else min(1.0, 1 - (1 + 6 * t) * math.exp(-6 * t))
             ob.location = base + off * (1 - s)
-            ob.hide_render = t <= 0 and off.length > 0
-            if fast and name.startswith(("Screw", "Setscrew")):
+            ob.hide_render = t <= 0
+            if name.startswith(("Screw", "Setscrew")):
                 q = Quaternion(axis, (1 - s) * 6 * math.pi)                   # three turns in
             else:
                 ring = math.exp(-4 * max(fr - seat, 0) / DUR) * math.cos(0.6 * max(fr - seat, 0))
@@ -671,17 +690,70 @@ elif mode == "assemble":
     for fr in range(1, 15):
         vs.exposure = 4 * (1 - ease((fr - 1) / 13)) - 0.3
         vs.keyframe_insert("exposure", frame=fr)
-    # camera: slow orbit around the growing assembly
-    cam = camera("CamAssemble", c, (0.9, -1.4, 0.55), 0.85, 50, 8.0)
+    # camera: wide on the floating housing, then to each joint while its parts arrive (looking across the approach
+    # axis), wide again for the finished gripper. It holds at a joint and moves in the 14 frames before the next one.
+    VIEW = {DOWN: (0.45, -1.0, -0.12), UP: (0.45, -1.0, 0.55), RIGHT: (0.15, -1.0, 0.35), FRONT: (1.0, -0.55, 0.3),
+            LEFT: (0.2, -1.0, 0.3), "in": (0.12, -1.0, 0.12), "out": (0.12, -1.0, 0.12)}
+    keys = [(1, c, (0.9, -1.3, 0.5), 0.9)]
+    for g0, tgt_, size, how in pois:
+        dist = min(max(size * 2.2 + 0.12, 0.24), 0.75)
+        if (tgt_ - keys[-1][1]).length < 0.015 and abs(dist - keys[-1][3]) < 0.08:
+            continue                                   # same joint: hold
+        keys.append((max(g0 - 3, keys[-1][0] + 8), tgt_, VIEW[how], dist))
+    keys.append((pois[-1][0] + DUR + 12, c, (0.85, -1.4, 0.45), 0.78))
+    keys.append((END, c, (0.35, -1.5, 0.35), 0.72))
+    cam = camera("CamAssemble", c, keys[0][2], keys[0][3], 50, 8.0)
     cam.constraints.clear()
     foc = cam.data.dof.focus_object
-    for fr in range(1, END + 1):
-        a = math.radians(-35 + 70 * fr / END)
-        d = Vector((math.sin(a), -math.cos(a), 0.42)).normalized()
-        cam.location = c + d * (0.86 - 0.08 * fr / END)
-        cam.rotation_euler = (c - cam.location).to_track_quat("-Z", "Y").to_euler()
+    pos_ = [k[1] + Vector(k[2]).normalized() * k[3] for k in keys]
+    STYLE = os.environ.get("STYLE", "")
+    if STYLE == "turn":
+        # variant B (Mac Pro style): the camera stays in front and only rises or sinks; the gripper turns about z so
+        # the joint faces the camera. Yaw keys follow the joint's side, unwrapped so it never spins the long way.
+        AZ = math.atan2(-1.0, 0.35)                    # camera azimuth (front, slightly right)
+        tk, yaw_prev = [], 0.0
+        for fr0, tgt_, view, dist in keys:
+            h = Vector((tgt_.x - c.x, tgt_.y - c.y))
+            yaw = AZ - math.atan2(h.y, h.x) if h.length > 0.015 else yaw_prev
+            yaw = yaw_prev + ((yaw - yaw_prev + math.pi) % (2 * math.pi) - math.pi)
+            yaw = yaw_prev + max(-math.radians(110), min(math.radians(110), yaw - yaw_prev))
+            tk.append((fr0, yaw, tgt_, view[2] / Vector(view).length, dist))
+            yaw_prev = yaw
+        tk[0] = (1, math.radians(-25), c, 0.35, 0.9)
+        tk[-1] = (END, tk[-2][1] + math.radians(40), c, 0.25, 0.72)
+        for fr in range(1, END + 1):
+            k = max(i for i in range(len(tk)) if tk[i][0] <= fr)
+            if k == len(tk) - 1:
+                v, k2 = 0.0, k
+            else:
+                k2 = k + 1
+                span = min(16, tk[k2][0] - tk[k][0])
+                v = ease(min(1.0, max(0.0, (fr - (tk[k2][0] - span)) / span)))
+            lerp = lambda a, b: a + (b - a) * v
+            yaw, el, dist = lerp(tk[k][1], tk[k2][1]), lerp(tk[k][3], tk[k2][3]), lerp(tk[k][4], tk[k2][4])
+            poi = tk[k][2].lerp(tk[k2][2], v)
+            root.rotation_euler.z = yaw
+            root.keyframe_insert("rotation_euler", index=2, frame=fr)
+            t_ = Matrix.Rotation(yaw, 3, "Z") @ poi
+            d = Vector((math.cos(AZ) * math.sqrt(1 - el * el), math.sin(AZ) * math.sqrt(1 - el * el), el))
+            cam.location, foc.location = t_ + d * dist, t_
+            cam.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
+            cam.keyframe_insert("location", frame=fr)
+            cam.keyframe_insert("rotation_euler", frame=fr)
+            foc.keyframe_insert("location", frame=fr)
+    for fr in range(1, END + 1) if STYLE != "turn" else ():
+        k = max(i for i in range(len(keys)) if keys[i][0] <= fr)
+        if k == len(keys) - 1:
+            p_, t_ = pos_[k], keys[k][1]
+        else:
+            span = min(14, keys[k + 1][0] - keys[k][0])
+            v = ease(min(1.0, max(0.0, (fr - (keys[k + 1][0] - span)) / span)))
+            p_, t_ = pos_[k].lerp(pos_[k + 1], v), keys[k][1].lerp(keys[k + 1][1], v)
+        cam.location, foc.location = p_, t_
+        cam.rotation_euler = (t_ - p_).to_track_quat("-Z", "Y").to_euler()
         cam.keyframe_insert("location", frame=fr)
         cam.keyframe_insert("rotation_euler", frame=fr)
+        foc.keyframe_insert("location", frame=fr)
     sc.camera = cam
     if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
         for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
@@ -695,10 +767,10 @@ elif mode == "assemble":
             sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
         except AttributeError:
             pass
-    print("assemble frames", END, "steps", sorted({p[0] for p in parts}))
+    print("assemble frames", END, "groups", len(pois), "camera keys", len(keys))
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "assemble", "f_")
+    sc.render.filepath = os.path.join(HERE, "out", "assemble" + ("_turn" if STYLE == "turn" else ""), "f_")
     bpy.ops.render.render(animation=True)
     print("assemble done", sc.render.engine)
 elif mode == "preview":
