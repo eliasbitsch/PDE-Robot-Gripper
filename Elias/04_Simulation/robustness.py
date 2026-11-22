@@ -7,8 +7,10 @@ spec    inputs inside their documented ranges: does every grip hold?
           part position across the grip axis  +-5 mm uniform      CAD_PLAN point 0
           pad friction                         0.2 ... 0.3         oily design value ... grooved pads (gripper_params)
           grip force                           44.5 N +-5 %        calibration at commissioning (CAD_PLAN tab. 267)
-          part mass                            +0 ... +3 %         PA 6 moisture uptake (assumption)
+          part mass                            +0 ... +3 %         PA 6 moisture uptake in standard climate 23 C / 50 % RH
+                                                                   (data sheet values 2.5 ... 3 %); a lighter part is easier
 stress  friction down to 0.08 and grip force down to 50 %, to show where the grip starts to fail
+saturated  spec, but the part water-saturated (+9 ... +10 %, e.g. wet from a wash): python robustness.py --saturated
 Held = not dropped and slip beyond the model's creep base < SLIP_OK (validate_grip.py).
 """
 import json
@@ -29,7 +31,8 @@ GP, MM = S.GP, S.MM
 F0 = GP.F_GRIP_SET
 TOL = 0.005
 RANGES = {"spec": dict(offset=(-TOL, TOL), mu=(0.2, 0.3), force=(0.95 * F0, 1.05 * F0), mass=(1.0, 1.03)),
-          "stress": dict(offset=(-TOL, TOL), mu=(0.08, 0.3), force=(0.5 * F0, 1.05 * F0), mass=(1.0, 1.03))}
+          "stress": dict(offset=(-TOL, TOL), mu=(0.08, 0.3), force=(0.5 * F0, 1.05 * F0), mass=(1.0, 1.03)),
+          "saturated": dict(offset=(-TOL, TOL), mu=(0.2, 0.3), force=(0.95 * F0, 1.05 * F0), mass=(1.09, 1.10))}
 MU_GRID = np.linspace(0.08, 0.3, 6)
 
 
@@ -111,6 +114,20 @@ def main(n_spec=10000, n_stress=2000, workers=None):
     plot(res, os.path.join(HERE, "figures", "robustness.png"))
 
 
+def saturated(n=200, workers=None):
+    """Extra check outside the standard climate: out/robustness_saturated.json, the main study stays as it is."""
+    workers = workers or max(1, os.cpu_count() - 2)
+    base = json.load(open(os.path.join(S.B.OUT, "robustness.json")))["creep_grid"]["base"]
+    with Pool(workers) as pool:
+        res = pool.map(one, [(s, base) for s in sample("saturated", n, 3)])
+    json.dump(dict(range=RANGES["saturated"], results=res), open(os.path.join(S.B.OUT, "robustness_saturated.json"), "w"))
+    u = np.array([r["util_max"] for r in res])
+    print(f"saturated: {sum(r['held'] for r in res)}/{n} held, peak friction use median {np.median(u):.3f}, "
+          f"max {u.max():.3f} (safety {1 / u.max():.2f})")
+
+
 if __name__ == "__main__":
-    a = [int(x) for x in sys.argv[1:3]]
-    main(*a)
+    if "--saturated" in sys.argv:
+        saturated()
+    else:
+        main(*[int(x) for x in sys.argv[1:3]])

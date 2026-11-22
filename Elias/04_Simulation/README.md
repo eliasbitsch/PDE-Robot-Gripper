@@ -109,8 +109,9 @@ comparison is against the design inputs:
 V2 is conservative over the whole transfer: the peak at the via corner (0.46, a = 4.94 m/s²) equals the quasi-static
 value at that instant (0.463) and stays below V2's 0.50, which assumes the full 4.96 m/s² throughout. The part does
 not slip anywhere (friction use < 1 on both pads at every instant). The Monte Carlo study (`robustness.py`, 10 000
-cycles with scattered position, friction, force and mass) confirms it: all held, peak 0.50, safety >= 2.0 in the
-worst grip.
+cycles with scattered position, friction, force and mass; mass +0 ... +3 % for PA 6 moisture in standard climate,
+a lighter part is easier) confirms it: all held, peak 0.50, safety >= 2.0 in the worst grip. A water-saturated part
+(+9 ... +10 %, `robustness.py --saturated`, 200 cycles) still holds: peak 0.51, safety 1.96.
 
 **Slip.** The primary "held" criterion is friction use < 1 on each pad at every instant. Slip measured beyond the
 100 N reference run (creep base above) is a secondary check: MuJoCo's soft contacts creep 2.3-2.4 mm at any grip

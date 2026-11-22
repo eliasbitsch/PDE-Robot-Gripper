@@ -23,7 +23,8 @@
   post, fence panels inside the posts) fixed in `cell_parts.py`; see-through panels composited in `viz.py`.
   Cell tour camera checked per frame for near-lens occluders; 'side' camera keys keep the arm out of the line of
   sight. `cell_grid.py`: 100 cells in one shared scene. English labels in the cell, cabinet label above the switches.
-- Open: part mass scatter +0 ... +3 % (PA 6 moisture) is an assumption without a source yet.
+- Part mass scatter: +0 ... +3 % = PA 6 moisture in standard climate (hall agreed as standard climate, Elias 22 Nov);
+  saturated part +9 ... +10 % checked separately: 200/200 held, peak 0.51.
 
 ## Open
 
