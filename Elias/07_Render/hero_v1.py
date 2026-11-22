@@ -645,9 +645,12 @@ elif mode == "assemble":
     print("assemble unplaced:", sorted(set(objs) - used))
     END = f + 75
     rng_ = __import__("random").Random(4)
-    bounce = [0.0] * (END + 2)
+    # metal does not bounce: on seating the whole assembly yields a little in the push direction and turns about the
+    # lever to its centre, then settles (review 22 Nov: no scale pulse, no wobble of the seated part)
+    nudge_loc = [Vector() for _ in range(END + 2)]
+    nudge_rot = [Vector() for _ in range(END + 2)]
     for f0, name, ob, off in sched:
-        base, base_scale = ob.location.copy(), ob.scale.copy()
+        base = ob.location.copy()
         axis = off.normalized()
         tilt_ax = axis.cross(Vector((0.3, 0.7, 0.2))).normalized()
         tilt = math.radians(rng_.uniform(4, 8))
@@ -660,22 +663,21 @@ elif mode == "assemble":
             if name.startswith(("Screw", "Setscrew")):
                 q = Quaternion(axis, (1 - s) * 6 * math.pi)                   # three turns in
             else:
-                ring = math.exp(-4 * max(fr - seat, 0) / DUR) * math.cos(0.6 * max(fr - seat, 0))
-                q = Quaternion(tilt_ax, tilt * (1 - s) if fr < seat else 0.15 * tilt * ring)
+                q = Quaternion(tilt_ax, tilt * (1 - s))                     # straightens out on the way in
             ob.rotation_quaternion = q
-            u = fr - seat
-            ob.scale = base_scale * (1 + (0.03 * math.sin(math.pi * u / 4) if 0 <= u <= 4 else 0))
             ob.keyframe_insert("location", frame=fr)
             ob.keyframe_insert("rotation_quaternion", frame=fr)
-            ob.keyframe_insert("scale", frame=fr)
             ob.keyframe_insert("hide_render", frame=fr)
-        if name.startswith(BIG):
-            for u in range(0, 24):
-                if seat + u <= END:
-                    bounce[seat + u] += -1.6 * math.exp(-u / 6) * math.cos(u * 0.75)
-    for fr in range(1, END + 1):
-        root.location = (0, 0, bounce[fr] * MM)
-        root.keyframe_insert("location", frame=fr)
+        big = name.startswith(BIG)
+        push = -axis                                    # direction the part moves when it seats
+        lever = base - c
+        tq = push.cross(lever)
+        tq = tq.normalized() if tq.length > 1e-6 else Vector()
+        for u in range(0, 24):
+            if seat + u <= END:
+                prof = math.exp(-u / 5) * math.sin(math.pi * u / 8)
+                nudge_loc[seat + u] += push * (0.8 if big else 0.25) * MM * prof
+                nudge_rot[seat + u] += tq * math.radians(0.4 if big else 0.1) * prof
     # white lab: bright soft world, white floor; flash in from white
     w = sc.world.node_tree.nodes["Background"]
     w.inputs["Color"].default_value = (0.82, 0.83, 0.85, 1)
@@ -707,20 +709,49 @@ elif mode == "assemble":
     foc = cam.data.dof.focus_object
     pos_ = [k[1] + Vector(k[2]).normalized() * k[3] for k in keys]
     STYLE = os.environ.get("STYLE", "")
+    root.rotation_mode = "QUATERNION"
+    qn = lambda fr: Quaternion(nudge_rot[fr].normalized(), nudge_rot[fr].length) if nudge_rot[fr].length > 0 else Quaternion()
     if STYLE == "turn":
-        # variant B (Mac Pro style): the camera stays in front and only rises or sinks; the gripper turns about z so
-        # the joint faces the camera. Yaw keys follow the joint's side, unwrapped so it never spins the long way.
-        AZ = math.atan2(-1.0, 0.35)                    # camera azimuth (front, slightly right)
-        tk, yaw_prev = [], 0.0
-        for fr0, tgt_, view, dist in keys:
-            h = Vector((tgt_.x - c.x, tgt_.y - c.y))
-            yaw = AZ - math.atan2(h.y, h.x) if h.length > 0.015 else yaw_prev
-            yaw = yaw_prev + ((yaw - yaw_prev + math.pi) % (2 * math.pi) - math.pi)
-            yaw = yaw_prev + max(-math.radians(110), min(math.radians(110), yaw - yaw_prev))
-            tk.append((fr0, yaw, tgt_, view[2] / Vector(view).length, dist))
-            yaw_prev = yaw
-        tk[0] = (1, math.radians(-25), c, 0.35, 0.9)
-        tk[-1] = (END, tk[-2][1] + math.radians(40), c, 0.25, 0.72)
+        # variant B (Mac Pro style): the camera stays in front; the gripper turns so the side the parts come from
+        # faces the camera at about 45 deg (from below: tilts its underside to the camera). Orientation per group by
+        # the shortest rotation, blended by slerp in the 16 frames before the group starts.
+        CD = Vector((0.35, -1.0, 0.18)).normalized()   # target -> camera
+        UPW = Vector((0, 0, 1))
+        RGT = Vector((1.0, 0.35, 0.0)).normalized()    # screen right
+        T_DOWN, T_UP, T_SIDE = (CD + -UPW).normalized(), (CD + UPW).normalized(), (CD + RGT).normalized()
+
+        # isometric rule (review 22 Nov): the camera looks along a space diagonal of the gripper (54.7 deg to every axis),
+        # the octant with the side the parts come from facing the camera; the gripper's z stays vertical on screen.
+        # Of the octants that qualify, the one closest to the previous orientation, so it never spins needlessly.
+        U_PERP = (UPW - CD * UPW.dot(CD)).normalized()
+
+        def iso_quat(sx, sy, sz):
+            a1 = Vector((sx, sy, sz)).normalized()
+            z = Vector((0, 0, 1))
+            a2 = (z - a1 * z.dot(a1)).normalized()
+            A = Matrix((a1, a2, a1.cross(a2))).transposed()
+            B = Matrix((CD, U_PERP, CD.cross(U_PERP))).transposed()
+            return (B @ A.transposed()).to_quaternion()
+
+        def orient(how, q_prev):
+            d = Vector((0.4, -0.4, -1.0)) if how in ("in", "out") else Vector(how)   # jaws/pads: from below-front
+            cands = []
+            for sx in (1, -1):
+                for sy in (1, -1):
+                    for sz in (1, -1):
+                        if (abs(d.x) > 0.5 and sx != (1 if d.x > 0 else -1)) or \
+                           (abs(d.y) > 0.5 and sy != (1 if d.y > 0 else -1)) or \
+                           (abs(d.z) > 0.5 and sz != (1 if d.z > 0 else -1)):
+                            continue
+                        cands.append(iso_quat(sx, sy, sz))
+            return min(cands, key=lambda q: q_prev.rotation_difference(q).angle)
+
+        tk = [(1, iso_quat(1, -1, 1), c, 0.9)]
+        for g0, tgt_, size, how in pois:
+            dist = min(max(size * 2.2 + 0.12, 0.26), 0.75)
+            tk.append((max(g0 - 2, tk[-1][0] + 6), orient(how, tk[-1][1]), tgt_, dist))
+        tk.append((pois[-1][0] + DUR + 14, iso_quat(1, -1, 1), c, 0.8))     # finished gripper: classic iso from above
+        tk.append((END, Quaternion((0, 0, 1), math.radians(35)) @ iso_quat(1, -1, 1), c, 0.74))
         for fr in range(1, END + 1):
             k = max(i for i in range(len(tk)) if tk[i][0] <= fr)
             if k == len(tk) - 1:
@@ -729,18 +760,25 @@ elif mode == "assemble":
                 k2 = k + 1
                 span = min(16, tk[k2][0] - tk[k][0])
                 v = ease(min(1.0, max(0.0, (fr - (tk[k2][0] - span)) / span)))
-            lerp = lambda a, b: a + (b - a) * v
-            yaw, el, dist = lerp(tk[k][1], tk[k2][1]), lerp(tk[k][3], tk[k2][3]), lerp(tk[k][4], tk[k2][4])
+            qv = tk[k][1].slerp(tk[k2][1], v)
             poi = tk[k][2].lerp(tk[k2][2], v)
-            root.rotation_euler.z = yaw
-            root.keyframe_insert("rotation_euler", index=2, frame=fr)
-            t_ = Matrix.Rotation(yaw, 3, "Z") @ poi
-            d = Vector((math.cos(AZ) * math.sqrt(1 - el * el), math.sin(AZ) * math.sqrt(1 - el * el), el))
-            cam.location, foc.location = t_ + d * dist, t_
-            cam.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
+            dist = tk[k][3] + (tk[k2][3] - tk[k][3]) * v
+            root.rotation_quaternion = qv @ qn(fr)
+            root.location = qv @ nudge_loc[fr]
+            root.keyframe_insert("rotation_quaternion", frame=fr)
+            root.keyframe_insert("location", frame=fr)
+            t_ = qv @ poi
+            cam.location, foc.location = t_ + CD * dist, t_
+            cam.rotation_euler = (-CD).to_track_quat("-Z", "Y").to_euler()
             cam.keyframe_insert("location", frame=fr)
             cam.keyframe_insert("rotation_euler", frame=fr)
             foc.keyframe_insert("location", frame=fr)
+    else:
+        for fr in range(1, END + 1):
+            root.rotation_quaternion = qn(fr)
+            root.location = nudge_loc[fr]
+            root.keyframe_insert("rotation_quaternion", frame=fr)
+            root.keyframe_insert("location", frame=fr)
     for fr in range(1, END + 1) if STYLE != "turn" else ():
         k = max(i for i in range(len(keys)) if keys[i][0] <= fr)
         if k == len(keys) - 1:
