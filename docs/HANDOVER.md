@@ -55,6 +55,10 @@
       parts/demo_seq.py, critically damped landing + 3 % scale pulse + bounce on big parts, screws turn in).
       Known: in the white lab the aluminium reads almost white/plastic and the gripper is small in frame (camera
       0.86 m) -> needs an HDRI or darker floor for reflections and a closer camera.
+- [ ] Waiting for Viktoriia's answer on the wider T-shaped jaw (asked 22 Nov as a proposal; the variant is the current
+      model in Viktoriia/03_CAD_Jaws). Until she agrees the board shows only her original V3 jaw
+      (img/jaw_v3_viktoriia.png from commit da4f7f5) and no film previews. If yes: put the three previews back on the
+      board (out/*_C.mp4). If no: rebuild with her contour (jaws.py at da4f7f5) and rerun FEM, V4, grip_check, E4.
 - [x] 22 Nov: board https://claude.ai/artifact/3gQTn4NuiM27SdwwwSC6XU updated (Current state: three film previews,
       key numbers, changes since the last update; tasks crosscheck/e2/e3/e4/e7 notes, v1 -> review, new hero-film).
 - [ ] Next hero shots per RENDER_PLAN: self-assembly in the white lab (spring easing, snap), robot wake-up,
