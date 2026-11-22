@@ -288,22 +288,40 @@ if mode == "anim":
     bpy.ops.render.render(animation=True)
     print("anim done")
 elif mode == "flight":
-    # one flowing camera move through the approved views (review 21 Nov): hero -> three-quarter high -> top -> side
-    # -> jaw macro -> drive close-up (shell hidden). Catmull-Rom through the waypoints, eased per segment.
-    # env ENGINE=EEVEE for quick previews, STEP (frame step), FRAMES (end frame, default 270)
+    # the approved views (review 21 Nov) as shots with cuts (review 22 Nov: slower at the views, cuts allowed): each
+    # shot drifts slowly through its view without stopping; two flowing moves (three-quarter -> top, jaws -> drive).
+    # env ENGINE=EEVEE for quick previews, STEP (frame step), FRAMES (end frame)
     zp = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) * MM
-    drive_t = Vector((-42, -5, 2)) * MM
-    wps = [  # frame, target, direction, distance, lens
-        (1, c, (0.85, -1.6, -0.04), 0.98, 85),
-        (55, c, (1.0, -1.0, 0.65), 1.05, 70),
-        (100, c, (0.08, -0.35, 1.0), 1.05, 70),
-        (145, c, (-1.0, -0.12, 0.05), 0.95, 85),
-        (195, Vector((0, 0, zp)), (0.35, -1.0, 0.12), 0.36, 100),
-        (270, drive_t, (-0.9, -1.5, 0.75), 0.47, 85)]
+    jaw_t, drive_t = Vector((0, 0, zp)), Vector((-42, -5, 2)) * MM
+    SHOTS = [  # per shot: keys (frame, target, direction, distance, lens); a new shot = a cut
+        [(1, c, (0.62, -1.6, -0.02), 1.04, 85), (84, c, (1.0, -1.55, -0.05), 0.95, 85)],
+        [(85, c, (1.2, -0.85, 0.58), 1.10, 70), (130, c, (0.95, -1.05, 0.66), 1.05, 70),
+         (195, c, (0.08, -0.35, 1.0), 1.05, 70), (240, c, (-0.1, -0.38, 1.0), 0.99, 70)],
+        [(241, c, (-1.0, -0.32, 0.08), 0.99, 85), (300, c, (-1.0, 0.06, 0.03), 0.93, 85)],
+        [(301, jaw_t, (0.22, -1.0, 0.10), 0.38, 100), (372, jaw_t, (0.45, -1.0, 0.14), 0.35, 100),
+         (401, (jaw_t + drive_t) / 2, (-0.3, -1.5, 0.5), 0.62, 90),   # pull back: do not fly through the parts
+         (430, drive_t, (-0.9, -1.5, 0.75), 0.50, 85), (500, drive_t, (-0.72, -1.6, 0.68), 0.45, 85)]]
+    JAWS_D = [(35, 68, D_OPEN, D_GRIP), (100, 130, D_GRIP, D_OPEN), (250, 282, D_OPEN, D_GRIP),
+              (305, 330, D_GRIP, D_OPEN), (345, 372, D_OPEN, D_GRIP), (440, 468, D_GRIP, D_OPEN),
+              (478, 498, D_OPEN, D_GRIP)]
+    END = SHOTS[-1][-1][0]
     root.animation_data_clear()
     root.rotation_euler = (0, 0, 0)
-    # shell fades out while the camera sits at the jaws; own material copies so the inner parts stay opaque
-    FADE = (178, 210)
+    for p_ in piv.values():
+        p_.animation_data_clear()
+    for f in range(1, END + 1):
+        d = D_OPEN
+        for f0, f1, a, b in JAWS_D:
+            if f >= f0:
+                d = a + (b - a) * ease(min((f - f0) / (f1 - f0), 1.0))
+        piv[-1].location.x, piv[1].location.x = -d * MM, d * MM
+        piv["rot"].rotation_euler.z = piv["rotx"].rotation_euler.x = d / R_PIN
+        for k in (-1, 1):
+            piv[k].keyframe_insert("location", index=0, frame=f)
+        piv["rot"].keyframe_insert("rotation_euler", index=2, frame=f)
+        piv["rotx"].keyframe_insert("rotation_euler", index=0, frame=f)
+    # shell fades out on the way from the jaws to the drive; own material copies so the inner parts stay opaque
+    FADE = (372, 412)
     shell_mats = {}
     for name, ob in objs.items():
         if name.startswith(SHELL):
@@ -330,34 +348,60 @@ elif mode == "flight":
     # top view: the floor pool spot and the top light's floor reflection blow out the frame -> dip around frame 100
     pool = bpy.data.lights["Pool"]
     pool.animation_data_clear()
-    for f, e in ((1, 70), (62, 70), (88, 10), (114, 10), (140, 70), (FADE[0], 70), (FADE[1], 12)):
+    for f, e in ((1, 70), (145, 70), (185, 10), (240, 10), (241, 70), (FADE[0], 70), (FADE[1], 12)):
         pool.energy = e
         pool.keyframe_insert("energy", frame=f)
     bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
     sc.timeline_markers.clear()
-    cam = camera("CamFlight", c, wps[0][2], wps[0][3], wps[0][4], 5.6)
+    cam = camera("CamFlight", c, SHOTS[0][0][2], SHOTS[0][0][3], SHOTS[0][0][4], 5.6)
     cam.constraints.clear()
     foc = cam.data.dof.focus_object
 
     def cr(p0, p1, p2, p3, t):
         return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3)
 
-    pos = [w[1] + Vector(w[2]).normalized() * w[3] for w in wps]
-    tgt = [w[1].copy() for w in wps]
-    lens = [float(w[4]) for w in wps]
-    for f in range(1, wps[-1][0] + 1):
-        k = max(i for i in range(len(wps) - 1) if wps[i][0] <= f) if f < wps[-1][0] else len(wps) - 2
-        t = (f - wps[k][0]) / (wps[k + 1][0] - wps[k][0])
-        t = t * t * (3 - 2 * t)                       # ease in and out of every waypoint
-        ip = lambda arr: cr(arr[max(k - 1, 0)], arr[k], arr[k + 1], arr[min(k + 2, len(arr) - 1)], t)
-        cam.location, foc.location = ip(pos), ip(tgt)
-        cam.data.lens = lens[k] + (lens[k + 1] - lens[k]) * t
-        d = foc.location - cam.location
-        cam.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
-        cam.keyframe_insert("location", frame=f)
-        cam.keyframe_insert("rotation_euler", frame=f)
-        cam.data.keyframe_insert("lens", frame=f)
-        foc.keyframe_insert("location", frame=f)
+    def herm(t, y0, y1, m0, m1, h):
+        return ((2 * t ** 3 - 3 * t * t + 1) * y0 + (t ** 3 - 2 * t * t + t) * h * m0
+                + (-2 * t ** 3 + 3 * t * t) * y1 + (t ** 3 - t * t) * h * m1)
+
+    cuts, moves = [], []
+    for keys in SHOTS:
+        # spline through the keys in space; time -> spline parameter by a Hermite warp whose slope at a key is the
+        # mean of its neighbours (no stop between drift and move), 0.6 of the segment slope at the shot ends
+        F = [k[0] for k in keys]
+        pos = [k[1] + Vector(k[2]).normalized() * k[3] for k in keys]
+        tgt = [k[1].copy() for k in keys]
+        lens = [float(k[4]) for k in keys]
+        sl = [1 / (F[i + 1] - F[i]) for i in range(len(F) - 1)]
+        m = [0.6 * sl[0]] + [0.5 * (sl[i - 1] + sl[i]) for i in range(1, len(sl))] + [0.6 * sl[-1]]
+        for f in range(F[0], F[-1] + 1):
+            k = min(max(i for i in range(len(F)) if F[i] <= f), len(F) - 2)
+            h = F[k + 1] - F[k]
+            u = herm((f - F[k]) / h, 0.0, 1.0, m[k], m[k + 1], h)
+            ip = lambda arr: cr(arr[max(k - 1, 0)], arr[k], arr[k + 1], arr[min(k + 2, len(arr) - 1)], u)
+            cam.location, foc.location = ip(pos), ip(tgt)
+            cam.data.lens = lens[k] + (lens[k + 1] - lens[k]) * u
+            d = foc.location - cam.location
+            cam.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+            cam.keyframe_insert("location", frame=f)
+            cam.keyframe_insert("rotation_euler", frame=f)
+            cam.data.keyframe_insert("lens", frame=f)
+            foc.keyframe_insert("location", frame=f)
+        if keys is not SHOTS[-1]:
+            cuts.append(F[-1] + 1)
+    # no interpolation across a cut (motion blur would smear the jump)
+    def fcurves(act):   # Blender 5 layered actions keep fcurves in channel bags
+        if hasattr(act, "fcurves"):
+            return list(act.fcurves)
+        return [fc for ly in act.layers for st in ly.strips for cb in st.channelbags for fc in cb.fcurves]
+
+    for idb in (cam, cam.data, foc):
+        for fc in fcurves(idb.animation_data.action):
+            for kp in fc.keyframe_points:
+                kp.interpolation = "CONSTANT" if int(kp.co.x) + 1 in cuts else "LINEAR"
+    json.dump({"fps": FPS, "end": END, "cuts": cuts, "jaws": JAWS_D, "fade": FADE,
+               "moves": [(130, 195), (372, 430)]},   # the two flowing camera moves
+              open(os.path.join(HERE, "out", "flight_timeline.json"), "w"))
     sc.camera = cam
     if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
         for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
@@ -371,7 +415,7 @@ elif mode == "flight":
             sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
         except AttributeError:
             pass
-    sc.frame_start, sc.frame_end = 1, int(os.environ.get("FRAMES", wps[-1][0]))
+    sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
     sc.render.filepath = os.path.join(HERE, "out", "flight", "f_")
     bpy.ops.render.render(animation=True)

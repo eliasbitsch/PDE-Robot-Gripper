@@ -16,8 +16,12 @@
 
 ## Open
 
-- [ ] Elias' feedback on `Elias/07_Render/out/flight_preview_sound.mp4` (9 s, EEVEE 480p, with draft sound):
-      tempo, order, distance, sound direction.
+- [ ] Elias' feedback on `Elias/07_Render/out/flight_preview_sound.mp4` v3 (16.7 s, EEVEE 480p, with sound).
+- [x] 22 Nov, review of v2 (Elias): "slower at the points, ease in/out, cuts from different angles are fine". v3: four
+      shots with 3 cuts, each drifting slowly through its view (Hermite time warp, no stop), flowing moves only
+      three-quarter -> top and jaws -> drive (pull-back key at 401 so the camera does not fly through the parts),
+      own jaw schedule per shot (7 strokes), shell fade 372-412 now in view. `out/flight_timeline.json` drives the
+      sound script. earshot: all 10 cues on the frame, -16.9 LUFS, -1.6 dBTP.
 - [x] 22 Nov: top view fixed (pool spot dips to 10 W around frame 100, top light no longer reflects in the floor);
       shell fades out over frames 178-210 (own material copies, alpha eased) instead of vanishing at 205.
       Note: at the jaw macro the shell is mostly out of frame, so the fade is barely visible there.
