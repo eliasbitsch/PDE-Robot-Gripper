@@ -29,6 +29,8 @@ T_INDEX, T_ADVANCE = 1.0, 0.6
 RC = CPT.SPROCKET_R + CP.CARRIER[2] / 2 * MM             # carrier centre radius around the sprocket
 S_LOAD = CPT.X_WHEEL - CP.X_PLACE * MM
 N_PART, N_CARR = 14, 12
+NAMES_EN = ["close", "lift", "transfer (loaded)", "lower onto the carrier", "open", "lift (empty)", "return (empty)",
+            "lower to the next part"]
 NAMES_DE = ["Greifen", "Anheben", "Transfer (beladen)", "Absenken auf Werkstückträger", "Öffnen", "Anheben (leer)",
             "Rückfahrt (leer)", "Absenken zum nächsten Teil"]
 
@@ -109,8 +111,14 @@ def build(m0_path):
     return m, mujoco.MjData(m)
 
 
-def main(n_cycles=4):
+def main(n_cycles=4, clean=False, slow=1.0):
+    """clean: no HUD, 1920 x 1080, writes figures/cell_clean.mp4 and out/cell_clean_frames.json (per frame: real time,
+    segment) for the overlays of the explainer film; slow: video time per real second."""
+    global W, H
+    if clean:
+        W, H = 1920, 1080
     m, d = build(os.path.join(S.B.OUT, "cell.xml"))
+    m.vis.global_.offwidth, m.vis.global_.offheight = max(W, m.vis.global_.offwidth), max(H, m.vis.global_.offheight)
     sides = {+1: None, -1: None}
     for side in sides:
         tl, T = timeline(m, d, side)
@@ -144,12 +152,16 @@ def main(n_cycles=4):
     cam = mujoco.MjvCamera()
     cam.lookat[:] = (0.0, 0.0, 1.05)
     cam.distance, cam.azimuth, cam.elevation = 4.3, 292, -30
+    if clean:                                                  # closer on the robot, room left for the overlays
+        cam.lookat[:] = (0.05, 0.0, 1.15)
+        cam.distance = 3.1
     f_big = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 30)
     f = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 24)
-    frames, n_frames = [], int((n_cycles * TAKT + 0.5) * FPS)
+    frames, n_frames = [], int((n_cycles * TAKT + 0.5) * FPS * slow)
+    flog = []
     q_wait = S.q_pick()[0]
     for i in range(n_frames):
-        t = i / FPS
+        t = i / FPS / slow
         k = int(t // TAKT)
         tc = t - k * TAKT
         side = side_of(k)
@@ -208,9 +220,16 @@ def main(n_cycles=4):
         r.update_scene(d, cam)
         im = Image.fromarray(r.render())
         done = sum(1 for n in range(n_cycles) if t >= t_release(n))
-        hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
+        if clean:
+            flog.append(dict(t=round(t, 4), seg=seg, name=NAMES_EN[seg] if seg >= 0 else "waiting for the takt"))
+        else:
+            hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
         frames.append(np.asarray(im))
-    out = os.path.join(HERE, "figures", "cell_takt.mp4")
+    out = os.path.join(HERE, "figures", "cell_clean.mp4" if clean else "cell_takt.mp4")
+    if clean:
+        import json
+        json.dump(dict(fps=FPS, slow=slow, cycle=T_tl[+1], takt=TAKT, frames=flog),
+                  open(os.path.join(S.B.OUT, "cell_clean_frames.json"), "w"))
     import shutil
     import subprocess
     cmd = [shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
@@ -242,4 +261,7 @@ def hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f):
 
 
 if __name__ == "__main__":
-    main(int(sys.argv[1]) if len(sys.argv) > 1 else 4)
+    if "--clean" in sys.argv:                      # explainer film: one cycle, half speed, no HUD
+        main(1, clean=True, slow=2.0)
+    else:
+        main(int(sys.argv[1]) if len(sys.argv) > 1 else 4)

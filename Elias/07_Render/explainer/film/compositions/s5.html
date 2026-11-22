@@ -1,0 +1,42 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; background: #0E1013; font-family: Inter, sans-serif; color: #E8E6E1; overflow: hidden; }
+    .cap { position: absolute; left: 86px; top: 64px; font-size: 40px; font-weight: 400; letter-spacing: -0.01em; }
+    .sub { position: absolute; left: 86px; top: 116px; font-size: 28px; color: #8E949C; }
+
+    .pane { position: absolute; top: 210px; width: 880px; }
+    .ph { font-size: 34px; }
+    .ps { font-size: 28px; color: #8E949C; margin-top: 6px; }
+    .vid { position: absolute; top: 330px; width: 880px; height: 495px; object-fit: cover; border-radius: 6px; z-index: 2; }
+
+  </style>
+  <div id="root" data-composition-id="s5" data-width="1920" data-height="1080">
+
+    <div id="s5-lead" class="clip" data-start="0" data-duration="5.0">
+      <div class="cap">Closing on the part</div>
+      <div class="sub">MuJoCo, slowed down 10&times;</div>
+      <div id="s5-l" class="pane" style="left:56px">
+        <div class="ph" style="color:#F08A4B">direct</div>
+        <div class="ps">full speed until contact, closed in 120 ms</div>
+      </div>
+      <div id="s5-r" class="pane" style="left:984px">
+        <div class="ph" style="color:#3CC9B4">two-stage (built)</div>
+        <div class="ps">part placed 5 mm off centre</div>
+      </div>
+    </div>
+    <video id="s5-vl" class="clip vid" src="assets/closing_direct.mp4" muted playsinline data-start="0"
+           data-duration="5.0" style="left:56px"></video>
+    <video id="s5-vr" class="clip vid" src="assets/closing_tolerant.mp4" muted playsinline data-start="0"
+           data-duration="5.0" style="left:984px"></video>
+    <video id="s5-curves" class="clip" src="assets/s5_curves.mp4" muted playsinline data-start="4.5"
+           data-duration="19.1" style="position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:5"></video>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    tl.fromTo("#s5-lead .cap, #s5-lead .sub", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.1 }, 0.1);
+    tl.fromTo(".pane", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.12 }, 0.25);
+    tl.fromTo("#s5-curves", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.inOut" }, 4.5);
+    window.__timelines["s5"] = tl;
+  </script>
+</template>

@@ -1,0 +1,215 @@
+"""Writes the HyperFrames scenes of the explainer film from the simulation results, so every number on screen comes
+from the repo: python build_film.py  (then: cd film && npx hyperframes preview / render).
+
+Inputs: 04_Simulation/out/e4_cycle.json (segments, cycle time), out/e4_collision_log.csv (distances every 10 ms),
+out/cell_clean_frames.json (slow factor of the cycle video), out/closing_results.json.
+"""
+import csv
+import json
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SIM = os.path.join(HERE, "..", "..", "04_Simulation", "out")
+FILM = os.path.join(HERE, "film")
+
+BG, INK, ACC, SAF, LOAD, MU = "#0E1013", "#E8E6E1", "#3CC9B4", "#F08A4B", "#8E949C", "#5AA9F0"
+S5_LEAD, S5_CURVES = 4.5, 19.1           # closing videos, then the Manim curves (s5_curves.mp4)
+S9_VIDEO, S9_HOLD = 11.0, 2.5
+
+STYLE = f"""
+    #root {{ position: absolute; inset: 0; background: {BG}; font-family: Inter, sans-serif; color: {INK}; overflow: hidden; }}
+    .cap {{ position: absolute; left: 86px; top: 64px; font-size: 40px; font-weight: 400; letter-spacing: -0.01em; }}
+    .sub {{ position: absolute; left: 86px; top: 116px; font-size: 28px; color: {LOAD}; }}
+"""
+
+
+def scene(cid, body, script, extra_style=""):
+    return f"""<template>
+  <style>{STYLE}{extra_style}
+  </style>
+  <div id="root" data-composition-id="{cid}" data-width="1920" data-height="1080">
+{body}
+  </div>
+  <script>
+    const tl = gsap.timeline({{ paused: true }});
+{script}
+    window.__timelines["{cid}"] = tl;
+  </script>
+</template>
+"""
+
+
+def s5():
+    clo = json.load(open(os.path.join(SIM, "closing_results.json")))
+    tol = next(c for c in clo["cases"] if c["profile"] == "tolerant" and c["offset_mm"] > 0 and c["v_touch"] > 0.015
+               and not c["blocked"])
+    dire = next(c for c in clo["cases"] if c["profile"] == "direct" and abs(c["t_fast"] - 0.12) < 1e-6)
+    body = f"""
+    <div id="s5-lead" class="clip" data-start="0" data-duration="{S5_LEAD + 0.5}">
+      <div class="cap">Closing on the part</div>
+      <div class="sub">MuJoCo, slowed down 10&times;</div>
+      <div id="s5-l" class="pane" style="left:56px">
+        <div class="ph" style="color:{SAF}">direct</div>
+        <div class="ps">full speed until contact, closed in {dire['t_fast'] * 1000:.0f} ms</div>
+      </div>
+      <div id="s5-r" class="pane" style="left:984px">
+        <div class="ph" style="color:{ACC}">two-stage (built)</div>
+        <div class="ps">part placed {tol['offset_mm']:.0f} mm off centre</div>
+      </div>
+    </div>
+    <video id="s5-vl" class="clip vid" src="assets/closing_direct.mp4" muted playsinline data-start="0"
+           data-duration="{S5_LEAD + 0.5}" style="left:56px"></video>
+    <video id="s5-vr" class="clip vid" src="assets/closing_tolerant.mp4" muted playsinline data-start="0"
+           data-duration="{S5_LEAD + 0.5}" style="left:984px"></video>
+    <video id="s5-curves" class="clip" src="assets/s5_curves.mp4" muted playsinline data-start="{S5_LEAD}"
+           data-duration="{S5_CURVES}" style="position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:5"></video>"""
+    style = f"""
+    .pane {{ position: absolute; top: 210px; width: 880px; }}
+    .ph {{ font-size: 34px; }}
+    .ps {{ font-size: 28px; color: {LOAD}; margin-top: 6px; }}
+    .vid {{ position: absolute; top: 330px; width: 880px; height: 495px; object-fit: cover; border-radius: 6px; z-index: 2; }}
+"""
+    script = f"""
+    tl.fromTo("#s5-lead .cap, #s5-lead .sub", {{ opacity: 0, y: 8 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.1 }}, 0.1);
+    tl.fromTo(".pane", {{ opacity: 0, y: 10 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.12 }}, 0.25);
+    tl.fromTo("#s5-curves", {{ opacity: 0 }}, {{ opacity: 1, duration: 0.45, ease: "power1.inOut" }}, {S5_LEAD});"""
+    return scene("s5", body, script, style), S5_LEAD + S5_CURVES
+
+
+def s9():
+    cyc = json.load(open(os.path.join(SIM, "e4_cycle.json")))["chain_2"]
+    vid = json.load(open(os.path.join(SIM, "cell_clean_frames.json")))
+    slow, T, takt = vid["slow"], cyc["cycle_time"], cyc["budget"]
+    segs = [(s["segment"], s["t_start"], s["duration"]) for s in cyc["segments"]]
+    rows = list(csv.DictReader(open(os.path.join(SIM, "e4_collision_log.csv")), delimiter=";"))
+    show = [("belt", "belt [mm]", "buffer belt"), ("carrier", "carrier [mm]", "workpiece carrier"),
+            ("chain_2", "chain_2 [mm]", "chain"), ("fence_left", "fence_left [mm]", "fence")]
+    t = [float(r["t [s]"]) for r in rows]
+    dist = {k: [float(r[c]) for r in rows] for k, c, _ in show}
+    exact = json.load(open(os.path.join(SIM, "clearance.json")))["cycle with vias"]   # mesh distances, not rounded
+    mins = {k: (exact[k]["min_mm"], t[v.index(min(v))]) for k, v in dist.items()}
+    seg_html = "".join(
+        f'<div class="seg" id="s9-seg{i}" style="left:{s0 / takt * 100:.3f}%;width:{d / takt * 100:.3f}%"></div>'
+        for i, (_, s0, d) in enumerate(segs))
+    rows_html = "".join(
+        f'<div class="row" id="s9-row-{k}"><span class="rn">{lab}</span><span class="rv" id="s9-v-{k}">&ndash;</span></div>'
+        for k, _, lab in show)
+    body = f"""
+    <video id="s9-vid" class="clip" src="assets/cell_cycle.mp4" muted playsinline data-start="0" data-duration="{S9_VIDEO}"
+           style="position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover"></video>
+    <img id="s9-still" class="clip" src="assets/cell_cycle_last.png" data-start="{S9_VIDEO - 0.05}" data-duration="{S9_HOLD + 0.05}"
+         style="position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover" />
+    <div id="s9-ui" class="clip" data-start="0" data-duration="{S9_VIDEO + S9_HOLD}">
+      <div class="shade"></div>
+      <div class="plate"></div>
+      <div class="cap">Full cycle with collision check</div>
+      <div class="sub">MuJoCo, real robot path, half speed</div>
+      <div class="clock" id="s9-clock">t = 0.00 s</div>
+      <div class="panel"><div class="ph">closest approach</div>{rows_html}</div>
+      <div class="strip"><div class="sname" id="s9-sname">{segs[0][0]}</div>
+        <div class="bar">{seg_html}<div class="res" style="left:{T / takt * 100:.3f}%;width:{(takt - T) / takt * 100:.3f}%"></div>
+          <div class="head" id="s9-head"></div></div>
+        <div class="ticks"><span>0 s</span><span style="left:{T / takt * 100:.3f}%">{T:.2f} s</span><span style="left:100%">{takt:.1f} s takt</span></div>
+      </div>
+      <div class="card" id="s9-card"><div class="big"><b>{T:.2f} s</b> of {takt:.1f} s takt</div>
+        <div class="small">{takt - T:.2f} s reserve &middot; {'no contact' if not json.load(open(os.path.join(SIM, 'e4_cycle.json')))['any_contact'] else 'CONTACT'} with the cell</div></div>
+    </div>"""
+    style = f"""
+    .shade {{ position: absolute; inset: 0; background: linear-gradient(90deg, rgba(14,16,19,.82) 0, rgba(14,16,19,0) 34%, rgba(14,16,19,0) 70%, rgba(14,16,19,.82) 100%); }}
+    #s9-ui .cap, #s9-ui .sub {{ text-shadow: 0 1px 8px rgba(0,0,0,.5); }}
+    .plate {{ position: absolute; left: 56px; top: 40px; width: 700px; height: 136px; background: rgba(14,16,19,.86); border-radius: 10px; }}
+    .clock {{ position: absolute; right: 86px; top: 64px; font-size: 34px; font-variant-numeric: tabular-nums; }}
+    .panel {{ position: absolute; right: 86px; top: 290px; width: 500px; padding: 22px 26px; background: rgba(14,16,19,.86); border-radius: 10px; }}
+    .panel .ph {{ font-size: 22px; color: {LOAD}; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }}
+    .row {{ white-space: nowrap; display: flex; justify-content: space-between; font-size: 28px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.08); }}
+    .rv {{ font-variant-numeric: tabular-nums; color: {ACC}; }}
+    .strip {{ position: absolute; left: 86px; right: 86px; bottom: 70px; padding: 18px 24px 30px; background: rgba(14,16,19,.86); border-radius: 10px; }}
+    .sname {{ font-size: 26px; margin-bottom: 12px; }}
+    .bar {{ position: relative; height: 14px; background: rgba(255,255,255,.06); border-radius: 7px; }}
+    .seg {{ position: absolute; top: 0; height: 14px; background: rgba(60,201,180,.28); border-right: 2px solid {BG}; }}
+    .res {{ position: absolute; top: 0; height: 14px; background: repeating-linear-gradient(45deg, rgba(142,148,156,.25) 0 6px, transparent 6px 12px); }}
+    .head {{ position: absolute; top: -6px; left: 0; width: 3px; height: 26px; background: {INK}; }}
+    .ticks {{ position: relative; height: 28px; margin-top: 8px; font-size: 24px; color: {LOAD}; }}
+    .ticks span {{ position: absolute; transform: translateX(-50%); white-space: nowrap; }}
+    .ticks span:first-child {{ transform: none; }}
+    .ticks span:last-child {{ transform: translateX(-100%); }}
+    .card {{ position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 36px 56px; background: rgba(14,16,19,.92);
+             border: 2px solid {ACC}; border-radius: 12px; text-align: center; opacity: 0; }}
+    .card .big {{ font-size: 64px; }}
+    .card .big b {{ color: {ACC}; font-weight: 700; }}
+    .card .small {{ font-size: 26px; color: {LOAD}; margin-top: 10px; }}
+"""
+    data = dict(t=t, d={k: dist[k] for k in dist}, segs=segs, slow=slow, T=T, takt=takt,
+                mins={k: v for k, v in mins.items()})
+    script = f"""
+    const D = {json.dumps(data, separators=(",", ":"))};
+    const keys = Object.keys(D.d);
+    function at(tc) {{
+      const i = Math.max(0, Math.min(D.t.length - 1, Math.round(tc / 0.01)));
+      document.getElementById("s9-clock").textContent = "t = " + tc.toFixed(2) + " s";
+      document.getElementById("s9-head").style.left = (100 * tc / D.takt) + "%";
+      let si = 0;
+      D.segs.forEach((s, k) => {{ if (tc >= s[1]) si = k; }});
+      if (tc > D.T) si = -1;
+      document.getElementById("s9-sname").textContent = si < 0 ? "waiting for the takt" : D.segs[si][0];
+      D.segs.forEach((s, k) => {{ document.getElementById("s9-seg" + k).style.background = k === si ? "{ACC}" : (k < si || si < 0 ? "rgba(60,201,180,.55)" : "rgba(60,201,180,.22)"); }});
+      keys.forEach((k) => {{                      // running minimum: ends on the closest approach of the cycle
+        let m = 1e9;
+        for (let j = 0; j <= i; j++) m = Math.min(m, D.d[k][j]);
+        const el = document.getElementById("s9-v-" + k);
+        if (tc >= D.mins[k][1]) m = D.mins[k][0];  // from the closest instant on: the exact value of the check
+        el.textContent = m >= 500 ? "> 500 mm" : Math.round(m) + " mm";
+        const near = Math.abs(tc - D.mins[k][1]) < 0.12;
+        document.getElementById("s9-row-" + k).style.color = near ? "{SAF}" : "{INK}";
+      }});
+    }}
+    const clk = {{ tc: 0 }};
+    tl.fromTo(clk, {{ tc: 0 }}, {{ tc: D.takt, duration: D.takt * D.slow, ease: "none", onUpdate: () => at(clk.tc) }}, 0);
+    tl.fromTo("#s9-ui .cap, #s9-ui .sub, .clock", {{ opacity: 0, y: 8 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.08 }}, 0.1);
+    tl.fromTo(".panel, .strip", {{ opacity: 0, y: 12 }}, {{ opacity: 1, y: 0, duration: 0.6, ease: "power2.out", stagger: 0.1 }}, 0.3);
+    tl.fromTo("#s9-card", {{ opacity: 0, scale: 0.96 }}, {{ opacity: 1, scale: 1, duration: 0.6, ease: "power2.out" }}, {T * slow + 0.3:.2f});"""
+    return scene("s9", body, script, style), S9_VIDEO + S9_HOLD
+
+
+def index(scenes):
+    hosts, t0 = [], 0.0
+    for cid, dur in scenes:
+        hosts.append(f'      <div id="{cid}" data-composition-id="{cid}" data-composition-src="compositions/{cid}.html" '
+                     f'data-start="{t0:.2f}" data-duration="{dur:.2f}" data-track-index="1" data-track-kind="graphics" '
+                     f'data-width="1920" data-height="1080"></div>')
+        t0 += dur
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+      html, body {{ margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: {BG}; }}
+      #root {{ position: relative; width: 100%; height: 100%; }}
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="{t0:.2f}" data-width="1920" data-height="1080">
+{chr(10).join(hosts)}
+    </div>
+    <script>
+      const tl = gsap.timeline({{ paused: true }});
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
+"""
+
+
+if __name__ == "__main__":
+    os.makedirs(os.path.join(FILM, "compositions"), exist_ok=True)
+    out = []
+    for fn in (s5, s9):
+        html, dur = fn()
+        cid = fn.__name__
+        open(os.path.join(FILM, "compositions", f"{cid}.html"), "w", encoding="utf-8").write(html)
+        out.append((cid, dur))
+    open(os.path.join(FILM, "index.html"), "w", encoding="utf-8").write(index(out))
+    print("scenes", out)
