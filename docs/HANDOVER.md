@@ -1,6 +1,6 @@
 # Handover
 
-**21 Nov 2026, branch `master`, status: review fully worked through; hero render in preview stage.**
+**22 Nov 2026, branch `master`, status: flight preview v2 with sound, waiting for Elias' approval.**
 
 ## Done (this session)
 
@@ -16,10 +16,17 @@
 
 ## Open
 
-- [ ] Elias' feedback on `Elias/07_Render/out/flight_preview.mp4` (9 s, EEVEE 480p): tempo, order, distance.
-- [ ] Fix in the flight: top view overexposed (floor pool light too strong); shell vanishes abruptly at frame 205 ->
-      fade to transparent or animated section instead.
+- [ ] Elias' feedback on `Elias/07_Render/out/flight_preview_sound.mp4` (9 s, EEVEE 480p, with draft sound):
+      tempo, order, distance, sound direction.
+- [x] 22 Nov: top view fixed (pool spot dips to 10 W around frame 100, top light no longer reflects in the floor);
+      shell fades out over frames 178-210 (own material copies, alpha eased) instead of vanishing at 205.
+      Note: at the jaw macro the shell is mostly out of frame, so the fade is barely visible there.
+- [x] 22 Nov: draft sound `sound_flight.py`: sub drone in D, low whooshes per camera segment, motor whir + rack ticks
+      per jaw stroke, metal clacks on contact, stop-down before the second grip. earshot: contacts on the frame
+      (0 ms), -15.9 LUFS, -1.6 dBTP after AAC; open per critique: no music track (critical vs launch films), mids
+      a bit low (-24 dB share, refs from -19), all sounds synthesized (bank has no screw / ratchet recordings).
 - [ ] Only after approval: final Cycles render (≈ 50 min for 270 frames at 1080p / 128 samples).
+- [ ] New shot 5b in RENDER_PLAN: partial exploded view up to the mechanism, motor forward/back a few times.
 - [ ] Next hero shots per RENDER_PLAN: self-assembly in the white lab (spring easing, snap), robot wake-up,
       mechanism section; explainer film scenes 1, 3, 5, 9 for the interim presentation (3 Dec).
 - [ ] Send Viktoriia the change message (English, text in the chat of 21 Nov): V1 new, V2 §§ 2a/3/5/6a/7/8/9/10,
@@ -39,5 +46,7 @@
 cd Elias/07_Render
 ENGINE=EEVEE SAMPLES=16 STEP=2 RES=854x480 blender -b -P hero_v1.py -- flight   # preview, ~1.5 min
 blender -b -P hero_v1.py -- views                                               # stills of the 8 cameras
+# frames are every 2nd (STEP=2): encode with a concat list at 15 fps, then the sound:
+<earshot>/.venv/Scripts/python.exe sound_flight.py out/flight_preview.mp4       # -> out/flight_preview_sound.mp4
 ```
 CAD after a change: `fc.sh Elias/02_CAD_Body/build.py`, then the scripts in `04_Simulation` (README lists them).

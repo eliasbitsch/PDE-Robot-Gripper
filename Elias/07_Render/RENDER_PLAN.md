@@ -30,6 +30,7 @@ frame shows the real design.
 | 3 | 12 - 20 s | **Macro details.** Rack teeth, the KHK spiral bevel pair, the oil grooves in the NBR pad, the ISO flange. | close-ups, shallow depth of field, rack focus from tooth to tooth | glints running over the steel | each detail turns a few degrees |
 | 4 | 20 - 38 s | **Self-assembly in a white lab.** Cut to white (exposure flash). The housing hangs in the air in a clean, softly lit lab; the parts fly in one after another in the real assembly order (`parts/demo_seq.py`, `STEP_TEXT`): rail, drive unit, pinion shaft with bearings and bevel wheel, hood, carriages and slides, racks, holders, cover, jaws, pads. | slow orbit around the growing assembly, cuts on the snaps | bright, soft, ambient occlusion; the parts stay metallic | **spring motion, not linear:** every part arrives with a small overshoot (5 - 8 %) and settles in 0.2 - 0.3 s, turns a few degrees on the way, a short scale pulse and a click at the moment it seats; screws spin in. The whole assembly bounces a little when a big part lands. |
 | 5 | 38 - 48 s | **Mechanism focus.** The hood turns transparent / a section plane slides through: motor, brake, gearbox, bevel pair, pinion, two racks. The pinion turns 57°, the racks run in opposite directions, the jaws close on part B. | slow push into the section, then top view on pinion and racks | back to the dark look; a glowing line follows the force flow motor → gearbox → bevel → pinion → racks → pads | real kinematics (`gripper_params`: i 7.07, 57° pinion for 10 mm) |
+| 5b | (with 5) | **Exploded view, partial.** From the closed gripper the parts lift off along their mounting axes, outer ones first (cover, hood, window, screws, housing halves), and stop as soon as the drive train is free: motor, brake, gearbox, bevel pair, pinion, racks. Then the motor turns forward and back a few times; pinion, racks and jaws follow by the same drivers; then everything closes up again. | slow orbit, slight push-in when the mechanism is free | dark look as shot 2 | spring easing per part, staggered 0.1 - 0.15 s; motor 2 - 3 strokes, eased reversals; sound: low swell while it opens, servo whir and rack ticks per stroke, metal clack on each jaw stop, screw ratchets when the screws back out |
 | 6 | 48 - 62 s | **The robot wakes up.** IRB 1300 in the dark cell, gripper on the flange. Axes come alive one by one from the base up, a small "breath", a short wave with axis 6, then one real pick-and-place cycle. | low, wide; follows the gripper during the transfer | dark cell with rim light, the fence as silhouettes | wake-up as keyframed motion; the cycle from the E4 trajectory (`e4_cycle.timeline`, 4.48 s) |
 | 7 | 62 - 70 s | **End card.** Gripper on the black floor, slow turn. | locked | as shot 2 | text: 3.04 kg · 44.5 N · 4.48 s cycle · group 10 · names |
 
@@ -50,7 +51,12 @@ The 9:16 cut uses shots 2, 4 (shortened), 5 and 7.
 - **Render:** 1920 × 1080, 30 fps (60 fps for the assembly snaps if slow-mo is wanted), Cycles with denoising, motion
   blur on. About 2100 frames for 70 s; at 10 - 30 s per frame on the RTX 3080 Ti that is 6 - 17 h, so shots are
   rendered separately and drafted in EEVEE first.
-- **Sound:** soft electronic bed; clicks and snaps for the assembly, a low whoosh for the camera moves, servo hum for
+- **Sound (direction from Elias, 22 Nov):** Apple-style: deep, bassy, epic (sub drone in D, low whooshes on camera
+  moves, deep hits on reveals, a short stop-down before the big moment), and on metal the mechanical detail: clicks,
+  rack ticks, servo whir, screw ratchets. Draft: `sound_flight.py` (earshot bank, synthesized; runs in earshot's venv,
+  muxes `out/flight_preview_sound.mp4`). For the final: a real music track and real recordings for screws / ratchets
+  (the bank has none), checked with earshot.
+- **Sound (original note):** soft electronic bed; clicks and snaps for the assembly, a low whoosh for the camera moves, servo hum for
   the robot (licensed recordings, checked by listening with earshot before mixing).
 
 ---

@@ -302,12 +302,38 @@ elif mode == "flight":
         (270, drive_t, (-0.9, -1.5, 0.75), 0.47, 85)]
     root.animation_data_clear()
     root.rotation_euler = (0, 0, 0)
-    for name, ob in objs.items():                    # shell disappears while the camera is at the jaws
-        if name.startswith(SHELL) and ob.animation_data:
-            ob.animation_data_clear()
-            for f, hide in ((1, False), (205, True)):
+    # shell fades out while the camera sits at the jaws; own material copies so the inner parts stay opaque
+    FADE = (178, 210)
+    shell_mats = {}
+    for name, ob in objs.items():
+        if name.startswith(SHELL):
+            if ob.animation_data:
+                ob.animation_data_clear()
+            m0 = ob.data.materials[0]
+            if m0.name not in shell_mats:
+                m = m0.copy()
+                m.name = m0.name + "_shell"
+                if hasattr(m, "surface_render_method"):
+                    m.surface_render_method = "DITHERED"
+                if hasattr(m, "use_transparent_shadow"):
+                    m.use_transparent_shadow = True
+                shell_mats[m0.name] = m
+            ob.data.materials[0] = shell_mats[m0.name]
+            for f, hide in ((1, False), (FADE[1] + 1, True)):   # fully gone: skip it entirely
                 ob.hide_render = hide
                 ob.keyframe_insert("hide_render", frame=f)
+    for m in shell_mats.values():
+        a = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Alpha"]
+        for f in range(FADE[0], FADE[1] + 1, 2):
+            a.default_value = 1 - ease((f - FADE[0]) / (FADE[1] - FADE[0]))
+            a.keyframe_insert("default_value", frame=f)
+    # top view: the floor pool spot and the top light's floor reflection blow out the frame -> dip around frame 100
+    pool = bpy.data.lights["Pool"]
+    pool.animation_data_clear()
+    for f, e in ((1, 70), (62, 70), (88, 10), (114, 10), (140, 70), (FADE[0], 70), (FADE[1], 12)):
+        pool.energy = e
+        pool.keyframe_insert("energy", frame=f)
+    bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
     sc.timeline_markers.clear()
     cam = camera("CamFlight", c, wps[0][2], wps[0][3], wps[0][4], 5.6)
     cam.constraints.clear()
