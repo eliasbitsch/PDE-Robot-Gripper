@@ -1080,29 +1080,75 @@ elif mode == "robot":
     root.parent = mount
     root.matrix_parent_inverse = Matrix.Identity(4)
     root.rotation_euler = (0, 0, 0)
-    ZTOP = hi.z                                         # flange face of the adapter in the gripper frame
-    anchor = bpy.data.objects.new("CableAnchor", None)  # cable socket on the side of the upper arm
-    sc.collection.objects.link(anchor)
-    anchor.location = BASE + Vector((CP.A2_X + 25, -141, CP.A2_Z + 0.45 * CP.L2)) * MM   # outer side face of the upper arm
-    bpy.context.view_layer.update()
-    keep_parent(anchor, joints[1][0])
-    sock = bpy.data.meshes.new("Socket")                # visible socket on the arm, axis along -y at home
-    sn, sr, sl = 20, 0.012, 0.012
-    sv = [(sr * math.cos(2 * math.pi * k / sn), z, sr * math.sin(2 * math.pi * k / sn)) for z in (0.0, -sl) for k in range(sn)]
-    sf = [(k, (k + 1) % sn, sn + (k + 1) % sn, sn + k) for k in range(sn)] + [tuple(range(sn - 1, -1, -1))]
-    sock.from_pydata(sv, [], sf)
-    socko = bpy.data.objects.new("Socket", sock)
-    sc.collection.objects.link(socko)
-    socko.data.materials.append(mat("socket", (0.08, 0.08, 0.085), 1.0, 0.35))
-    socko.location = anchor.matrix_world.translation
-    bpy.context.view_layer.update()
-    keep_parent(socko, joints[1][0])
+    # adapter face on the flange face: the ISO 9409 spigot (4.5 mm) sits in the centring bore of the flange
+    ad_hi = max((objs["Adapter_ISO9409"].matrix_world @ Vector(v)).z for v in objs["Adapter_ISO9409"].bound_box)
+    ZTOP = ad_hi - P.ISO_SPIGOT_H * MM
+
+    def arm_point(name, p_mm, link):                    # empty at a point of the home pose, carried by a robot link
+        e = bpy.data.objects.new(name, None)
+        sc.collection.objects.link(e)
+        e.location = BASE + Vector(p_mm) * MM
+        bpy.context.view_layer.update()
+        keep_parent(e, joints[link][0])
+        return e
+
+    # customer connector C2 on the panel on top of the forearm (IRB 1300, axis-4 housing); the cable runs forward
+    # over the top, round the edge onto the side cover and through a clamp, then hangs in a loop to the gripper
+    conn = arm_point("Conn", (636.5, -15.0, 1239.1), 3)
+    clip_e = arm_point("ClipPt", (762.0, -75.2, 1180.0), 3)
+    ROUTE = [((692.0, -42.0, 1215.6), (1.0, -1.1, 0.0)),        # on the top, heading for the side
+             ((722.0, -73.0, 1213.0), (0.35, -0.6, -0.75)),     # over the rounded edge
+             ((762.0, -75.2, 1180.0), (1.0, 0.0, -0.3))]        # clamp on the side cover
+    blk = mat("plug", (0.05, 0.05, 0.055), 1.0, 0.3)
+
+    def cyl_mesh(name, r, z0, z1, n=24, axis="z"):
+        m = bpy.data.meshes.new(name)
+        def pt(k, z):
+            a, b = r * math.cos(2 * math.pi * k / n), r * math.sin(2 * math.pi * k / n)
+            return (a, b, z) if axis == "z" else (z, a, b)
+        vv = [pt(k, z) for z in (z0, z1) for k in range(n)]
+        ff = [(k, (k + 1) % n, n + (k + 1) % n, n + k) for k in range(n)]
+        ff += [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
+        m.from_pydata(vv, [], ff)
+        m.shade_smooth() if hasattr(m, "shade_smooth") else None
+        o = bpy.data.objects.new(name, m)
+        sc.collection.objects.link(o)
+        o.data.materials.append(blk)
+        return o
+
+    # right-angle M12 plug: knurled coupling nut over the stud, head with the cable going off along the arm (+x)
+    plug_h = bpy.data.objects.new("PlugRoot", None)
+    sc.collection.objects.link(plug_h)
+    plug_h.parent = conn
+    nut = cyl_mesh("PlugNut", 0.0085, -0.013, 0.004)
+    nut.parent = plug_h
+    for k in range(12):                                 # knurl ribs so the turn reads
+        rib = cyl_mesh(f"PlugRib{k}", 0.0012, -0.012, 0.003, n=8)
+        rib.parent = nut
+        a = 2 * math.pi * k / 12
+        rib.location = (0.0087 * math.cos(a), 0.0087 * math.sin(a), 0)
+    head = cyl_mesh("PlugHead", 0.0075, 0.004, 0.02)
+    head.parent = plug_h
+    arm_ = cyl_mesh("PlugArm", 0.0068, 0.0, 0.024, axis="x")
+    arm_.parent = plug_h
+    arm_.location = (0, 0, 0.013)
+    PLUG_EXIT = Vector((0.024, 0, 0.013))               # cable leaves the head here, along +x of the forearm
+    clip_o = bpy.data.objects.new("Clip", bpy.data.meshes.new("Clip"))
+    cw, cl_, ch = 0.0075, 0.007, 0.0105                 # saddle clamp screwed on the housing
+    clip_o.data.from_pydata([(-cl_, -cw, -0.0045), (cl_, -cw, -0.0045), (cl_, cw, -0.0045), (-cl_, cw, -0.0045),
+                             (-cl_, -cw, ch - 0.0045), (cl_, -cw, ch - 0.0045), (cl_, cw, ch - 0.0045), (-cl_, cw, ch - 0.0045)],
+                            [], [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)])
+    sc.collection.objects.link(clip_o)
+    clip_o.data.materials.append(mat("clip", (0.03, 0.03, 0.032), 0.0, 0.5))
+    clip_o.parent = clip_e
+    clip_o.rotation_euler = (math.radians(90), math.atan2(-0.3, 1.0), 0)   # saddle on the side face, along the cable
 
     SLEEP = [0, 30, 45, 0, 40, 0]                      # bowed: upper arm forward, forearm and wrist down
     UP = [-25, -12, -14, 0, 26, 0]                     # upright, gripper level
     LOOK = [-40, 4, -22, 0, 18, 14]                    # facing the camera, gripper level, tilted like a head
     G0, SEAT = 24, 38                                   # gripper flight
-    C0, C1, PLUG = 64, 80, 88                           # cable draws, plug clicks
+    C0, C1, PLUG = 64, 80, 88                           # cable draws, plug goes on, then its nut is turned
+    TW0, TW1 = 89, 101
     R0, R1 = 106, 170                                   # rise
     L0, L1 = 186, 216                                   # turn to the camera
     W0, W1 = 272, 326                                   # wave
@@ -1164,64 +1210,92 @@ elif mode == "robot":
             ob.hide_render = h
             ob.keyframe_insert("hide_render", frame=fr)
 
-    # cable: a poly curve through the gland exit and the arm socket, re-shaped every frame, drawn on by bevel factor
+    # cable: gland -> loose loop past the wrist -> saddle clamp on the forearm -> right-angle plug on C3; a poly
+    # curve re-shaped every frame, drawn on from the gland by bevel factor; the free loop keeps a fixed length and
+    # sags under gravity, so it hangs instead of spanning straight (review 22 Nov)
     cd_ = bpy.data.curves.new("Cable", "CURVE")
     cd_.dimensions = "3D"
-    cd_.bevel_depth, cd_.bevel_resolution = 0.0045, 4
-    NP = 24
+    cd_.bevel_depth, cd_.bevel_resolution = 0.0042, 4
+    NL, NC = 40, 9                                      # points of the free loop and per piece clamp -> plug
     sp = cd_.splines.new("POLY")
-    sp.points.add(NP - 1)
+    sp.points.add(NL + 3 * (NC - 1) - 1)
     cable = bpy.data.objects.new("Cable", cd_)
     sc.collection.objects.link(cable)
     cable.data.materials.append(mat("cable", (0.015, 0.015, 0.017), 0.0, 0.45))
-    plug = bpy.data.meshes.new("Plug")
-    bm_n, r_, h_ = 16, 0.009, 0.03
-    pv = [(r_ * math.cos(2 * math.pi * k / bm_n), r_ * math.sin(2 * math.pi * k / bm_n), z) for z in (0, -h_) for k in range(bm_n)]
-    pf = [(k, (k + 1) % bm_n, bm_n + (k + 1) % bm_n, bm_n + k) for k in range(bm_n)]
-    pf += [tuple(range(bm_n)), tuple(range(2 * bm_n - 1, bm_n - 1, -1))]
-    plug.from_pydata(pv, [], pf)
-    plugo = bpy.data.objects.new("Plug", plug)
-    sc.collection.objects.link(plugo)
-    plugo.data.materials.append(mat("plug", (0.05, 0.05, 0.055), 1.0, 0.3))
     gland = objs[next(n for n in objs if n.startswith("Cable_Gland"))]
 
     def bez(p0, p1, p2, p3, u):
         return (1 - u) ** 3 * p0 + 3 * (1 - u) ** 2 * u * p1 + 3 * (1 - u) * u * u * p2 + u ** 3 * p3
 
+    def blen(ps):
+        return sum((ps[i + 1] - ps[i]).length for i in range(len(ps) - 1))
+
+    def loop_pts(p0, t0, p3, t3, sag, n):
+        h = 0.4 * (p3 - p0).length + 0.03
+        g = Vector((0, 0, -sag))
+        return [bez(p0, p0 + t0 * h + g, p3 + t3 * h + g, p3, k / (n - 1)) for k in range(n)]
+
+    def frame_geo(fr):
+        sc.frame_set(fr)
+        out_g = (root.matrix_world.to_3x3() @ Vector((0, -1, 0))).normalized()
+        p0 = gland.matrix_world.translation + out_g * 0.012
+        km = clip_e.matrix_world
+        ax = (km.to_3x3() @ Vector(ROUTE[-1][1])).normalized()
+        k_in, k_out = km.translation - ax * 0.012, km.translation + ax * 0.012
+        return out_g, p0, ax, k_in, k_out
+
+    cn_home = conn.matrix_world.translation.copy()
+
+    def route_world():                                  # route points on the forearm, carried with it
+        m = conn.matrix_world
+        return [(m @ (BASE + Vector(q) * MM - cn_home), (m.to_3x3() @ Vector(t)).normalized()) for q, t in ROUTE]
+
+    # plug: waits above the stud, pushed down along its axis, then the nut is turned home (two turns)
+    for fr in range(1, END + 1):
+        v_ = min(1.0, max(0.0, (fr - (PLUG - 8)) / 8))
+        plug_h.location = (0, 0, 0.085 * (1 - v_ ** 3))
+        plug_h.keyframe_insert("location", frame=fr)
+        w_ = ease(min(1.0, max(0.0, (fr - TW0) / (TW1 - TW0))))
+        nut.rotation_euler = (0, 0, -4 * math.pi * w_)
+        nut.keyframe_insert("rotation_euler", index=2, frame=fr)
+        for o in [plug_h, nut, head, arm_] + list(nut.children):
+            o.hide_render = fr < C0
+            o.keyframe_insert("hide_render", frame=fr)
+    chords = [(frame_geo(fr)[1] - frame_geo(fr)[4]).length for fr in range(SEAT + 2, END + 1, 4)]
+    L_FREE = max(chords) * 1.1 + 0.04                   # slack for the widest pose, so the loop never pulls tight
+    print("cable loop chord", round(min(chords), 3), round(max(chords), 3), "length", round(L_FREE, 3))
     cam_pts = {}
     for fr in range(1, END + 1):
-        sc.frame_set(fr)
-        gm = gland.matrix_world
-        out_g = (root.matrix_world.to_3x3() @ Vector((0, -1, 0))).normalized()
-        p0 = gm.translation + out_g * 0.012
-        am = anchor.matrix_world
-        out_a = (am.to_3x3() @ Vector((0, -1, 0))).normalized()
-        v_ = min(1.0, max(0.0, (fr - (PLUG - 8)) / 8))
-        plug_tip = am.translation + out_a * (0.004 + 0.085 * (1 - v_ ** 3))   # waits in front, then snaps in
-        p3 = plug_tip + out_a * 0.03                    # the cable leaves the back of the plug
-        sag = Vector((0, 0, -0.06))
-        p1 = p0 + out_g * 0.09 + sag
-        p2 = p3 + out_a * 0.09 + sag
-        for k in range(NP):
-            pt = bez(p0, p1, p2, p3, k / (NP - 1))
+        out_g, p0, ax, k_in, k_out = frame_geo(fr)
+        lo_, hi_ = 0.0, 0.6
+        for _ in range(22):                             # sag so the free loop keeps its length
+            mid = 0.5 * (lo_ + hi_)
+            if blen(loop_pts(p0, out_g, k_out, ax, mid, NL)) < L_FREE:
+                lo_ = mid
+            else:
+                hi_ = mid
+        pts = loop_pts(p0, out_g, k_out, ax, lo_, NL)
+        rw = route_world()
+        pm = plug_h.matrix_world
+        chain_ = [(k_in, ax)] + [(q, t) for q, t in reversed(rw[:-1])] + [(pm @ PLUG_EXIT, (pm.to_3x3() @ Vector((1, 0, 0))).normalized())]
+        for (qa, ta), (qb, tb) in zip(chain_[:-1], chain_[1:]):   # hermite pieces back towards the plug
+            h = 0.4 * (qb - qa).length
+            pts += [bez(qa, qa - ta * h, qb + tb * h, qb, k / (NC - 1)) for k in range(1, NC)]
+        for k, pt in enumerate(pts):
             sp.points[k].co = (pt.x, pt.y, pt.z, 1)
             sp.points[k].keyframe_insert("co", frame=fr)
         u = min(1.0, max(0.0, (fr - C0) / (C1 - C0)))
         cd_.bevel_factor_end = ease(u)
         cd_.keyframe_insert("bevel_factor_end", frame=fr)
-        plugo.matrix_world = Matrix.Translation(p3) @ out_a.to_track_quat("Z", "Y").to_matrix().to_4x4()
-        plugo.keyframe_insert("location", frame=fr)
-        plugo.keyframe_insert("rotation_euler", frame=fr)
-        plugo.hide_render = fr < C0
-        plugo.keyframe_insert("hide_render", frame=fr)
         tool = (root.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized()
-        cam_pts[fr] = (mount.matrix_world.translation.copy(), p0.lerp(p3, 0.5), tool, root.matrix_world.translation.copy(),
-                       am.translation.copy(), out_a.copy())
+        cn = conn.matrix_world
+        cam_pts[fr] = (mount.matrix_world.translation.copy(), pts[NL // 2].copy(), tool, root.matrix_world.translation.copy(),
+                       cn.translation.copy(), (cn.to_3x3() @ Vector((0, 0, 1))).normalized())
 
     # lights: the studio rig is light-linked to the Product collection and set up around the gripper: add the robot
     # and the cable to that collection and scale the rig up around the robot
     prod = bpy.data.collections["Product"]
-    for ob in [o for o in sc.objects if o.name.startswith(("RobotLink", "Cable", "Plug", "Socket"))]:
+    for ob in [o for o in sc.objects if o.name.startswith(("RobotLink", "Cable", "Plug", "Clip"))]:
         if ob.name not in prod.objects:
             prod.objects.link(ob)
     rob_c = BASE + Vector((0.45, 0, 0.6))
@@ -1238,13 +1312,13 @@ elif mode == "robot":
 
     fl, cab, tool_l, grip_l = cam_pts[SEAT][0], cam_pts[PLUG][1], cam_pts[L1 + 10][2], cam_pts[L1 + 10][3]
     sock_p, sock_d = cam_pts[PLUG][4], cam_pts[PLUG][5]
-    sock_side = (sock_d * 0.85 + sock_d.cross(Vector((0, 0, 1))).normalized() * 0.45 + Vector((0, 0, 0.25))).normalized()   # outside, in front of the socket
+    sock_side = (sock_d * 0.8 + Vector((0, -0.6, 0.15))).normalized()   # above the connector, from the camera side
     face = (tool_l + tool_l.cross(Vector((0, 0, 1))).normalized() * 0.75 + Vector((0, 0, 0.25))).normalized()
     up_c = rob_c + Vector((0, 0, 0.25))
     SHOTS_R = [  # (first frame, last frame, (target, direction, distance, lens) at start, ... at end)
         (1, CUTS[0] - 1, (fl, nrm(0.35, -1, 0.15), 0.75, 70), (fl, nrm(0.15, -1, 0.2), 0.58, 70)),
-        (CUTS[0], CUTS[1] - 1, (cab, nrm(0.0, -1, 0.35), 0.6, 55), (sock_p, sock_side, 0.3, 60)),   # cable, then into the socket
-        (CUTS[1], CUTS[2] - 1, (up_c, nrm(0.9, -0.55, 0.0), 2.3, 30), (up_c, nrm(0.72, -0.72, 0.05), 2.0, 30)),
+        (CUTS[0], CUTS[1] - 1, (cab, nrm(0.0, -1, 0.35), 0.6, 55), (sock_p, sock_side, 0.26, 60)),   # along the cable, then onto the connector
+        (CUTS[1], CUTS[2] - 1, (up_c, nrm(0.9, -0.55, 0.0), 2.3, 30), (up_c + Vector((0, 0, 0.3)), nrm(0.72, -0.72, 0.05), 2.4, 30)),   # follows the rise up
         (CUTS[2], END, (grip_l, face, 1.5, 70), (grip_l, face, 1.2, 70)),
     ]
     cam = camera("CamRobot", fl, SHOTS_R[0][2][1], 0.75, 70, 3.2)
@@ -1287,6 +1361,9 @@ elif mode == "robot":
         except AttributeError:
             pass
     print("robot frames", END)
+    if os.environ.get("SAVE_BLEND"):
+        bpy.ops.wm.save_as_mainfile(filepath=os.environ["SAVE_BLEND"])
+        sys.exit(0)
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
     sc.render.filepath = os.path.join(HERE, "out", "robot", "f_")
