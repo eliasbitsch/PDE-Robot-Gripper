@@ -55,6 +55,11 @@
       parts/demo_seq.py, critically damped landing + 3 % scale pulse + bounce on big parts, screws turn in).
       Known: in the white lab the aluminium reads almost white/plastic and the gripper is small in frame (camera
       0.86 m) -> needs an HDRI or darker floor for reflections and a closer camera.
+- [ ] Elias: music without the high plucks? Low-pass (MUSIC_LP=700/1200) sounded muffled. Demucs (htdemucs, venv in
+      ~/tools/demucs) split the track; bass + drums only = `out/music/mixkit_720_bassdrums.wav`
+      (`~/tools/demucs/.venv/Scripts/python.exe -m demucs -n htdemucs -o stems mixkit_720.mp3`, then amix bass+drums),
+      preview `out/flight_preview_C_bassdrums.mp4` (`python music_flight.py 720_bassdrums 45.76 C_bassdrums`).
+      earshot: glockenspiel gone (z +0.17), brightness 1.5 kHz vs 1.7 original, -14.9 LUFS.
 - [ ] Waiting for Viktoriia's answer on the wider T-shaped jaw (asked 22 Nov as a proposal; the variant is the current
       model in Viktoriia/03_CAD_Jaws). Until she agrees the board shows only her original V3 jaw
       (img/jaw_v3_viktoriia.png from commit da4f7f5) and no film previews. If yes: put the three previews back on the

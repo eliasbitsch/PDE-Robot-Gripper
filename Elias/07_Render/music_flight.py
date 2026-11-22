@@ -12,12 +12,16 @@ length = TL["end"] / TL["fps"]
 fade0 = (TL["end_fade"][0] - 1) / TL["fps"]
 
 src = os.path.join(OUT, "music", f"mixkit_{mid}.mp3")
-if not os.path.exists(src):
+if "_" in mid:                     # a derived mix, e.g. 720_bassdrums = Demucs bass + drums stems (no plucks)
+    src = os.path.join(OUT, "music", f"mixkit_{mid}.wav")
+elif not os.path.exists(src):
     os.makedirs(os.path.dirname(src), exist_ok=True)
     req = urllib.request.Request(f"https://assets.mixkit.co/music/{mid}/{mid}.mp3", headers={"User-Agent": "Mozilla/5.0"})
     open(src, "wb").write(urllib.request.urlopen(req).read())
 
-af = (f"atrim={start}:{start + length},asetpts=PTS-STARTPTS,afade=t=in:d=0.4,"
+lp = os.environ.get("MUSIC_LP")    # keep only the bass part: low-pass in Hz (the high plucks were too shrill)
+af = (f"atrim={start}:{start + length},asetpts=PTS-STARTPTS," + (f"lowpass=f={lp}:p=2,lowpass=f={lp}:p=2," if lp else "") +
+      "afade=t=in:d=0.4,"
       f"afade=t=out:st={fade0 - 0.5:.2f}:d={length - fade0 + 0.5:.2f},loudnorm=I=-14.5:TP=-3:LRA=11")
 dst = os.path.join(OUT, f"flight_preview{var}_{tag}.mp4")
 subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", os.path.join(OUT, f"flight_preview{var}.mp4"), "-i", src, "-filter:a", af,
