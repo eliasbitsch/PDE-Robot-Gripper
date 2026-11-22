@@ -8,8 +8,16 @@ from manim import (DOWN, LEFT, RIGHT, UP, ORIGIN, Arrow, Create, FadeIn, FadeOut
                    Rectangle, Scene, SurroundingRectangle, Tex, TransformMatchingTex, VGroup, Write, config, Indicate,
                    LaggedStart, ReplacementTransform)
 
-config.background_color = "#FAFAF8"
-INK, MU, SAF, ACC, LOAD = "#1F2328", "#1F6FB2", "#C2410C", "#0F8A7A", "#6B7280"
+import os
+
+# THEME=dark (default, matches the films) or light (report figures)
+if os.environ.get("THEME", "dark") == "light":
+    BG, INK, MU, SAF, ACC, LOAD, PART, PAD = ("#FAFAF8", "#1F2328", "#1F6FB2", "#C2410C", "#0F8A7A", "#6B7280",
+                                              "#FFFFFF", "#1F2328")
+else:
+    BG, INK, MU, SAF, ACC, LOAD, PART, PAD = ("#0E1013", "#E8E6E1", "#5AA9F0", "#F08A4B", "#3CC9B4", "#8E949C",
+                                              "#191C21", "#5A606B")
+config.background_color = BG
 M, G, A, S, MU_V = 0.602, 9.81, 4.96, 2.0, 0.2
 F = S * M * (G + A) / (2 * MU_V)
 
@@ -26,8 +34,8 @@ class GripForce(Scene):
 
         # free body: part B between the two pads; friction holds weight plus inertia
         part = RoundedRectangle(width=1.7, height=2.0, corner_radius=0.12, stroke_color=INK, stroke_width=3,
-                                fill_color="#FFFFFF", fill_opacity=1)
-        pads = VGroup(*[Rectangle(width=0.2, height=1.5, stroke_width=0, fill_color=INK, fill_opacity=1)
+                                fill_color=PART, fill_opacity=1)
+        pads = VGroup(*[Rectangle(width=0.2, height=1.5, stroke_width=0, fill_color=PAD, fill_opacity=1)
                         .next_to(part, s, buff=0.02) for s in (LEFT, RIGHT)])
         body = VGroup(part, pads).shift(4.0 * LEFT + 0.2 * DOWN)
         fn = VGroup(Arrow(pads[0].get_left() + 1.0 * LEFT, pads[0].get_left(), buff=0, color=INK, stroke_width=5),
