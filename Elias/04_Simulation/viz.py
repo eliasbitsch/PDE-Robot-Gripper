@@ -34,6 +34,7 @@ class Recorder:
         self.dt, self.frames, self._next = dt, [], 0.0
 
     def __call__(self, m, d, **info):
+        self.m = m                             # the run's own model (friction, force limit, mass, width as simulated)
         if d.time + 1e-9 < self._next:
             return
         self._next = d.time + self.dt
@@ -125,7 +126,9 @@ def _font(size):
 
 def render_video(rec, path, slowmo=0.1, fps=30, label="", force_scale=0.15):
     """slowmo: playback speed (0.1 = ten times slower). force_scale: arrow metres per 35 N."""
-    m, d = S.load()
+    # replay on the recorded run's model, so arrows and HUD forces match what was simulated
+    m = getattr(rec, "m", None)
+    m, d = (m, mujoco.MjData(m)) if m is not None else S.load()
     geoms = _geoms(m)
     rgba0 = m.geom_rgba.copy()
     part_vis = [g for g in range(m.ngeom) if m.geom_bodyid[g] == m.body("part").id and m.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH]

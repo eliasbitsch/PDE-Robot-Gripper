@@ -5,8 +5,6 @@ python cell_grid.py [nx] [ny]  ->  figures/cell_grid.mp4
 """
 import math
 import os
-import shutil
-import subprocess
 import sys
 
 import mujoco
@@ -41,7 +39,7 @@ def record(t_max):
 
 def look(m):
     """Lights for a field instead of one cell: the five film spots become a directional key and fill."""
-    keys = [((-0.45, 0.55, -0.70), 0.9), ((0.6, -0.3, -0.75), 0.45)]
+    keys = [((-0.45, 0.55, -0.70), 1.1), ((0.6, -0.3, -0.75), 0.6)]
     for i in range(m.nlight):
         m.light_active[i] = 0
     for i, (dr, p) in enumerate(keys):
@@ -50,7 +48,7 @@ def look(m):
         m.light_dir[i] = np.array(dr) / np.linalg.norm(dr)
         m.light_diffuse[i], m.light_specular[i], m.light_ambient[i] = p, 0.15, 0.0
         m.light_castshadow[i] = 0
-    m.vis.headlight.diffuse[:], m.vis.headlight.ambient[:] = 0.30, 0.18
+    m.vis.headlight.diffuse[:], m.vis.headlight.ambient[:] = 0.38, 0.24
 
 
 def camera(u, centre, span):
@@ -87,10 +85,13 @@ def main(nx=10, ny=10):
     dt = rng.uniform(0.0, JITTER, n)
     mid = int(np.argmin([np.linalg.norm(o) for o in offs]))
     dt[mid] = 0.0
-    r = mujoco.Renderer(m, H * SS, W * SS, max_geom=600 * n + 100)
-    tmp = mujoco.MjvScene(m, 2000)
     opt = mujoco.MjvOption()
-    frames = []
+    tmp = mujoco.MjvScene(m, 5000)
+    mujoco.mj_kinematics(m, d)
+    mujoco.mjv_updateScene(m, d, opt, None, mujoco.MjvCamera(), mujoco.mjtCatBit.mjCAT_ALL, tmp)
+    per_cell = tmp.ngeom + 50                                 # one cell's scene plus headroom for moving parts
+    r = mujoco.Renderer(m, H * SS, W * SS, max_geom=per_cell * n + 10)
+    enc = C.Encoder(os.path.join(HERE, "figures", "cell_grid.mp4"), W, H, FPS, crf=20)
     nf = int(DUR * FPS)
     for f in range(nf):
         t = T0 + f / FPS
@@ -104,8 +105,12 @@ def main(nx=10, ny=10):
             mujoco.mj_kinematics(m, d)
             mujoco.mjv_updateScene(m, d, opt, None, cam, mujoco.mjtCatBit.mjCAT_ALL, tmp)
             o = offs[c]
+            if tmp.ngeom >= tmp.maxgeom:
+                raise RuntimeError("cell scene full: raise the source scene size")
             for j in range(tmp.ngeom):
                 g = tmp.geoms[j]
+                if scn.ngeom >= scn.maxgeom - 1:                 # keep one slot for the floor
+                    raise RuntimeError("shared scene full: raise per_cell")
                 if g.pos[2] < -1.0:                          # parked parts and carriers
                     continue
                 dst = scn.geoms[scn.ngeom]
@@ -119,14 +124,10 @@ def main(nx=10, ny=10):
                             np.array([0.0, 0.0, -0.012]), np.eye(3).flatten(), np.array([0.13, 0.13, 0.14, 1.0]))
         scn.ngeom += 1
         im = Image.fromarray(r.render()).resize((W, H), Image.LANCZOS)
-        frames.append(np.asarray(im))
+        enc.add(np.asarray(im))
         if f % 30 == 0:
             print(f"frame {f}/{nf}, {scn.ngeom} geoms", flush=True)
-    out = os.path.join(HERE, "figures", "cell_grid.mp4")
-    cmd = [shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
-           "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", out]
-    subprocess.run(cmd, input=b"".join(np.ascontiguousarray(fr).tobytes() for fr in frames), check=True)
-    print(out, len(frames), "frames")
+    enc.close(expected=nf)
 
 
 if __name__ == "__main__":

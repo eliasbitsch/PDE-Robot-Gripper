@@ -35,6 +35,30 @@ NAMES_DE = ["Greifen", "Anheben", "Transfer (beladen)", "Absenken auf Werkstück
             "Rückfahrt (leer)", "Absenken zum nächsten Teil"]
 
 
+class Encoder:
+    """Streams RGB frames to ffmpeg as they are rendered (holding a whole film in memory got cut short silently)."""
+
+    def __init__(self, path, w, h, fps, crf=22):
+        import shutil
+        import subprocess
+        self.path, self.n = path, 0
+        self.p = subprocess.Popen([shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt",
+                                   "rgb24", "-s", f"{w}x{h}", "-r", str(fps), "-i", "-", "-c:v", "libx264", "-pix_fmt",
+                                   "yuv420p", "-crf", str(crf), path], stdin=subprocess.PIPE)
+
+    def add(self, img):
+        self.p.stdin.write(np.ascontiguousarray(img).tobytes())
+        self.n += 1
+
+    def close(self, expected=None):
+        self.p.stdin.close()
+        if self.p.wait() != 0:
+            raise RuntimeError(f"ffmpeg failed on {self.path}")
+        if expected is not None and self.n != expected:
+            raise RuntimeError(f"{self.path}: {self.n} frames written, {expected} expected")
+        print(self.path, self.n, "frames")
+
+
 def timeline(m, d, side):
     q0, q1 = S.q_pick()[0], S.q_pick(E.LIFT)[0]
     q2, q3 = S.q_place(E.LIFT, side)[0], S.q_place(0.0, side)[0]
@@ -197,7 +221,7 @@ def main(n_cycles=4, clean=False, slow=1.0, hook=None, ts_given=None):
         cam.distance, cam.azimuth = 3.1, 112
     f_big = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 30)
     f = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 24)
-    frames = []
+    enc = None
     flog = []
     q_wait = S.q_pick()[0]
     if clean:   # (real start, real end, video seconds per real second): the whole cell, then follow part 1 at half speed
@@ -305,23 +329,19 @@ def main(n_cycles=4, clean=False, slow=1.0, hook=None, ts_given=None):
                              v=round(vec[0], 3), a=round(vec[1], 3), f=round(vec[2], 1)))
         else:
             hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
-        frames.append(np.asarray(im))
+        if enc is None:
+            enc = Encoder(os.path.join(HERE, "figures", "cell_clean.mp4" if clean else "cell_takt.mp4"), W, H, FPS)
+        enc.add(np.asarray(im))
         if i % 60 == 0:
             print(f"frame {i}/{len(ts)}", flush=True)
     if os.environ.get("CAMDRY") or hook is not None:
         return
-    out = os.path.join(HERE, "figures", "cell_clean.mp4" if clean else "cell_takt.mp4")
     if clean:
         import json
-        json.dump(dict(fps=FPS, film_time=FILM_TIME, follow=FOLLOW, follow_cycle_start=FOLLOW * TAKT, cycle=T_tl[-1],
+        json.dump(dict(fps=FPS, film_time=FILM_TIME, follow=FOLLOW, follow_cycle_start=FOLLOW * TAKT, cycle=T_tl[-1], see_mech=SEE_MECH[0],
                        takt=TAKT, frames=flog),
                   open(os.path.join(S.B.OUT, "cell_clean_frames.json"), "w"))
-    import shutil
-    import subprocess
-    cmd = [shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
-           "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "22", out]
-    subprocess.run(cmd, input=b"".join(np.ascontiguousarray(fr).tobytes() for fr in frames), check=True)
-    print(out, len(frames), "frames")
+    enc.close(expected=len(ts))
 
 
 part_place = {}

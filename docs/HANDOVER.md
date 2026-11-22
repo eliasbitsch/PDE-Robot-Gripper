@@ -14,15 +14,14 @@
 - Render: `Elias/07_Render/RENDER_PLAN.md`, `hero_v1.py` (recovered from the session log) with modes
   `views` (stills), `preview` (480p clips), `flight` (one camera move), `anim` (final Cycles).
 
-- 22 Nov evening: grip proof now closes with the built two-stage profile (`validate_grip.run(offset=0.0)`); the old
-  start 0.3 mm before the part left a friction transient at the lift start (0.74) that README and shot list had
-  read as a via-corner peak 50 % above the hand model. Corrected: via-corner peak 0.46 = quasi-static 0.463 < V2
-  0.50, S_eff 2.16 (e-stop at setpoint 0.55 / 1.80). Monte Carlo study `robustness.py` (10 000 cycles in spec:
-  all held, peak 0.50; 2 000 stress cycles: boundary mu F 4.1 N vs hand 4.45 N), notebook section, Manim scene
-  `explainer/robustness.py`. Flicker: coplanar faces (tunnel hood flush with the buffer wall, doubled corner
-  post, fence panels inside the posts) fixed in `cell_parts.py`; see-through panels composited in `viz.py`.
-  Cell tour camera checked per frame for near-lens occluders; 'side' camera keys keep the arm out of the line of
-  sight. `cell_grid.py`: 100 cells in one shared scene. English labels in the cell, cabinet label above the switches.
+- 22 Nov evening, after the review (Codex): grip proof with the E4 timing (built close 0.40 s, lift 0.22 s at the
+  loaded 4.96 m/s²), CAD mass properties of part B, "held" = both pads in contact and below the friction limit at
+  every step. Governing instant is the lift (design case): setpoint peak 0.52, S_eff 1.93 (servo overshoot to
+  5.9 m/s²; hand 2.0). Monte Carlo 10 000 in spec all held (max 0.557, S 1.80), 16 tolerance corners all held (worst
+  S 1.78), stress boundary mu F 4.38 ... 4.56 N vs 4.45 N by hand, saturated part held (S 1.75). Width: within ISO
+  2768-m fine; > 0.75 mm too thin is lifted before the force is complete (fixed-time lift), control is out of scope.
+  The old 0.74 was a snap-close transient at the lift start. Flicker fixes (coplanar faces), side camera keys,
+  cell_grid.py (100 cells). S = 2 kept (Elias): reasons in 04_Simulation/README.md.
 - Part mass scatter: +0 ... +3 % = PA 6 moisture in standard climate (hall agreed as standard climate, Elias 22 Nov);
   saturated part +9 ... +10 % checked separately: 200/200 held, peak 0.51.
 

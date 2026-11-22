@@ -16,6 +16,8 @@ R = json.load(open(os.path.join(SIM_OUT, "robustness.json")))
 SPEC = [r for r in R["results"] if r["study"] == "spec"]
 STRESS = [r for r in R["results"] if r["study"] == "stress"]
 RG = R["ranges"]["spec"]
+_CORNERS = os.path.join(SIM_OUT, "robustness_corners.json")
+CORNERS = json.load(open(_CORNERS)) if os.path.exists(_CORNERS) else []
 F0 = P.F_GRIP_SET
 
 
@@ -43,6 +45,7 @@ class Robustness(Scene):
 
         # histogram of the peak friction use, built up as the grips come in
         u = np.array([r["util_max"] for r in SPEC])
+        held = np.array([r["held"] for r in SPEC])
         ax = Axes(x_range=[0, 1.1, 0.25], y_range=[0, 1, 1], x_length=5.6, y_length=3.0,
                   axis_config=dict(color=LOAD, stroke_width=2, include_tip=False, font_size=20),
                   x_axis_config=dict(numbers_to_include=[0, 0.25, 0.5, 0.75, 1.0], decimal_number_config=dict(num_decimal_places=2)),
@@ -54,7 +57,7 @@ class Robustness(Scene):
         lim_l = Tex(r"slips", color=SAF, font_size=22).next_to(lim, UP, buff=0.08)
         self.play(Create(ax), FadeIn(xl), Create(lim), FadeIn(lim_l), run_time=0.9)
         edges = np.arange(0.0, 1.1001, 0.02)
-        steps = [500, 2000, 5000, len(u)]
+        steps = [k for k in (500, 2000, 5000) if k < len(u)] + [len(u)]
         hmax = np.histogram(u, edges)[0].max()
 
         def bars(k):
@@ -63,14 +66,19 @@ class Robustness(Scene):
                                       stroke_width=0, fill_color=ACC, fill_opacity=0.9)
                             .move_to(ax.c2p(e + 0.01, 0), aligned_edge=DOWN) for e, hi in zip(edges[:-1], h)])
         hist = bars(steps[0])
-        count = Tex(rf"{steps[0]:,} held", color=INK, font_size=26).next_to(ax, UP, buff=0.2).align_to(ax, LEFT)
+        count = Tex(rf"{held[:steps[0]].sum():,} of {steps[0]:,} held", color=INK, font_size=26).next_to(ax, UP, buff=0.2).align_to(ax, LEFT)
         self.play(FadeIn(hist), FadeIn(count), run_time=0.5)
         for k in steps[1:]:
-            nxt = Tex(rf"{k:,} held", color=INK, font_size=26).move_to(count, aligned_edge=LEFT)
+            nxt = Tex(rf"{held[:k].sum():,} of {k:,} held", color=INK, font_size=26).move_to(count, aligned_edge=LEFT)
             self.play(hist.animate.become(bars(k)), FadeOut(count, run_time=0.2), FadeIn(nxt, run_time=0.3), run_time=0.7)
             count = nxt
-        top = Tex(rf"all {len(u):,} held, highest {u.max():.2f}: safety ${1 / u.max():.1f}$ left in the worst grip",
-                  color=INK, font_size=24).to_edge(DOWN, buff=0.3)
+        verdict = rf"all {len(u):,} held" if held.all() else rf"{held.sum():,} of {len(u):,} held"
+        line = rf"{verdict}, highest sampled friction use {u.max():.3f}"
+        if CORNERS:
+            uc = max(c["util_max"] for c in CORNERS)
+            ok = "all held" if all(c["held"] for c in CORNERS) else "not all held"
+            line += rf"; 16 tolerance corners: {ok}, lowest safety {1 / uc:.2f}"
+        top = Tex(line, color=INK, font_size=22).to_edge(DOWN, buff=0.3)
         self.play(FadeIn(top, shift=0.1 * UP), run_time=0.6)
         self.wait(1.6)
 
@@ -113,7 +121,7 @@ class Robustness(Scene):
         mf_fail = max(r["mu"] * r["force"] for r in STRESS if not r["held"])
         mf_spec = min(r["mu"] * r["force"] for r in SPEC)
         self.play(Create(box), FadeIn(box_l), run_time=0.8)
-        end = Tex(rf"the weakest grip in spec holds {mf_spec / mf_fail:.1f}$\times$ more than the strongest that failed",
-                  color=INK, font_size=24).to_edge(DOWN, buff=0.3)
+        end = Tex(rf"friction capacity $\mu F$ per jaw: weakest sampled grip in spec ${mf_spec:.1f}{N}$, strongest "
+                  rf"sampled failure ${mf_fail:.1f}{N}$", color=INK, font_size=24).to_edge(DOWN, buff=0.3)
         self.play(FadeIn(end, shift=0.1 * UP), run_time=0.6)
         self.wait(2.0)

@@ -90,7 +90,7 @@ def s9():
     vdur = len(fr_t) / vid["fps"]
     v_follow = next(i for i, x in enumerate(fr_t) if x >= c0 - 1.1) / vid["fps"]   # camera reaches the pick
     VAF = [(f["v"], f["a"], f["f"]) for f in vid["frames"]]
-    t_mech = c0 + takt + 4.4                                   # cell_video.SEE_MECH: next grip with the shell hidden
+    t_mech = vid["see_mech"]                                    # cut to the next grip with the shell hidden (cell_video)
     v_mech = next(i for i, x in enumerate(fr_t) if x >= t_mech - 0.2) / vid["fps"]
     v_card = next(i for i, x in enumerate(fr_t) if x >= c0 + T) / vid["fps"]
     segs = [(s["segment"], s["t_start"], s["duration"]) for s in cyc["segments"]]
@@ -124,7 +124,7 @@ def s9():
       <div class="panel"><div class="ph">gripper</div>
         <div class="row"><span class="rn"><i class="sw" style="background:#FFD133"></i>velocity</span><span class="rv" id="s9-vv">&ndash;</span></div>
         <div class="row"><span class="rn"><i class="sw" style="background:#FF8019"></i>acceleration</span><span class="rv" id="s9-va">&ndash;</span></div>
-        <div class="row"><span class="rn"><i class="sw" style="background:#EB1F14"></i>grip force / jaw</span><span class="rv" id="s9-vf">&ndash;</span></div>
+        <div class="row"><span class="rn"><i class="sw" style="background:#EB1F14"></i>grip force setpoint / jaw</span><span class="rv" id="s9-vf">&ndash;</span></div>
         <div class="ph" style="margin-top:18px">closest approach</div>{rows_html}</div>
       <div class="strip"><div class="stop"><span id="s9-sname">waiting at the pick</span><span class="tk">takt {takt:.1f} s</span></div>
         <div class="bar">{seg_html}<div class="res" style="left:{T / takt * 100:.3f}%;width:{(takt - T) / takt * 100:.3f}%"></div>
@@ -239,7 +239,29 @@ def index(scenes):
 """
 
 
+def sync_assets():
+    """Film assets from the current simulation videos, so the film never shows an older render than its overlays."""
+    import shutil
+    import subprocess
+    fig, ast = os.path.join(SIM, "..", "figures"), os.path.join(FILM, "assets")
+    os.makedirs(ast, exist_ok=True)
+    ff = [shutil.which("ffmpeg"), "-y", "-loglevel", "error"]
+    shutil.copyfile(os.path.join(fig, "cell_clean.mp4"), os.path.join(ast, "cell_cycle.mp4"))
+    subprocess.run(ff + ["-sseof", "-0.05", "-i", os.path.join(ast, "cell_cycle.mp4"), "-frames:v", "1",
+                         os.path.join(ast, "cell_cycle_last.png")], check=True)
+    # the front panel of the 2 x 2 closing videos (both jaws), played in S5_LEAD + 0.07 s
+    for src, dst in (("closing_direct_120ms.mp4", "closing_direct.mp4"),
+                     ("closing_tolerant_50ms_off5mm_slow20.mp4", "closing_tolerant.mp4")):
+        f = os.path.join(fig, src)
+        dur = float(subprocess.run([shutil.which("ffprobe"), "-v", "error", "-show_entries", "format=duration", "-of",
+                                    "csv=p=0", f], capture_output=True, text=True).stdout)
+        k = (S5_LEAD + 0.066) / dur
+        subprocess.run(ff + ["-i", f, "-vf", f"crop=640:360:640:40,setpts={k:.5f}*PTS,scale=944:-2", "-an", "-r", "30",
+                             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", os.path.join(ast, dst)], check=True)
+
+
 if __name__ == "__main__":
+    sync_assets()
     os.makedirs(os.path.join(FILM, "compositions"), exist_ok=True)
     out = []
     for fn in (s5, s9):

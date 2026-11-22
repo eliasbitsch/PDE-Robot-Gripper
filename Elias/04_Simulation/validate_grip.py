@@ -103,13 +103,14 @@ def set_force(m, f_jaw):
 
 
 def estop_instant(t_transfer):
-    """Time into the loaded transfer of the worst category 0 stop (e_stop.py, chain 2), else mid-transfer."""
+    """Time into the loaded transfer of the worst category 0 stop (e_stop.py). Chain 2, because run() simulates the
+    path to chain 2; chain 1 needs 34.4 N instead of 34.2 N at the same instant, so it does not govern."""
     path = os.path.join(S.B.OUT, "e_stop.json")
-    if os.path.exists(path):
-        w = json.load(open(path))["scenarios"]["data sheet"]["chain_2"]
-        t0 = next(x["t_start"] for x in E.timeline(*S.load(), +1)[4] if x["segment"] == "transfer (loaded)")
-        return min(max(w["t"] - t0, 0.0), t_transfer)
-    return 0.5 * t_transfer
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"{path} missing: run e_stop.py first (the worst stop instant comes from there)")
+    w = json.load(open(path))["scenarios"]["data sheet"]["chain_2"]
+    t0 = next(x["t_start"] for x in E.timeline(*S.load(), +1)[4] if x["segment"] == "transfer (loaded)")
+    return min(max(w["t"] - t0, 0.0), t_transfer)
 
 
 def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None, creep_ref=None,
@@ -157,22 +158,39 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
         d.qpos[adr:adr + 3] += d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ np.array([offset, 0.0, 0.0])
         mujoco.mj_forward(m, d)
         close_ref = CT.profile("tolerant", CT.T_FAST_BUILT, CT.V_TOUCH_BUILT)
-        t_close = CT.T_REQ + 0.05             # closing budget plus settling before the lift
+        t_close = E.T_CLOSE                   # the E4 cycle lifts right after the close, no extra settling
     set_force(m, force)
+    legacy = offset is None
+    if legacy:                                # old timing: 0.4 s trapezoids for lift and lower
+        up = lambda tt: q0 + trapezoid(tt, T_LIFT, T_LIFT / 3)[0] * (q1 - q0)
+        dn = lambda tt: q2 + trapezoid(tt, T_LIFT, T_LIFT / 3)[0] * (q3 - q2)
+        T_UP = T_DN = T_LIFT
+    else:                                     # as the robot runs it (e4_cycle): fastest at the loaded TCP limit
+        lu, ld = E.line(q0, q1), E.line(q2, q3)
+        law_up, law_dn = S.TimeLaw(lu, GP.A_PATH_REAL, m=m, d=d), S.TimeLaw(ld, GP.A_PATH_REAL, m=m, d=d)
+        up = lambda tt: lu(law_up(tt)[0])
+        dn = lambda tt: ld(law_dn(tt)[0])
+        T_UP, T_DN = law_up.T, law_dn.T
+        S.set_robot(m, d, q0, jaw=GP.D_OPEN * MM)     # the time laws posed the robot: put robot and part back
+        S.place_part_in_gripper(m, d)
+        d.qpos[adr:adr + 3] += d.xmat[m.body("gripper_frame").id].reshape(3, 3) @ np.array([offset, 0.0, 0.0])
+        mujoco.mj_forward(m, d)
 
-    t_lift0 = t_close + T_SETTLE
-    t_tr0 = t_lift0 + T_LIFT
+    t_lift0 = t_close + (T_SETTLE if legacy else 0.0)
+    t_tr0 = t_lift0 + T_UP
     t_low0 = t_tr0 + T_TR
-    t_end = t_low0 + T_LIFT + 0.3
+    t_end = t_low0 + T_DN + 0.3
+    t_ref = t_close + T_SETTLE * 0.9 if legacy else t_lift0 - 0.02    # part position in the jaws after closing
     t_stop = t_tr0 + estop_instant(T_TR) if estop else None
     L_tcp = np.linalg.norm(np.array([GP.X_PLACE if hasattr(GP, "X_PLACE") else S.CP.X_PLACE, S.CP.DY_CHAIN])
                            - np.array([S.CP.X_PICK, 0.0])) * MM          # rough TCP path length per unit s
-    log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util", "util_pad", "part_pos", "xaxis", "n")}
+    log = {k: [] for k in ("t", "slip", "dz", "tcp", "jaw_force", "part_z", "util", "util_pad", "part_pos", "xaxis", "n", "nL", "nR")}
     pads = {m.geom("pad_L").id, m.geom("pad_R").id}
     part_g = m.geom("part").id
     f6 = np.zeros(6)
     ref = None
     s_stop, sd_stop, t_halt, sdd_stop = None, None, None, None
+    pad_raw, lost_contact = 0.0, False
     n = int(t_end / m.opt.timestep)
     for k in range(n):
         t = k * m.opt.timestep
@@ -181,8 +199,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
             if close_ref is not None:
                 d.ctrl[ja] = close_ref(t)
         elif t < t_tr0:
-            s, _ = trapezoid(t - t_lift0, T_LIFT, T_LIFT / 3)
-            q = q0 + s * (q1 - q0)
+            q = up(t - t_lift0)
         elif t < t_low0 or (estop and t_halt is not None):
             if estop and t >= t_stop:
                 if s_stop is None:                             # e-stop: every axis brakes on its own, jaws braked
@@ -205,8 +222,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
                 s, _ = transfer(t - t_tr0)
                 q = path(min(max(s, 0.0), 1.0))
         else:
-            s, _ = trapezoid(t - t_low0, T_LIFT, T_LIFT / 3)
-            q = q2 + s * (q3 - q2)
+            q = dn(t - t_low0)
         if q is not None:
             d.ctrl[:6] = q
             mujoco.mj_step(m, d)
@@ -216,8 +232,22 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
             rel = part_in_gripper(m, d)
             rec(m, d, phase=ph, mu=mu, jaw_mm=d.ten_length[m.tendon("jaws").id] / MM,
                 slip_mm=float(np.linalg.norm(rel - ref) / MM) if ref is not None else 0.0)
-        if t >= t_close + T_SETTLE * 0.9 and ref is None:
+        if t >= t_ref and ref is None:
             ref = part_in_gripper(m, d)
+        if t_lift0 <= t < t_low0 + T_DN:       # every step: both pads in contact, each below its friction limit
+            fn_s, ft_s = {"L": 0.0, "R": 0.0}, {"L": np.zeros(3), "R": np.zeros(3)}
+            for i in range(d.ncon):
+                c = d.contact[i]
+                if {c.geom1, c.geom2} & pads and part_g in (c.geom1, c.geom2):
+                    mujoco.mj_contactForce(m, d, i, f6)
+                    sd = "L" if m.geom("pad_L").id in (c.geom1, c.geom2) else "R"
+                    fn_s[sd] += f6[0]
+                    ft_s[sd] += f6[1] * c.frame[3:6] + f6[2] * c.frame[6:9]
+            for sd in "LR":
+                if fn_s[sd] <= 1e-6:
+                    lost_contact = True
+                else:
+                    pad_raw = max(pad_raw, float(np.linalg.norm(ft_s[sd]) / (mu * fn_s[sd])))
         if k % int(dt_log / m.opt.timestep) == 0:
             rel = part_in_gripper(m, d)
             log["t"].append(t)
@@ -240,22 +270,27 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
             n = fn["L"] + fn["R"]
             log["util"].append(float(np.linalg.norm(ftv["L"] + ftv["R"]) / (mu * n)) if n > 1e-6 else float("nan"))
             log["util_pad"].append(max(float(np.linalg.norm(ftv[k]) / (mu * fn[k])) if fn[k] > 1e-6 else 0.0 for k in "LR"))
-            log["part_pos"].append(d.body("part").xpos.copy())
+            log["part_pos"].append(d.xipos[m.body("part").id].copy())      # centre of mass, for the force balance
             log["xaxis"].append(d.xmat[m.body("gripper_frame").id].reshape(3, 3)[:, 0].copy())
             log["n"].append(n)
+            log["nL"].append(fn["L"])
+            log["nR"].append(fn["R"])
     tcp = np.array(log["tcp"])
     tt = np.array(log["t"])
     acc = np.gradient(np.gradient(tcp, tt, axis=0), tt, axis=0)
     a_mag = np.linalg.norm(acc, axis=1)
     log["a_tcp"] = a_mag.tolist()
     log["util_hand"] = quasi_static(m, log, mu).tolist()
-    log["win"] = [float(t_lift0), float(t_low0 + T_LIFT)]
-    win = (tt > t_lift0) & (tt < t_low0 + T_LIFT)
+    log["win"] = [float(t_lift0), float(t_low0 + T_DN)]
+    log["phases"] = dict(lift=float(t_lift0), transfer=float(t_tr0), lower=float(t_low0), end=float(t_low0 + T_DN))
+    win = (tt > t_lift0) & (tt < t_low0 + T_DN)
     slip = np.array(log["slip"])
     util = np.nan_to_num(np.array(log["util"]))
     k = max(1, int(0.05 / dt_log))                          # 50 ms average: single contact impulses do not count
     u_s = np.convolve(util, np.ones(k) / k, mode="same")
     u_max = float(u_s[win].max())
+    t_peak = float(tt[win][np.argmax(u_s[win])])
+    ph_peak = "lift" if t_peak < t_tr0 else "transfer" if t_peak < t_low0 else "lower"
     u_cruise = float(np.median(util[win]))
     u_pad = float(np.convolve(np.nan_to_num(np.array(log["util_pad"])), np.ones(k) / k, mode="same")[win].max())
     dropped = bool(log["part_z"][-1] < S.CP.H_PLACE - 50)
@@ -264,7 +299,8 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
     res = dict(case=case, force=force, estop=estop, slip_max=float(slip[win].max()), creep_base=base, slip_excess=excess,
                slip_end=float(slip[-1]), util_max=u_max, util_median=u_cruise, util_pad_max=u_pad,
                safety_eff=float(1.0 / u_max) if u_max > 0 else float("inf"),
-               held=bool(not dropped and excess < SLIP_OK),
+               held=bool(not dropped and not lost_contact and pad_raw < 1.0 and excess < SLIP_OK),
+               util_pad_raw=pad_raw, lost_contact=lost_contact, t_peak=t_peak, phase_peak=ph_peak,
                a_tcp_max=float(a_mag[win].max()), dropped=dropped,
                seat_mm=((ref - S.PART_OFFSET) / MM).tolist() if ref is not None else None)   # part in the jaws after closing
     return res, log
@@ -282,7 +318,8 @@ def main():
         print(f"{name:20s} F {f:5.1f} N  friction use median {r['util_median']:4.2f} peak {r['util_max']:4.2f} "
               f"(S_eff {r['safety_eff']:4.2f}) worst pad {r['util_pad_max']:4.2f}  "
               f"slip max {r['slip_max']:7.2f} mm (beyond creep base {r['slip_excess']:+6.2f})  "
-              f"a_tcp max {r['a_tcp_max']:5.2f} m/s2  {'held' if r['held'] else 'SLIPS'}{'  DROPPED' if r['dropped'] else ''}")
+              f"a_tcp max {r['a_tcp_max']:5.2f} m/s2  peak in {r['phase_peak']} at {r['t_peak']:.2f} s, worst pad per step "
+              f"{r['util_pad_raw']:.2f}  {'held' if r['held'] else 'SLIPS'}{'  DROPPED' if r['dropped'] else ''}")
     json.dump(dict(mu=S.B.MU_PAD, a_bahn=GP.A_BAHN, a_stop=L.A_STOP, cases=out),
               open(os.path.join(S.B.OUT, "grip_results.json"), "w"), indent=1)
     import matplotlib

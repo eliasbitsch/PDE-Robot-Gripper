@@ -11,7 +11,7 @@ import numpy as np
 from manim import (DOWN, LEFT, RIGHT, UP, Axes, Create, DashedLine, Dot, FadeIn, FadeOut, ReplacementTransform, Scene,
                    Tex, ValueTracker, VGroup, always_redraw, linear, Write)
 
-from style import ACC, INK, LOAD, MM, MMS, N, SAF, SIM_OUT, P, n, tex
+from style import ACC, INK, LOAD, MM, MMS, MS, N, SAF, SIM_OUT, P, n, tex
 
 LOG = json.load(open(os.path.join(SIM_OUT, "closing_logs.json")))
 T_MAX = 0.45                                           # s shown on the time axis
@@ -47,7 +47,7 @@ class Closing(Scene):
         self.play(FadeIn(cap, shift=0.1 * RIGHT), run_time=0.6)
         rd = LOG["direct"]["result"]
         rt = LOG["tolerant"]["result"]
-        ax1, g1, h1, s1 = self.panel(-3.4, r"direct", rf"full speed until contact, closed in {rd['t_fast'] * 1000:.0f} ms", SAF)
+        ax1, g1, h1, s1 = self.panel(-3.4, r"direct", rf"full speed until contact, ${rd['t_fast'] * 1000:.0f}{MS}$ commanded stroke", SAF)
         ax2, g2, h2, s2 = self.panel(3.4, r"two-stage (built)",
                                       rf"fast to just before contact, then ${n(rt['v_touch'] * 1000)}{MMS}$", ACC)
         set_lab = tex(rf"{F_SET:.1f}{N}", font_size=20, color=LOAD).next_to(s2.get_end(), UP, buff=0.05).align_to(s2, RIGHT)
@@ -107,7 +107,7 @@ class Closing(Scene):
         self.add(c3)
         self.play(tt.animate.set_value(T_MAX * 1000), run_time=4.0, rate_func=linear)
         l3 = tex(rf"{ro['part_push_mm']:.1f}{MM}", font_size=30, color=ACC).next_to(ax3.c2p(T_MAX * 1000, ro['part_push_mm']), UP, buff=0.1).shift(0.5 * LEFT)
-        note = Tex(rf"centred gently at ${n(rt['v_touch'] * 1000)}{MMS}$, peak still {ro['f_peak']:.1f}\,N", color=INK,
+        note = Tex(rf"centred gently at ${n(rt['v_touch'] * 1000)}{MMS}$, peak still ${ro['f_peak']:.1f}{N}$", color=INK,
                    font_size=24).to_edge(DOWN, buff=0.3)
         self.play(Write(l3), FadeIn(note, shift=0.1 * UP), run_time=0.8)
         self.wait(2.0)

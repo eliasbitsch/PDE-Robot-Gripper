@@ -86,7 +86,10 @@ class GripForce(Scene):
         # the dynamic check lives in the Monte Carlo study (04_Simulation/robustness.py); the film only states its result
         rb = [r for r in json.load(open(os.path.join(SIM_OUT, "robustness.json")))["results"] if r["study"] == "spec"]
         u_max = max(r["util_max"] for r in rb)
-        note = Tex(rf"\mbox{{{len(rb):,} simulated grips with scattered inputs: all held, peak friction use "
-                   rf"{u_max:.2f} $<$ 1}}", color=LOAD, font_size=24).to_edge(DOWN, buff=0.45)
+        n_held = sum(r["held"] for r in rb)
+        verdict = "all held" if n_held == len(rb) else f"{n_held:,} of {len(rb):,} held"
+        rel = "$<$" if u_max < 1 else r"$\geq$"
+        note = Tex(rf"\mbox{{{len(rb):,} simulated grips with scattered inputs: {verdict}, peak friction use "
+                   rf"{u_max:.3f} {rel} 1}}", color=LOAD, font_size=24).to_edge(DOWN, buff=0.45)
         self.play(FadeIn(note, shift=0.1 * UP), run_time=0.7)
         self.wait(2.0)

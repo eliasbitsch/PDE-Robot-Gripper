@@ -140,6 +140,12 @@ def build():
       </body>'''
 
     part_c, part_h = np.array([-12.5, 0.0, 0.0]), np.array([47.5, 50.0, 40.0])   # STEP bounding box of part B, mm
+    # mass properties from the part mesh, as in e_stop.part_inertia (the bounding box put the CoG 9.5 mm off)
+    import trimesh
+    _pm = trimesh.load(os.path.join(MESH, "part_b.stl"))
+    part_cog = np.array(_pm.center_mass)                                          # mm, STEP frame = body frame
+    _I = _pm.moment_inertia * 1e-15 * GP.B_MASSE / (_pm.volume * 1e-9)             # kg m^2 about the CoG
+    part_inertia = f"{_I[0, 0]:.6g} {_I[1, 1]:.6g} {_I[2, 2]:.6g} {_I[0, 1]:.6g} {_I[0, 2]:.6g} {_I[1, 2]:.6g}"
     part_z = CP.H_PICK + part_h[2]                     # resting on the belt
     gx = CP.X_PICK
     # part B in the gripper's grip direction: gripper X maps to cell Y at the pick pose (axis 1 = 0, tool down)
@@ -170,7 +176,7 @@ def build():
     </body>
     <body name="part" pos="{gx * MM} 0 {part_z * MM}">                <!-- placed from the gripper pose by sim.py -->
       <freejoint name="part"/>
-      <inertial pos="{v(part_c, MM)}" mass="{GP.B_MASSE}" diaginertia="{GP.B_MASSE * (0.1 ** 2 + 0.08 ** 2) / 12:.6g} {GP.B_MASSE * (0.095 ** 2 + 0.08 ** 2) / 12:.6g} {GP.B_MASSE * (0.095 ** 2 + 0.1 ** 2) / 12:.6g}"/>
+      <inertial pos="{v(part_cog, MM)}" mass="{GP.B_MASSE}" fullinertia="{part_inertia}"/>
       <geom type="mesh" mesh="part_b" rgba="0.93 0.9 0.8 1" contype="0" conaffinity="0" group="1"/>
       <!-- contact shape: the convex hull would span the lug and touch the left pad, so two boxes (GP part comment):
            body x -35..35 with the flat grip faces, lug x -60..-35 up to z -10 -->

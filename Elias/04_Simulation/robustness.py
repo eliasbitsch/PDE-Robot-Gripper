@@ -55,7 +55,8 @@ def one(args):
     base = float(np.interp(s["mu"], MU_GRID, base_grid))
     t0 = time.time()
     r, _ = V.run(s["study"], s["force"], mu=s["mu"], offset=s["offset"], mass_scale=s["mass"], creep_ref=base)
-    keep = ("util_max", "util_median", "util_pad_max", "slip_max", "slip_excess", "held", "dropped", "a_tcp_max", "seat_mm")
+    keep = ("util_max", "util_median", "util_pad_max", "util_pad_raw", "lost_contact", "t_peak", "phase_peak", "slip_max",
+            "slip_excess", "held", "dropped", "a_tcp_max", "seat_mm")
     return dict(s, **{k: r[k] for k in keep}, creep_base=base, sec=time.time() - t0)
 
 
@@ -128,11 +129,15 @@ def saturated(n=200, workers=None):
 
 def _width_case(a):
     dw, off = a
-    r, lg = V.run("width", F0, offset=off, width_delta=dw * MM, creep_ref=2.25)
-    t, n = np.array(lg["t"]), np.array(lg["n"]) / 2              # normal force per jaw
-    f_end = float(n[np.searchsorted(t, lg["win"][0]) - 1])       # at the end of closing, before the lift
-    ok = n > 0.95 * F0
-    return dict(width_mm=dw, offset_mm=off / MM, f_jaw=f_end, t95=float(t[np.argmax(ok)]) if ok.any() else None,
+    r, lg = V.run("width", F0, offset=off, width_delta=dw * MM, creep_ref=None)
+    t, nl, nr = np.array(lg["t"]), np.array(lg["nL"]), np.array(lg["nR"])
+    t_lift = lg["phases"]["lift"]
+    pre = t < t_lift                                              # closing only: the lift starts at 0.40 s (E4)
+    band = (np.abs(nl - F0) < 0.05 * F0) & (np.abs(nr - F0) < 0.05 * F0)
+    # first instant from which both jaws stay within +-5 % of the setpoint until the lift
+    t_grip = next((float(t[i]) for i in np.nonzero(pre)[0] if band[i:np.count_nonzero(pre)].all()), None)
+    i_l = np.count_nonzero(pre) - 1
+    return dict(width_mm=dw, offset_mm=off / MM, f_left=float(nl[i_l]), f_right=float(nr[i_l]), t_grip=t_grip,
                 util_max=r["util_max"], held=r["held"], dropped=r["dropped"])
 
 
@@ -144,13 +149,31 @@ def width(workers=6):
         res = pool.map(_width_case, cases)
     json.dump(res, open(os.path.join(S.B.OUT, "width_tolerance.json"), "w"), indent=1)
     for r in res:
-        t95 = f"{r['t95'] * 1000:5.0f} ms" if r["t95"] is not None else "  never"
-        print(f"width {r['width_mm']:+5.2f} mm  offset {r['offset_mm']:3.0f} mm  grip force {r['f_jaw']:5.1f} N/jaw  "
-              f"95 % at {t95}  peak use {r['util_max']:.2f}  {'held' if r['held'] else 'SLIPS' + (' / DROPS' if r['dropped'] else '')}")
+        tg = f"{r['t_grip'] * 1000:5.0f} ms" if r["t_grip"] is not None else "not before the lift"
+        print(f"width {r['width_mm']:+5.2f} mm  offset {r['offset_mm']:3.0f} mm  jaws {r['f_left']:5.1f} / {r['f_right']:5.1f} N "
+              f"at the lift, both within 5 % from {tg}  peak use {r['util_max']:.3f}  "
+              f"{'held' if r['held'] else 'SLIPS' + (' / DROPS' if r['dropped'] else '')}")
+
+
+def corners(workers=6):
+    """The 16 joint extremes of the spec ranges (Latin hypercube strata do not hit them together), at the start of
+    the transfer and with the full E4 timing -> out/robustness_corners.json"""
+    rg = RANGES["spec"]
+    keys = ("offset", "mu", "force", "mass")
+    base = json.load(open(os.path.join(S.B.OUT, "robustness.json")))["creep_grid"]["base"]
+    todo = [dict(study="corner", **{k: rg[k][(i >> j) & 1] for j, k in enumerate(keys)}) for i in range(16)]
+    with Pool(workers) as pool:
+        res = pool.map(one, [(c, base) for c in todo])
+    json.dump(res, open(os.path.join(S.B.OUT, "robustness_corners.json"), "w"), indent=1)
+    for r in sorted(res, key=lambda r: -r["util_max"]):
+        print(f"offset {r['offset'] * 1000:+.0f} mm  mu {r['mu']:.2f}  F {r['force']:.1f} N  mass x{r['mass']:.2f}:  peak use "
+              f"{r['util_max']:.3f} (S {1 / r['util_max']:.2f})  worst pad {r['util_pad_raw']:.2f}  {'held' if r['held'] else 'SLIPS'}")
 
 
 if __name__ == "__main__":
-    if "--width" in sys.argv:
+    if "--corners" in sys.argv:
+        corners()
+    elif "--width" in sys.argv:
         width()
     elif "--saturated" in sys.argv:
         saturated()
