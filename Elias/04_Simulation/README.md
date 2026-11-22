@@ -113,6 +113,12 @@ cycles with scattered position, friction, force and mass; mass +0 ... +3 % for P
 a lighter part is easier) confirms it: all held, peak 0.50, safety >= 2.0 in the worst grip. A water-saturated part
 (+9 ... +10 %, `robustness.py --saturated`, 200 cycles) still holds: peak 0.51, safety 1.96.
 
+**Part width** (`robustness.py --width`, `out/width_tolerance.json`): part B 2 mm thinner to 1 mm wider than the
+nominal 70 mm, centred and 5 mm off centre. The full 44.5 N builds up in every case (the profile ends 1.5 mm per
+jaw beyond the nominal face) and every part holds (peak 0.46). Only the closing time moves, about 25 ms per mm:
+within ISO 2768-m (+-0.3 mm) 370 ... 385 ms (budget 400 ms); from 1 mm thinner on it reaches 400 ... 425 ms, which
+the 0.5 s reserve between the 4.48 s cycle and the 5.0 s takt still covers.
+
 **Slip.** The primary "held" criterion is friction use < 1 on each pad at every instant. Slip measured beyond the
 100 N reference run (creep base above) is a secondary check: MuJoCo's soft contacts creep 2.3-2.4 mm at any grip
 force, so a slip below 0.5 mm beyond that base can only show the absence of gross slip, not of micro-slip.

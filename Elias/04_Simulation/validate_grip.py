@@ -113,13 +113,16 @@ def estop_instant(t_transfer):
 
 
 def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=None, creep_ref=None,
-        offset=0.0, mass_scale=1.0):
+        offset=0.0, mass_scale=1.0, width_delta=0.0):
     """One cycle. mu: pad friction (default MU_PAD), t_transfer: transfer time (default T_EINWEG, ramps T/3),
     rec: viz.Recorder for the slow-motion video. offset [m]: close from fully open with the built two-stage profile
     (closing_time.py) on a part this far off centre along the grip axis. None: the old start 0.3 mm before the part,
     snapping shut at full force; it leaves a friction transient at the start of the lift (0.74 at the setpoint) that
-    the built gripper does not have. mass_scale: part mass and inertia factor."""
+    the built gripper does not have. mass_scale: part mass and inertia factor. width_delta [m]: part B wider (+) or
+    thinner (-) across the grip faces than the nominal 70 mm (the contact box; the mass stays)."""
     m, d = S.load()
+    if width_delta:
+        m.geom_size[m.geom("part").id, 0] += width_delta / 2   # half size along the grip axis (gripper x)
     if mass_scale != 1.0:
         pb = m.body("part").id
         m.body_mass[pb] *= mass_scale

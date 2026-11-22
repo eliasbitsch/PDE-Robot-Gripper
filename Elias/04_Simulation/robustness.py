@@ -126,8 +126,33 @@ def saturated(n=200, workers=None):
           f"max {u.max():.3f} (safety {1 / u.max():.2f})")
 
 
+def _width_case(a):
+    dw, off = a
+    r, lg = V.run("width", F0, offset=off, width_delta=dw * MM, creep_ref=2.25)
+    t, n = np.array(lg["t"]), np.array(lg["n"]) / 2              # normal force per jaw
+    f_end = float(n[np.searchsorted(t, lg["win"][0]) - 1])       # at the end of closing, before the lift
+    ok = n > 0.95 * F0
+    return dict(width_mm=dw, offset_mm=off / MM, f_jaw=f_end, t95=float(t[np.argmax(ok)]) if ok.any() else None,
+                util_max=r["util_max"], held=r["held"], dropped=r["dropped"])
+
+
+def width(workers=6):
+    """Part B wider or thinner across the grip faces (nominal 70 mm, ISO 2768-m +-0.3 mm), centred and 5 mm off
+    centre: does the two-stage profile still build the grip force in time? -> out/width_tolerance.json"""
+    cases = [(dw, off) for dw in (-2.0, -1.5, -1.25, -1.0, -0.75, -0.5, -0.3, 0.0, 0.3, 0.5, 1.0) for off in (0.0, TOL)]
+    with Pool(workers) as pool:
+        res = pool.map(_width_case, cases)
+    json.dump(res, open(os.path.join(S.B.OUT, "width_tolerance.json"), "w"), indent=1)
+    for r in res:
+        t95 = f"{r['t95'] * 1000:5.0f} ms" if r["t95"] is not None else "  never"
+        print(f"width {r['width_mm']:+5.2f} mm  offset {r['offset_mm']:3.0f} mm  grip force {r['f_jaw']:5.1f} N/jaw  "
+              f"95 % at {t95}  peak use {r['util_max']:.2f}  {'held' if r['held'] else 'SLIPS' + (' / DROPS' if r['dropped'] else '')}")
+
+
 if __name__ == "__main__":
-    if "--saturated" in sys.argv:
+    if "--width" in sys.argv:
+        width()
+    elif "--saturated" in sys.argv:
         saturated()
     else:
         main(*[int(x) for x in sys.argv[1:3]])
