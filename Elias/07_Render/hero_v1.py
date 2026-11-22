@@ -410,8 +410,8 @@ elif mode == "flight":
     for f in range(1, END + 1):
         e = 0.0
         for cf in cuts:
-            if cf - 5 <= f < cf + 5:
-                e = -7 * (1 - ease(abs(f - (cf - 0.5)) / 5))
+            if cf - 12 <= f < cf + 12:                  # 0.8 s dip; 5 frames felt cheap (review 22 Nov)
+                e = -8 * (1 - ease(abs(f - (cf - 0.5)) / 12))
         if f >= END_FADE[0]:
             e = -10 * ease((f - END_FADE[0]) / (END_FADE[1] - END_FADE[0]))
         vs.exposure = e

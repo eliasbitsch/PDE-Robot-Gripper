@@ -16,7 +16,14 @@
 
 ## Open
 
-- [ ] Elias' feedback on `Elias/07_Render/out/flight_preview_sound.mp4` v4 (20 s, EEVEE 480p, with sound).
+- [ ] Elias picks the music: `out/flight_preview_{A_digital_clouds,B_scifi_score,C_new_bass}.mp4` (v4 picture with
+      0.8 s dips). Build: `python music_flight.py <mixkit id> <start s> <tag>` (A 175 @0, B 464 @23.03 so its
+      swell at 35.66 s lands on the big contact, C 720 @45.55).
+- [x] 22 Nov, review of v4 (Elias): cut swoosh too fast / cheap, music still distorted (limiter drive 2.6 -> clipped),
+      the effects only disturb -> no effects, library music instead. Apple ad music is not openly licensed; Mixkit
+      (free in videos, no attribution, not on its own) used instead. earshot ranked 20 Mixkit tracks; Digital Clouds
+      fits the iPhone 17 films best (cos 0.77, feature distance 0.45, only one "fits the set"). Dips now 12 frames
+      per side. `sound_flight.py` (synth bed + effects) is kept but no longer used.
 - [x] 22 Nov, review of v3 (Elias): cuts felt random, the camera should drive towards a part and away; the last
       part (smooth zoom into the moving mechanism) is good; the music sounded slowed down / rumbly. Reference: two
       Apple iPhone 17 films (yt-dlp, scratchpad): one move per shot, dips to dark between angles, cuts ~1.5 s,
