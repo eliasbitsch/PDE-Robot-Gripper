@@ -1147,13 +1147,15 @@ elif mode == "robot":
     UP = [-25, -12, -14, 0, 26, 0]                     # upright, gripper level
     LOOK = [-40, 4, -22, 0, 18, 14]                    # facing the camera, gripper level, tilted like a head
     G0, SEAT = 24, 38                                   # gripper flight
-    C0, C1, PLUG = 64, 80, 88                           # cable draws, plug goes on, then its nut is turned
-    TW0, TW1 = 89, 101
-    R0, R1 = 106, 170                                   # rise
-    L0, L1 = 186, 216                                   # turn to the camera
-    W0, W1 = 272, 326                                   # wave
-    CUTS = (61, 106, 181)                               # shots: flange, cable, rise, look
-    END = 350
+    # cable draws while the camera follows it; the camera settles on the connector before the plug goes on
+    C0, C1, PLUG = 64, 84, 116
+    TW0, TW1 = 118, 132                                 # nut turned home
+    SH = 36                                             # everything after the plug-in moves later by this
+    R0, R1 = 106 + SH, 170 + SH                         # rise
+    L0, L1 = 186 + SH, 216 + SH                         # turn to the camera
+    W0, W1 = 272 + SH, 326 + SH                         # wave
+    CUTS = (61, 106 + SH, 181 + SH)                     # shots: flange, cable + plug-in, rise, look
+    END = 350 + SH
 
     def lerp_q(a, b, u):
         return [x + (y - x) * u for x, y in zip(a, b)]
@@ -1195,7 +1197,7 @@ elif mode == "robot":
         root.keyframe_insert("location", frame=fr)
         # jaws: open; blink twice after the turn
         d = D_OPEN
-        for b0 in (234, 254):
+        for b0 in (234 + SH, 254 + SH):
             if b0 <= fr < b0 + 16:
                 d = D_OPEN - (D_OPEN - D_GRIP) * math.sin(math.pi * (fr - b0) / 16)
         piv[-1].location.x, piv[1].location.x = -d * MM, d * MM
@@ -1238,7 +1240,9 @@ elif mode == "robot":
     def frame_geo(fr):
         sc.frame_set(fr)
         out_g = (root.matrix_world.to_3x3() @ Vector((0, -1, 0))).normalized()
-        p0 = gland.matrix_world.translation + out_g * 0.012
+        gw = [gland.matrix_world @ Vector(v) for v in gland.bound_box]
+        gc = sum(gw, Vector()) / 8
+        p0 = gc + out_g * (max((q - gc).dot(out_g) for q in gw) - 0.004)   # inside the gland's sealing nut
         km = clip_e.matrix_world
         ax = (km.to_3x3() @ Vector(ROUTE[-1][1])).normalized()
         k_in, k_out = km.translation - ax * 0.012, km.translation + ax * 0.012
@@ -1310,16 +1314,18 @@ elif mode == "robot":
     def nrm(*v):
         return Vector(v).normalized()
 
-    fl, cab, tool_l, grip_l = cam_pts[SEAT][0], cam_pts[PLUG][1], cam_pts[L1 + 10][2], cam_pts[L1 + 10][3]
+    fl, cab, tool_l, grip_l = cam_pts[SEAT][0], cam_pts[C1][1], cam_pts[L1 + 10][2], cam_pts[L1 + 10][3]
     sock_p, sock_d = cam_pts[PLUG][4], cam_pts[PLUG][5]
     sock_side = (sock_d * 0.8 + Vector((0, -0.6, 0.15))).normalized()   # above the connector, from the camera side
     face = (tool_l + tool_l.cross(Vector((0, 0, 1))).normalized() * 0.75 + Vector((0, 0, 0.25))).normalized()
     up_c = rob_c + Vector((0, 0, 0.25))
+    grip_c = grip_l + tool_l * 0.06                     # middle of the gripper body, not its top plate
     SHOTS_R = [  # (first frame, last frame, (target, direction, distance, lens) at start, ... at end)
         (1, CUTS[0] - 1, (fl, nrm(0.35, -1, 0.15), 0.75, 70), (fl, nrm(0.15, -1, 0.2), 0.58, 70)),
-        (CUTS[0], CUTS[1] - 1, (cab, nrm(0.0, -1, 0.35), 0.6, 55), (sock_p, sock_side, 0.26, 60)),   # along the cable, then onto the connector
+        (CUTS[0], 103, (cab, nrm(0.0, -1, 0.35), 0.6, 55), (sock_p, sock_side, 0.26, 60)),   # along the cable to the connector
+        (104, CUTS[1] - 1, (sock_p, sock_side, 0.26, 60), (sock_p, (sock_side + Vector((0, -0.25, 0))).normalized(), 0.21, 60)),   # plug goes on
         (CUTS[1], CUTS[2] - 1, (up_c, nrm(0.9, -0.55, 0.0), 2.3, 30), (up_c + Vector((0, 0, 0.3)), nrm(0.72, -0.72, 0.05), 2.4, 30)),   # follows the rise up
-        (CUTS[2], END, (grip_l, face, 1.5, 70), (grip_l, face, 1.2, 70)),
+        (CUTS[2], END, (grip_c, face, 1.85, 70), (grip_c, face, 1.6, 70)),   # whole gripper in frame
     ]
     cam = camera("CamRobot", fl, SHOTS_R[0][2][1], 0.75, 70, 3.2)
     cam.constraints.clear()
@@ -1343,8 +1349,9 @@ elif mode == "robot":
     for fr in range(1, END + 1):
         e = -8 * (1 - ease(min(1.0, fr / 24)))
         for cf in CUTS:
-            if cf - 8 <= fr < cf + 8:
-                e = min(e, -7 * (1 - ease(abs(fr - (cf - 0.5)) / 8)))
+            if cf - 12 <= fr < cf + 10:                 # softer: out over 12 frames, in over 10
+                w_ = 12 if fr < cf else 10
+                e = min(e, -7 * (1 - ease(min(1.0, abs(fr - (cf - 0.5)) / w_))))
         vs.exposure = e
         vs.keyframe_insert("exposure", frame=fr)
     sc.camera = cam
