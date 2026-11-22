@@ -583,13 +583,14 @@ elif mode == "explode":
     bpy.ops.render.render(animation=True)
     print("explode done", sc.render.engine)
 elif mode == "assemble":
-    # shot 4: self-assembly in a white lab (review 22 Nov): groups arrive one after another along their own mounting
-    # axis, on paths that stay clear of the parts already in place; the camera goes to where parts are joining.
-    # Order follows parts/demo_seq.py STEP_TEXT, except the pinion shaft before the drive (the bevel wheel would
-    # otherwise pass through the bevel pinion) and the racks before the slides (rack R floats above slide L).
-    # Parts land critically damped (an overshoot would dive into the body); the spring feel comes from a 3 % scale
-    # pulse on seating, a tilt that rings out, screws turning in and the assembly bouncing when a big part lands.
-    import re
+    # shot 4: self-assembly in a white lab. Reviews 22 Nov: parts arrive group by group along their own mounting axis
+    # (screws from their head side) on paths clear of the parts in place; the gripper turns so the camera looks
+    # isometrically at the joint, the side the parts come from facing it (a bit steeper from below). Consecutive groups
+    # at the same place whose directions fit one view form a shot: inside a shot nothing moves but the parts. Strict
+    # order: parts land, short hold, then the camera turns or zooms, then the next parts start.
+    # Order: parts/demo_seq.py STEP_TEXT, except pinion shaft before the drive (the bevel wheel would pass through the
+    # bevel pinion), racks before slides (rack R floats above slide L), cover before the holders (it would pass
+    # through them), window plate before the cable gland; the drive threads on like a sandwich.
     from mathutils import Matrix, Quaternion
     root.animation_data_clear()
     root.rotation_euler = (0, 0, 0)
@@ -600,22 +601,25 @@ elif mode == "assemble":
             p_.location = (0, 0, 0)
     sc.timeline_markers.clear()
     DOWN, UP, FRONT, RIGHT, LEFT = (0, 0, -1), (0, 0, 1), (0, -1, 0), (1, 0, 0), (-1, 0, 0)
-    GROUPS = [  # (parts by prefix, where they come from: a direction, "in" = from the centre, "out" = from outside; mm)
-        (("Rail",), DOWN, 70), (("Screw_ISO4762-M3x8_Rail",), DOWN, 40),
+    GROUPS = [  # (parts by prefix, where they come from: a direction, "in" = from the centre, "out" = from outside,
+                #  "head" = along the screw axis from its head side; travel in mm)
+        (("Rail",), DOWN, 70), (("Screw_ISO4762-M3x8_Rail",), "head", 40),
         (("Pinion_Shaft", "Bearing_608_lower", "Circlip_DIN471"), DOWN, 70),
         (("Bearing_608_upper", "Circlip_DIN472"), UP, 60), (("Shim_", "Key_"), UP, 50), (("Bevel_Wheel",), UP, 60),
         (("Setscrew",), LEFT, 35),
-        (("Bracket", "Gearbox", "Motor", "Brake", "Encoder", "Bevel_Pinion", "Screw_ISO4762-M4x12_Gearbox"), RIGHT, 140),
-        (("Screw_ISO4762-M3x10_Bracket",), UP, 40),
-        (("Hood",), UP, 90), (("Screw_ISO4762-M4x12_Hood",), DOWN, 45),
+        (("Bracket", "Gearbox", "Bevel_Pinion"), RIGHT, 140),
+        (("Motor",), RIGHT, 110), (("Brake",), RIGHT, 90), (("Encoder",), RIGHT, 70),
+        (("Screw_ISO4762-M4x12_Gearbox",), "head", 40),   # after the sandwich: no turn back and forth
+        (("Screw_ISO4762-M3x10_Bracket",), "head", 40),
+        (("Hood",), UP, 90), (("Screw_ISO4762-M4x12_Hood",), "head", 45),
         (("Carriage_",), DOWN, 60), (("Rack_",), DOWN, 60), (("Slide_",), DOWN, 60),
-        (("Screw_ISO4762-M3x8_Carriage", "Screw_ISO4762-M3x10_Rack", "Dowel_ISO8734-3x14_Rack"), DOWN, 40),
-        (("Holder_",), DOWN, 60), (("Screw_ISO4762-M4x25_Holder",), DOWN, 50),
+        (("Screw_ISO4762-M3x8_Carriage", "Screw_ISO4762-M3x10_Rack"), "head", 40), (("Dowel_ISO8734-3x14_Rack",), DOWN, 40),
+        (("Cover",), DOWN, 70), (("Screw_ISO10642-M3x10_Cover",), "head", 40),
+        (("Holder_",), DOWN, 60), (("Screw_ISO4762-M4x25_Holder",), "head", 50),
         (("Dowel_ISO8734-4x12",), "in", 30), (("Plunger_",), "out", 50),
-        (("Cover",), DOWN, 70), (("Screw_ISO10642-M3x10_Cover",), DOWN, 40),
-        (("Jaw_",), "in", 28), (("PadPlate_", "Pad_"), "in", 18), (("Screw_ISO4762-M3x6_Pad", "Washer_"), "out", 25),
-        (("Window_Plate", "Cable_Gland"), FRONT, 60), (("Screw_ISO10642-M3x8_Window",), FRONT, 40),
-        (("Adapter_ISO9409",), UP, 80), (("Screw_ISO10642-M4x16_Adapter",), UP, 45),
+        (("Jaw_",), "in", 28), (("PadPlate_", "Pad_"), "in", 18), (("Screw_ISO4762-M3x6_Pad", "Washer_"), "head", 25),
+        (("Window_Plate",), FRONT, 60), (("Screw_ISO10642-M3x8_Window",), "head", 40), (("Cable_Gland",), FRONT, 60),
+        (("Adapter_ISO9409",), UP, 80), (("Screw_ISO10642-M4x16_Adapter",), "head", 45),
     ]
     PLATES = ("Hood", "Cover", "Rail", "Bracket", "Slide_", "Carriage_", "Holder_", "Window_Plate", "Adapter",
               "Jaw_", "PadPlate_", "Pad_")
@@ -627,30 +631,116 @@ elif mode == "assemble":
         ob.data.transform(Matrix.Translation(-ctr))
         ob.location = ob.location + ob.matrix_basis.to_3x3() @ ctr   # objects carry the mm -> m scale
         ob.rotation_mode = "QUATERNION"
-    T0, DUR, GAP = 30, 15, 10                          # first arrival, frames to land, hold before the next group
-    f, sched, pois, used = T0, [], [], set()
+
+    def head_dir(ob):
+        """screw axis pointing to the head: the half (along the longest extent) with the larger radius"""
+        vs = [v.co for v in ob.data.vertices]
+        dims = [max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)]
+        ax = dims.index(max(dims))
+        o1, o2 = [i for i in range(3) if i != ax]
+        r = lambda v: math.hypot(v[o1], v[o2])
+        pos = max((r(v) for v in vs if v[ax] > 0), default=0)
+        neg = max((r(v) for v in vs if v[ax] < 0), default=0)
+        d = Vector((0, 0, 0))
+        d[ax] = 1.0 if pos > neg else -1.0
+        return d
+
+    groups, used = [], set()                           # (members, {name: from-direction}, travel m, poi, size)
     for prefixes, how, dist in GROUPS:
         members = sorted(n for n in objs if n.startswith(prefixes) and n not in used)
         if not members:
             continue
         used.update(members)
-        g0 = f
-        for i, n in enumerate(members):
+        dirs = {}
+        for n in members:
             s_ = -1 if objs[n].location.x < -1e-4 else 1
-            d = Vector((-s_, 0, 0)) if how == "in" else Vector((s_, 0, 0)) if how == "out" else Vector(how)
-            sched.append((g0 + i * 2, n, objs[n], d * dist * MM))
-        f = g0 + 2 * (len(members) - 1) + DUR + GAP
+            dirs[n] = (Vector((-s_, 0, 0)) if how == "in" else Vector((s_, 0, 0)) if how == "out"
+                       else head_dir(objs[n]) if how == "head" else Vector(how))
         locs = [objs[n].location for n in members]
         lo_ = Vector([min(v[i] for v in locs) for i in range(3)])
         hi_ = Vector([max(v[i] for v in locs) for i in range(3)])
-        pois.append((g0, (lo_ + hi_) / 2, (hi_ - lo_).length + dist * MM, how))
+        groups.append((members, dirs, dist * MM, (lo_ + hi_) / 2, (hi_ - lo_).length + dist * MM))
     print("assemble unplaced:", sorted(set(objs) - used))
-    END = f + 75
-    rng_ = __import__("random").Random(4)
-    # metal does not bounce: on seating the whole assembly yields a little in the push direction and turns about the
-    # lever to its centre, then settles (review 22 Nov: no scale pulse, no wobble of the seated part)
+
+    def constraints(dirs):
+        """axis -> sign the camera side must have; an axis the members disagree on (L/R pairs) stays free"""
+        out = {}
+        for ax in range(3):
+            signs = {1 if d[ax] > 0.5 else -1 for d in dirs.values() if abs(d[ax]) > 0.5}
+            if len(signs) == 1:
+                out[ax] = signs.pop()
+            elif len(signs) == 2 and ax == 0:          # symmetric pair along the grip axis: look from below-front
+                out.setdefault(1, -1)
+                out.setdefault(2, -1)
+        return out
+
+    # shots: consecutive groups within 7 cm whose view constraints agree
+    shots = []
+    for g in groups:
+        cg = constraints(g[1])
+        if shots:
+            sh = shots[-1]
+            ok = (g[3] - sh["anchor"]).length < 0.06 and all(sh["cons"].get(a, s) == s for a, s in cg.items())
+            if ok:                                     # distance to the shot's first group, so a shot cannot creep
+                sh["groups"].append(g)
+                sh["cons"].update(cg)
+                pts = [objs[n].location for gg in sh["groups"] for n in gg[0]]
+                sh["poi"] = sum(pts, Vector()) / len(pts)
+                continue
+        shots.append({"groups": [g], "cons": dict(cg), "poi": g[3].copy(), "anchor": g[3].copy()})
+
+    CD = Vector((0.35, -1.0, 0.18)).normalized()       # target -> camera, fixed
+    UPW = Vector((0, 0, 1))
+    U_PERP = (UPW - CD * UPW.dot(CD)).normalized()
+
+    def iso_quat(sx, sy, sz):
+        a1 = Vector((sx, sy, sz)).normalized()
+        a2 = (UPW - a1 * UPW.dot(a1)).normalized()
+        A = Matrix((a1, a2, a1.cross(a2))).transposed()
+        B = Matrix((CD, U_PERP, CD.cross(U_PERP))).transposed()
+        return (B @ A.transposed()).to_quaternion()
+
+    def orient(cons, q_prev):
+        cands = []
+        for sx in (1, -1):
+            for sy in (1, -1):
+                for sz in (1, -1):
+                    if any(cons.get(a, s) != s for a, s in ((0, sx), (1, sy), (2, sz))):
+                        continue
+                    cands.append(iso_quat(sx, sy, sz * (1.5 if cons.get(2) == -1 else 1.0)))   # steeper from below
+        return min(cands, key=lambda q: q_prev.rotation_difference(q).angle)
+
+    DUR, HOLD, TRANS, STAG = 12, 10, 18, 2              # land, hold after landing, camera move, stagger in a group
+    q0 = iso_quat(1, -1, 1)
+    states = [(1, q0, c, 0.9)]                          # (frame the camera arrives, orientation, target, distance)
+    sched = []
+    f = 14
+    for sh in shots:
+        pts = [objs[n].location for g in sh["groups"] for n in g[0]]
+        lo_ = Vector([min(v[i] for v in pts) for i in range(3)])
+        hi_ = Vector([max(v[i] for v in pts) for i in range(3)])
+        size = (hi_ - lo_).length + max(g[2] for g in sh["groups"])
+        dist = min(max(size * 1.6 + 0.2, 0.36), 0.8)
+        if abs(dist - states[-1][3]) < 0.2 * states[-1][3]:
+            dist = states[-1][3]                        # no small zoom steps
+        q = orient(sh["cons"], states[-1][1])
+        f += TRANS
+        states.append((f, q, sh["poi"], dist))
+        f += 4
+        for gi, (members, dirs, travel, _, _) in enumerate(sh["groups"]):
+            for i, n in enumerate(members):
+                sched.append((f + i * STAG, n, objs[n], dirs[n] * travel))
+            last = gi == len(sh["groups"]) - 1        # the camera waits for the full landing; groups in a shot overlap
+            f += STAG * (len(members) - 1) + (DUR + HOLD if last else int(DUR * 0.6))
+        print("shot", len(states) - 1, sh["cons"], [g[0][0] for g in sh["groups"]])
+    f += 24
+    states.append((f, q0, c, 0.8))                     # finished gripper: classic iso from above
+    END = f + 60
+    states.append((END, Quaternion((0, 0, 1), math.radians(35)) @ q0, c, 0.76))
+    print("assemble shots", len(shots), "groups", len(groups))
+
     nudge_loc = [Vector() for _ in range(END + 2)]
-    nudge_rot = [Vector() for _ in range(END + 2)]
+    rng_ = __import__("random").Random(4)
     for f0, name, ob, off in sched:
         base = ob.location.copy()
         axis = off.normalized()
@@ -659,7 +749,7 @@ elif mode == "assemble":
         seat = f0 + DUR
         for fr in range(1, END + 1):
             t = (fr - f0) / DUR
-            s = 0.0 if t <= 0 else min(1.0, 1 - (1 + 6 * t) * math.exp(-6 * t))
+            s = 0.0 if t <= 0 else min(1.0, 1 - (1 + 7 * t) * math.exp(-7 * t)) if t < 1 else 1.0
             ob.location = base + off * (1 - s)
             ob.hide_render = t <= 0
             if name.startswith(("Screw", "Setscrew")):
@@ -671,12 +761,10 @@ elif mode == "assemble":
             ob.keyframe_insert("rotation_quaternion", frame=fr)
             ob.keyframe_insert("hide_render", frame=fr)
         # the assembly rocks along the joining axis only: plates snap in with a short firm push, screws hardly at all
-        push = -axis                                    # direction the part moves when it seats
         amp = 1.4 if name.startswith(PLATES) else 0.05 if name.startswith(FASTENERS) else 0.5
-        for u in range(0, 20):
+        for u in range(0, 10):
             if seat + u <= END:
-                prof = math.exp(-u / 3.5) * math.sin(math.pi * u / 5)   # quick push, one damped swing back
-                nudge_loc[seat + u] += push * amp * MM * prof
+                nudge_loc[seat + u] += -axis * amp * MM * math.exp(-u / 2.5) * math.sin(math.pi * u / 4)
     # white lab: bright soft world, white floor; flash in from white
     w = sc.world.node_tree.nodes["Background"]
     w.inputs["Color"].default_value = (0.82, 0.83, 0.85, 1)
@@ -691,109 +779,31 @@ elif mode == "assemble":
     for fr in range(1, 15):
         vs.exposure = 4 * (1 - ease((fr - 1) / 13)) - 0.3
         vs.keyframe_insert("exposure", frame=fr)
-    # camera: wide on the floating housing, then to each joint while its parts arrive (looking across the approach
-    # axis), wide again for the finished gripper. It holds at a joint and moves in the 14 frames before the next one.
-    VIEW = {DOWN: (0.45, -1.0, -0.12), UP: (0.45, -1.0, 0.55), RIGHT: (0.15, -1.0, 0.35), FRONT: (1.0, -0.55, 0.3),
-            LEFT: (0.2, -1.0, 0.3), "in": (0.12, -1.0, 0.12), "out": (0.12, -1.0, 0.12)}
-    keys = [(1, c, (0.9, -1.3, 0.5), 0.9)]
-    for g0, tgt_, size, how in pois:
-        dist = min(max(size * 2.2 + 0.12, 0.24), 0.75)
-        if (tgt_ - keys[-1][1]).length < 0.015 and abs(dist - keys[-1][3]) < 0.08:
-            continue                                   # same joint: hold
-        keys.append((max(g0 - 3, keys[-1][0] + 8), tgt_, VIEW[how], dist))
-    keys.append((pois[-1][0] + DUR + 12, c, (0.85, -1.4, 0.45), 0.78))
-    keys.append((END, c, (0.35, -1.5, 0.35), 0.72))
-    cam = camera("CamAssemble", c, keys[0][2], keys[0][3], 50, 8.0)
+    # camera fixed in front; the gripper turns. Between two states the move takes the TRANS frames before arrival.
+    cam = camera("CamAssemble", c, CD, 0.9, 50, 8.0)
     cam.constraints.clear()
     foc = cam.data.dof.focus_object
-    pos_ = [k[1] + Vector(k[2]).normalized() * k[3] for k in keys]
-    STYLE = os.environ.get("STYLE", "")
     root.rotation_mode = "QUATERNION"
-    qn = lambda fr: Quaternion(nudge_rot[fr].normalized(), nudge_rot[fr].length) if nudge_rot[fr].length > 0 else Quaternion()
-    if STYLE == "turn":
-        # variant B (Mac Pro style): the camera stays in front; the gripper turns so the side the parts come from
-        # faces the camera at about 45 deg (from below: tilts its underside to the camera). Orientation per group by
-        # the shortest rotation, blended by slerp in the 16 frames before the group starts.
-        CD = Vector((0.35, -1.0, 0.18)).normalized()   # target -> camera
-        UPW = Vector((0, 0, 1))
-        RGT = Vector((1.0, 0.35, 0.0)).normalized()    # screen right
-        T_DOWN, T_UP, T_SIDE = (CD + -UPW).normalized(), (CD + UPW).normalized(), (CD + RGT).normalized()
-
-        # isometric rule (review 22 Nov): the camera looks along a space diagonal of the gripper (54.7 deg to every axis),
-        # the octant with the side the parts come from facing the camera; the gripper's z stays vertical on screen.
-        # Of the octants that qualify, the one closest to the previous orientation, so it never spins needlessly.
-        U_PERP = (UPW - CD * UPW.dot(CD)).normalized()
-
-        def iso_quat(sx, sy, sz):
-            a1 = Vector((sx, sy, sz)).normalized()
-            z = Vector((0, 0, 1))
-            a2 = (z - a1 * z.dot(a1)).normalized()
-            A = Matrix((a1, a2, a1.cross(a2))).transposed()
-            B = Matrix((CD, U_PERP, CD.cross(U_PERP))).transposed()
-            return (B @ A.transposed()).to_quaternion()
-
-        def orient(how, q_prev):
-            d = Vector((0.4, -0.4, -1.0)) if how in ("in", "out") else Vector(how)   # jaws/pads: from below-front
-            cands = []
-            for sx in (1, -1):
-                for sy in (1, -1):
-                    for sz in (1, -1):
-                        if (abs(d.x) > 0.5 and sx != (1 if d.x > 0 else -1)) or \
-                           (abs(d.y) > 0.5 and sy != (1 if d.y > 0 else -1)) or \
-                           (abs(d.z) > 0.5 and sz != (1 if d.z > 0 else -1)):
-                            continue
-                        cands.append(iso_quat(sx, sy, sz))
-            return min(cands, key=lambda q: q_prev.rotation_difference(q).angle)
-
-        tk = [(1, iso_quat(1, -1, 1), c, 0.9)]
-        prev_how = None
-        for g0, tgt_, size, how in pois:
-            dist = min(max(size * 2.2 + 0.12, 0.26), 0.75)
-            if how == prev_how and (tgt_ - tk[-1][2]).length < 0.04 and len(tk) > 1:
-                continue                               # same side, same place (e.g. screws to their plate): hold
-            tk.append((max(g0 - 2, tk[-1][0] + 6), orient(how, tk[-1][1]), tgt_, max(dist, tk[-1][3] if how == prev_how else 0)))
-            prev_how = how
-        tk.append((pois[-1][0] + DUR + 14, iso_quat(1, -1, 1), c, 0.8))     # finished gripper: classic iso from above
-        tk.append((END, Quaternion((0, 0, 1), math.radians(35)) @ iso_quat(1, -1, 1), c, 0.74))
-        for fr in range(1, END + 1):
-            k = max(i for i in range(len(tk)) if tk[i][0] <= fr)
-            if k == len(tk) - 1:
-                v, k2 = 0.0, k
-            else:
-                k2 = k + 1
-                span = min(16, tk[k2][0] - tk[k][0])
-                v = ease(min(1.0, max(0.0, (fr - (tk[k2][0] - span)) / span)))
-            qv = tk[k][1].slerp(tk[k2][1], v)
-            poi = tk[k][2].lerp(tk[k2][2], v)
-            dist = tk[k][3] + (tk[k2][3] - tk[k][3]) * v
-            if os.environ.get("NOZOOM"):                # whole gripper always in frame: only the turns, no zoom or pan
-                poi, dist = c, 0.82
-            root.rotation_quaternion = qv @ qn(fr)
-            root.location = qv @ nudge_loc[fr]
-            root.keyframe_insert("rotation_quaternion", frame=fr)
-            root.keyframe_insert("location", frame=fr)
-            t_ = qv @ poi
-            cam.location, foc.location = t_ + CD * dist, t_
-            cam.rotation_euler = (-CD).to_track_quat("-Z", "Y").to_euler()
-            cam.keyframe_insert("location", frame=fr)
-            cam.keyframe_insert("rotation_euler", frame=fr)
-            foc.keyframe_insert("location", frame=fr)
-    else:
-        for fr in range(1, END + 1):
-            root.rotation_quaternion = qn(fr)
-            root.location = nudge_loc[fr]
-            root.keyframe_insert("rotation_quaternion", frame=fr)
-            root.keyframe_insert("location", frame=fr)
-    for fr in range(1, END + 1) if STYLE != "turn" else ():
-        k = max(i for i in range(len(keys)) if keys[i][0] <= fr)
-        if k == len(keys) - 1:
-            p_, t_ = pos_[k], keys[k][1]
+    for fr in range(1, END + 1):
+        j = max(i for i in range(len(states)) if states[i][0] <= fr)
+        if j == len(states) - 1:
+            v, j2 = 0.0, j
         else:
-            span = min(14, keys[k + 1][0] - keys[k][0])
-            v = ease(min(1.0, max(0.0, (fr - (keys[k + 1][0] - span)) / span)))
-            p_, t_ = pos_[k].lerp(pos_[k + 1], v), keys[k][1].lerp(keys[k + 1][1], v)
-        cam.location, foc.location = p_, t_
-        cam.rotation_euler = (t_ - p_).to_track_quat("-Z", "Y").to_euler()
+            j2 = j + 1
+            span = TRANS if j2 < len(states) - 1 else states[j2][0] - states[j][0]
+            v = ease(min(1.0, max(0.0, (fr - (states[j2][0] - span)) / span)))
+        qv = states[j][1].slerp(states[j2][1], v)
+        poi = states[j][2].lerp(states[j2][2], v)
+        dist = states[j][3] + (states[j2][3] - states[j][3]) * v
+        if os.environ.get("NOZOOM"):                    # whole gripper always in frame: only the turns
+            poi, dist = c, 0.82
+        root.rotation_quaternion = qv
+        root.location = qv @ nudge_loc[fr]
+        root.keyframe_insert("rotation_quaternion", frame=fr)
+        root.keyframe_insert("location", frame=fr)
+        t_ = qv @ poi
+        cam.location, foc.location = t_ + CD * dist, t_
+        cam.rotation_euler = (-CD).to_track_quat("-Z", "Y").to_euler()
         cam.keyframe_insert("location", frame=fr)
         cam.keyframe_insert("rotation_euler", frame=fr)
         foc.keyframe_insert("location", frame=fr)
@@ -810,11 +820,10 @@ elif mode == "assemble":
             sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
         except AttributeError:
             pass
-    print("assemble frames", END, "groups", len(pois), "camera keys", len(keys))
+    print("assemble frames", END)
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "assemble" + ("_turn" if STYLE == "turn" else "")
-                                      + ("_nozoom" if os.environ.get("NOZOOM") else ""), "f_")
+    sc.render.filepath = os.path.join(HERE, "out", "assemble" + ("_nozoom" if os.environ.get("NOZOOM") else ""), "f_")
     bpy.ops.render.render(animation=True)
     print("assemble done", sc.render.engine)
 elif mode == "preview":
