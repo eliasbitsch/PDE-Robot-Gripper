@@ -78,7 +78,7 @@ def carrier_pose(s):
     return np.array([CPT.X_WHEEL - u, CPT.Z_WHEEL - RC]), math.pi
 
 
-def build(m0_path):
+def build(m0_path, cut=+1):
     spec = mujoco.MjSpec.from_file(m0_path)
     pb = spec.body("part")
     part_geoms = [(g.type, g.meshname, list(g.pos), list(g.quat), list(g.rgba), list(g.size)) for g in pb.geoms]
@@ -101,10 +101,10 @@ def build(m0_path):
     m = spec.compile()
     for n in ("carrier", "carrier_1"):
         m.geom_rgba[m.geom(n).id, 3] = 0.0
-    # fence bays on the camera side (+y) see-through, as a cut-away
+    # fence bays on the camera side (cut = sign of y) see-through, as a cut-away
     from simready import layout as SR
     for k, (asset, _, o, _) in enumerate(SR.placements()):
-        if asset.startswith("wire_machineGuard") and o[1] > 0:
+        if asset.startswith("wire_machineGuard") and o[1] * cut > 0:
             for g in range(m.ngeom):
                 if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH and m.mesh(m.geom_dataid[g]).name.startswith(f"sr{k}_"):
                     m.geom_rgba[g, 3] = min(m.geom_rgba[g, 3], 0.18)
@@ -117,8 +117,15 @@ def main(n_cycles=4, clean=False, slow=1.0):
     global W, H
     if clean:
         W, H = 1920, 1080
-    m, d = build(os.path.join(S.B.OUT, "cell.xml"))
-    m.vis.global_.offwidth, m.vis.global_.offheight = max(W, m.vis.global_.offwidth), max(H, m.vis.global_.offheight)
+    m, d = build(os.path.join(S.B.OUT, "cell.xml"), cut=-1 if clean else +1)
+    # the model spans ~17 m (plant, belt), so MuJoCo's default near/far (0.17 m ... 870 m) and the 35 m shadow box
+    # leave too little depth and shadow resolution: coplanar faces z-fight and the shadows shimmer. Fit both to the cell.
+    ext = m.stat.extent
+    m.vis.map.znear, m.vis.map.zfar = 0.3 / ext, 20.0 / ext
+    m.vis.map.shadowclip = 3.5 / ext
+    m.vis.quality.shadowsize, m.vis.quality.offsamples = 8192, 8
+    SS = 2 if clean else 1                                     # supersampling against shimmer on the wire mesh
+    m.vis.global_.offwidth, m.vis.global_.offheight = max(W * SS, m.vis.global_.offwidth), max(H * SS, m.vis.global_.offheight)
     sides = {+1: None, -1: None}
     for side in sides:
         tl, T = timeline(m, d, side)
@@ -148,20 +155,26 @@ def main(n_cycles=4, clean=False, slow=1.0):
         tl0 = sides[+1][0]
         return sum(ramp((t - (k * TAKT + tl0[1][0] + tl0[1][1])) / T_ADVANCE) for k in range(n_cycles + 2))
 
-    r = mujoco.Renderer(m, H, W)
+    r = mujoco.Renderer(m, H * SS, W * SS)
     cam = mujoco.MjvCamera()
     cam.lookat[:] = (0.0, 0.0, 1.05)
     cam.distance, cam.azimuth, cam.elevation = 4.3, 292, -30
     if clean:                                                  # closer on the robot, room left for the overlays
-        cam.lookat[:] = (0.05, 0.0, 1.15)
-        cam.distance = 3.1
+        cam.lookat[:] = (0.05, 0.0, 1.15)             # operator side (-y): switch cabinet and the FHTW logos
+        cam.distance, cam.azimuth = 3.1, 112
     f_big = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 30)
     f = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 24)
-    frames, n_frames = [], int((n_cycles * TAKT + 0.5) * FPS * slow)
+    frames = []
     flog = []
     q_wait = S.q_pick()[0]
-    for i in range(n_frames):
-        t = i / FPS / slow
+    if clean:   # (real start, real end, video seconds per real second): the whole cell, then follow part 1 at half speed
+        ts = []
+        for a, b, sl in FILM_TIME:
+            ts += list(np.arange(a, b, 1.0 / (FPS * sl)))
+    else:
+        ts = [i / FPS / slow for i in range(int((n_cycles * TAKT + 0.5) * FPS * slow))]
+    look = None
+    for i, t in enumerate(ts):
         k = int(t // TAKT)
         tc = t - k * TAKT
         side = side_of(k)
@@ -217,18 +230,29 @@ def main(n_cycles=4, clean=False, slow=1.0):
                 else:
                     d.mocap_pos[mb] = (0, 0, -5)
         mujoco.mj_forward(m, d)
+        if clean:
+            look = film_camera(cam, t, d.mocap_pos[m.body(f"vp{FOLLOW}").mocapid[0]].copy(), look, ts[i] - ts[i - 1] if i else 0.0)
+            if os.environ.get("CAMDRY"):                   # print the followed part's path, no rendering
+                if i % 15 == 0:
+                    print(f"t {t:5.2f} part {np.round(d.mocap_pos[m.body(f'vp{FOLLOW}').mocapid[0]], 3)}")
+                continue
         r.update_scene(d, cam)
         im = Image.fromarray(r.render())
+        if SS > 1:
+            im = im.resize((W, H), Image.LANCZOS)
         done = sum(1 for n in range(n_cycles) if t >= t_release(n))
         if clean:
-            flog.append(dict(t=round(t, 4), seg=seg, name=NAMES_EN[seg] if seg >= 0 else "waiting for the takt"))
+            flog.append(dict(t=round(float(t), 4), seg=seg, name=NAMES_EN[seg] if seg >= 0 else "waiting for the takt"))
         else:
             hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f)
         frames.append(np.asarray(im))
+    if os.environ.get("CAMDRY"):
+        return
     out = os.path.join(HERE, "figures", "cell_clean.mp4" if clean else "cell_takt.mp4")
     if clean:
         import json
-        json.dump(dict(fps=FPS, slow=slow, cycle=T_tl[+1], takt=TAKT, frames=flog),
+        json.dump(dict(fps=FPS, film_time=FILM_TIME, follow=FOLLOW, follow_cycle_start=FOLLOW * TAKT, cycle=T_tl[-1],
+                       takt=TAKT, frames=flog),
                   open(os.path.join(S.B.OUT, "cell_clean_frames.json"), "w"))
     import shutil
     import subprocess
@@ -239,6 +263,45 @@ def main(n_cycles=4, clean=False, slow=1.0):
 
 
 part_place = {}
+
+# explainer film: real time ranges and their slow-down; part 1 (second cycle, chain 1 on the camera side) is followed
+FILM_TIME = [(0.0, 4.2, 1.0), (4.2, 10.4, 2.0)]
+FOLLOW = 1
+
+
+def _ease(u):
+    u = min(max(u, 0.0), 1.0)
+    return u * u * (3 - 2 * u)
+
+
+def film_camera(cam, t, part, look, dt):
+    """Wide establishing move over the whole cell, then a smoothed chase of the followed part from above, always from
+    the operator side and away from the machine so nothing comes between the camera and the part."""
+    wide = (np.array([0.2, 0.0, 0.9]), 7.5, 150.0, -40.0)
+    # from inside the cell: at the pick the camera looks out towards the buffer belt (+x), at the place towards the
+    # machine (-x); in between it swings round over the operator side
+    end = (1.5, 30.0, -38.0)                        # distance, azimuth, elevation where the chase begins
+    hidden = part[2] < -1.0
+    if look is None:
+        look = wide[0].copy()
+    tgt = part + np.array([0, 0, 0.05])
+    if t < 4.2:                                     # the cell from high and wide, then down onto the part on the belt
+        u = _ease(t / 4.2)
+        look = wide[0] + (tgt - wide[0]) * u
+        w = u ** 1.6                                # distance drops late, so the cell stays readable longer
+        cam.distance = wide[1] + (end[0] - wide[1]) * w
+        cam.azimuth = wide[2] + (end[1] - wide[2]) * u
+        cam.elevation = wide[3] + (end[2] - wide[3]) * u
+    else:                                           # chase: critically damped follow, slow swing to look down on the place
+        if not hidden:
+            a = 1.0 - math.exp(-dt * 4.0)
+            look = look + (tgt - look) * a
+        v = _ease((t - 4.2) / 6.2)
+        cam.distance = end[0] + 0.4 * math.sin(math.pi * v)
+        cam.azimuth = end[1] + 135.0 * v
+        cam.elevation = end[2] - 8.0 * v
+    cam.lookat[:] = look
+    return look
 
 
 def hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f):
@@ -261,7 +324,7 @@ def hud(im, t, k, tc, T, seg_name, jaw, done, f_big, f):
 
 
 if __name__ == "__main__":
-    if "--clean" in sys.argv:                      # explainer film: one cycle, half speed, no HUD
-        main(1, clean=True, slow=2.0)
+    if "--clean" in sys.argv:                      # explainer film: the cell, then part 1 followed, no HUD
+        main(2, clean=True)
     else:
         main(int(sys.argv[1]) if len(sys.argv) > 1 else 4)

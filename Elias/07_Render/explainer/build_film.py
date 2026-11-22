@@ -77,17 +77,26 @@ def s5():
 
 
 def s9():
-    cyc = json.load(open(os.path.join(SIM, "e4_cycle.json")))["chain_2"]
+    """The whole cell from high and wide (also the task of scene 1), then the camera follows one part from the
+    buffer belt through grip, transfer and place onto chain 1 until its carrier goes into the machine."""
+    import sys
+    sys.path.insert(0, os.path.join(HERE, "..", "..", "02_CAD_Body"))
+    import gripper_params as GP
+    ec = json.load(open(os.path.join(SIM, "e4_cycle.json")))
+    cyc = ec["chain_1"]
     vid = json.load(open(os.path.join(SIM, "cell_clean_frames.json")))
-    slow, T, takt = vid["slow"], cyc["cycle_time"], cyc["budget"]
+    fr_t = [f["t"] for f in vid["frames"]]
+    c0, T, takt = vid["follow_cycle_start"], cyc["cycle_time"], cyc["budget"]
+    vdur = len(fr_t) / vid["fps"]
+    v_follow = next(i for i, x in enumerate(fr_t) if x >= vid["film_time"][1][0]) / vid["fps"]   # chase begins
+    v_card = next(i for i, x in enumerate(fr_t) if x >= c0 + T) / vid["fps"]
     segs = [(s["segment"], s["t_start"], s["duration"]) for s in cyc["segments"]]
-    rows = list(csv.DictReader(open(os.path.join(SIM, "e4_collision_log.csv")), delimiter=";"))
-    show = [("belt", "belt [mm]", "buffer belt"), ("carrier", "carrier [mm]", "workpiece carrier"),
-            ("chain_2", "chain_2 [mm]", "chain"), ("fence_left", "fence_left [mm]", "fence")]
+    rows = list(csv.DictReader(open(os.path.join(SIM, "e4_collision_log_chain1.csv")), delimiter=";"))
+    show = [("belt", "belt [mm]", "buffer belt"), ("carrier_1", "carrier_1 [mm]", "workpiece carrier"),
+            ("chain_1", "chain_1 [mm]", "chain"), ("fence_right", "fence_right [mm]", "fence")]
     t = [float(r["t [s]"]) for r in rows]
     dist = {k: [float(r[c]) for r in rows] for k, c, _ in show}
-    exact = json.load(open(os.path.join(SIM, "clearance.json")))["cycle with vias"]   # mesh distances, not rounded
-    mins = {k: (exact[k]["min_mm"], t[v.index(min(v))]) for k, v in dist.items()}
+    mins = {k: (min(v), t[v.index(min(v))]) for k, v in dist.items()}
     seg_html = "".join(
         f'<div class="seg" id="s9-seg{i}" style="left:{s0 / takt * 100:.3f}%;width:{d / takt * 100:.3f}%"></div>'
         for i, (_, s0, d) in enumerate(segs))
@@ -95,36 +104,39 @@ def s9():
         f'<div class="row" id="s9-row-{k}"><span class="rn">{lab}</span><span class="rv" id="s9-v-{k}">&ndash;</span></div>'
         for k, _, lab in show)
     body = f"""
-    <video id="s9-vid" class="clip" src="assets/cell_cycle.mp4" muted playsinline data-start="0" data-duration="{S9_VIDEO}"
+    <video id="s9-vid" class="clip" src="assets/cell_cycle.mp4" muted playsinline data-start="0" data-duration="{vdur:.2f}"
            style="position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover"></video>
-    <img id="s9-still" class="clip" src="assets/cell_cycle_last.png" data-start="{S9_VIDEO - 0.05}" data-duration="{S9_HOLD + 0.05}"
+    <img id="s9-still" class="clip" src="assets/cell_cycle_last.png" data-start="{vdur - 0.05:.2f}" data-duration="{S9_HOLD + 0.05}"
          style="position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover" />
-    <div id="s9-ui" class="clip" data-start="0" data-duration="{S9_VIDEO + S9_HOLD}">
+    <div id="s9-ui" class="clip" data-start="0" data-duration="{vdur + S9_HOLD:.2f}">
       <div class="shade"></div>
       <div class="plate"></div>
-      <div class="cap">Full cycle with collision check</div>
-      <div class="sub">MuJoCo, real robot path, half speed</div>
-      <div class="clock" id="s9-clock">t = 0.00 s</div>
+      <div id="s9-a"><div class="cap">The cell</div>
+        <div class="sub">part B, {GP.B_MASSE:.3f} kg: buffer belt &rarr; robot &rarr; two carrier chains, takt {GP.TAKTZEIT:.1f} s</div></div>
+      <div id="s9-b"><div class="cap">Following one part</div>
+        <div class="sub">MuJoCo, real robot path, half speed</div></div>
+      <div class="clock" id="s9-clock"></div>
       <div class="panel"><div class="ph">closest approach</div>{rows_html}</div>
-      <div class="strip"><div class="sname" id="s9-sname">{segs[0][0]}</div>
+      <div class="strip"><div class="stop"><span id="s9-sname">waiting at the pick</span><span class="tk">takt {takt:.1f} s</span></div>
         <div class="bar">{seg_html}<div class="res" style="left:{T / takt * 100:.3f}%;width:{(takt - T) / takt * 100:.3f}%"></div>
           <div class="head" id="s9-head"></div></div>
-        <div class="ticks"><span>0 s</span><span style="left:{T / takt * 100:.3f}%">{T:.2f} s</span><span style="left:100%">{takt:.1f} s takt</span></div>
+        <div class="ticks"><span>0 s</span><span class="tc" style="left:{T / takt * 100:.3f}%">cycle {T:.2f} s</span></div>
       </div>
       <div class="card" id="s9-card"><div class="big"><b>{T:.2f} s</b> of {takt:.1f} s takt</div>
-        <div class="small">{takt - T:.2f} s reserve &middot; {'no contact' if not json.load(open(os.path.join(SIM, 'e4_cycle.json')))['any_contact'] else 'CONTACT'} with the cell</div></div>
+        <div class="small">{takt - T:.2f} s reserve &middot; {'no contact' if not ec['any_contact'] else 'CONTACT'}</div></div>
     </div>"""
     style = f"""
     .shade {{ position: absolute; inset: 0; background: linear-gradient(90deg, rgba(14,16,19,.82) 0, rgba(14,16,19,0) 34%, rgba(14,16,19,0) 70%, rgba(14,16,19,.82) 100%); }}
     #s9-ui .cap, #s9-ui .sub {{ text-shadow: 0 1px 8px rgba(0,0,0,.5); }}
-    .plate {{ position: absolute; left: 56px; top: 40px; width: 700px; height: 136px; background: rgba(14,16,19,.86); border-radius: 10px; }}
+    .plate {{ position: absolute; left: 56px; top: 40px; width: 1060px; height: 136px; background: rgba(14,16,19,.86); border-radius: 10px; }}
     .clock {{ position: absolute; right: 86px; top: 64px; font-size: 34px; font-variant-numeric: tabular-nums; }}
     .panel {{ position: absolute; right: 86px; top: 290px; width: 500px; padding: 22px 26px; background: rgba(14,16,19,.86); border-radius: 10px; }}
     .panel .ph {{ font-size: 22px; color: {LOAD}; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }}
     .row {{ white-space: nowrap; display: flex; justify-content: space-between; font-size: 28px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.08); }}
     .rv {{ font-variant-numeric: tabular-nums; color: {ACC}; }}
-    .strip {{ position: absolute; left: 86px; right: 86px; bottom: 70px; padding: 18px 24px 30px; background: rgba(14,16,19,.86); border-radius: 10px; }}
-    .sname {{ font-size: 26px; margin-bottom: 12px; }}
+    .strip {{ position: absolute; left: 86px; width: 1180px; bottom: 70px; padding: 18px 24px 30px; background: rgba(14,16,19,.86); border-radius: 10px; }}
+    .stop {{ display: flex; justify-content: space-between; font-size: 26px; margin-bottom: 12px; }}
+    .stop .tk {{ color: {LOAD}; font-size: 24px; }}
     .bar {{ position: relative; height: 14px; background: rgba(255,255,255,.06); border-radius: 7px; }}
     .seg {{ position: absolute; top: 0; height: 14px; background: rgba(60,201,180,.28); border-right: 2px solid {BG}; }}
     .res {{ position: absolute; top: 0; height: 14px; background: repeating-linear-gradient(45deg, rgba(142,148,156,.25) 0 6px, transparent 6px 12px); }}
@@ -132,43 +144,47 @@ def s9():
     .ticks {{ position: relative; height: 28px; margin-top: 8px; font-size: 24px; color: {LOAD}; }}
     .ticks span {{ position: absolute; transform: translateX(-50%); white-space: nowrap; }}
     .ticks span:first-child {{ transform: none; }}
-    .ticks span:last-child {{ transform: translateX(-100%); }}
-    .card {{ position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 36px 56px; background: rgba(14,16,19,.92);
+    .ticks span.tc {{ transform: translateX(-100%); }}
+    .card {{ position: absolute; right: 86px; top: 610px; width: 500px; padding: 26px 26px; background: rgba(14,16,19,.92);
              border: 2px solid {ACC}; border-radius: 12px; text-align: center; opacity: 0; }}
-    .card .big {{ font-size: 64px; }}
+    .card .big {{ font-size: 46px; white-space: nowrap; }}
     .card .big b {{ color: {ACC}; font-weight: 700; }}
     .card .small {{ font-size: 26px; color: {LOAD}; margin-top: 10px; }}
 """
-    data = dict(t=t, d={k: dist[k] for k in dist}, segs=segs, slow=slow, T=T, takt=takt,
+    data = dict(t=t, d={k: dist[k] for k in dist}, segs=segs, T=T, takt=takt, c0=c0, F=fr_t, fps=vid["fps"],
                 mins={k: v for k, v in mins.items()})
     script = f"""
     const D = {json.dumps(data, separators=(",", ":"))};
     const keys = Object.keys(D.d);
-    function at(tc) {{
+    function at(fi) {{
+      const tr = D.F[Math.max(0, Math.min(D.F.length - 1, Math.round(fi)))];
+      const tc = tr - D.c0;                       // time in the followed cycle
       const i = Math.max(0, Math.min(D.t.length - 1, Math.round(tc / 0.01)));
-      document.getElementById("s9-clock").textContent = "t = " + tc.toFixed(2) + " s";
-      document.getElementById("s9-head").style.left = (100 * tc / D.takt) + "%";
+      document.getElementById("s9-clock").textContent = tc < 0 ? "" : "t = " + tc.toFixed(2) + " s";
+      document.getElementById("s9-head").style.left = (100 * Math.min(D.takt, Math.max(0, tc)) / D.takt) + "%";
       let si = 0;
       D.segs.forEach((s, k) => {{ if (tc >= s[1]) si = k; }});
       if (tc > D.T) si = -1;
-      document.getElementById("s9-sname").textContent = si < 0 ? "waiting for the takt" : D.segs[si][0];
-      D.segs.forEach((s, k) => {{ document.getElementById("s9-seg" + k).style.background = k === si ? "{ACC}" : (k < si || si < 0 ? "rgba(60,201,180,.55)" : "rgba(60,201,180,.22)"); }});
-      keys.forEach((k) => {{                      // running minimum: ends on the closest approach of the cycle
+      document.getElementById("s9-sname").textContent = tc < 0 ? "waiting at the pick" : (si < 0 ? "on the carrier, into the machine" : D.segs[si][0]);
+      D.segs.forEach((s, k) => {{ document.getElementById("s9-seg" + k).style.background = tc < 0 ? "rgba(60,201,180,.22)" : (k === si ? "{ACC}" : (k < si || si < 0 ? "rgba(60,201,180,.55)" : "rgba(60,201,180,.22)")); }});
+      keys.forEach((k) => {{                      // running minimum over the cycle: ends on the closest approach
+        const el = document.getElementById("s9-v-" + k);
+        if (tc < 0) {{ el.innerHTML = "&ndash;"; return; }}
         let m = 1e9;
         for (let j = 0; j <= i; j++) m = Math.min(m, D.d[k][j]);
-        const el = document.getElementById("s9-v-" + k);
-        if (tc >= D.mins[k][1]) m = D.mins[k][0];  // from the closest instant on: the exact value of the check
         el.textContent = m >= 500 ? "> 500 mm" : Math.round(m) + " mm";
         const near = Math.abs(tc - D.mins[k][1]) < 0.12;
         document.getElementById("s9-row-" + k).style.color = near ? "{SAF}" : "{INK}";
       }});
     }}
-    const clk = {{ tc: 0 }};
-    tl.fromTo(clk, {{ tc: 0 }}, {{ tc: D.takt, duration: D.takt * D.slow, ease: "none", onUpdate: () => at(clk.tc) }}, 0);
-    tl.fromTo("#s9-ui .cap, #s9-ui .sub, .clock", {{ opacity: 0, y: 8 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.08 }}, 0.1);
-    tl.fromTo(".panel, .strip", {{ opacity: 0, y: 12 }}, {{ opacity: 1, y: 0, duration: 0.6, ease: "power2.out", stagger: 0.1 }}, 0.3);
-    tl.fromTo("#s9-card", {{ opacity: 0, scale: 0.96 }}, {{ opacity: 1, scale: 1, duration: 0.6, ease: "power2.out" }}, {T * slow + 0.3:.2f});"""
-    return scene("s9", body, script, style), S9_VIDEO + S9_HOLD
+    const clk = {{ f: 0 }};
+    tl.fromTo(clk, {{ f: 0 }}, {{ f: D.F.length - 1, duration: D.F.length / D.fps, ease: "none", onUpdate: () => at(clk.f) }}, 0);
+    tl.fromTo("#s9-a", {{ opacity: 0, y: 8 }}, {{ opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }}, 0.2);
+    tl.fromTo("#s9-a", {{ opacity: 1 }}, {{ opacity: 0, duration: 0.4, ease: "power1.in" }}, {v_follow - 0.4:.2f});
+    tl.fromTo("#s9-b, .clock", {{ opacity: 0, y: 8 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }}, {v_follow:.2f});
+    tl.fromTo(".panel, .strip", {{ opacity: 0, y: 12 }}, {{ opacity: 1, y: 0, duration: 0.6, ease: "power2.out", stagger: 0.1 }}, {v_follow + 0.2:.2f});
+    tl.fromTo("#s9-card", {{ opacity: 0, scale: 0.96 }}, {{ opacity: 1, scale: 1, duration: 0.6, ease: "power2.out" }}, {v_card + 0.3:.2f});"""
+    return scene("s9", body, script, style), vdur + S9_HOLD
 
 
 def index(scenes):
