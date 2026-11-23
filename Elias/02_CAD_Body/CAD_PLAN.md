@@ -12,7 +12,7 @@ Status: 10 Nov 2026, proposal. Replaces "Onshape is the leading CAD model" in PL
 | D4 | Guide | **Miniature ball rail size 12, one rail, two carriages** (Bosch Rexroth: carriage SLS long **R0444 213 01**, rail **R0445 203 31**, L = 125), carriages hang under the base plate, rail aligned to a straightedge; C0 = 5630 N, Mt0 = 33.5 N·m, ML0 = 29.2 N·m (catalogue R999001206). V2 § 6: S0 = 8.4 at the 44.5 N setpoint, 7.5 at the calibrated setpoint +5 % with the e-stop, 5.7 at full current plus e-stop (size 9 gave 2.5 ... 3.7). **Hanging arrangement (review 1.9):** Rexroth asks S0 ≥ 12 for overhead arrangements (R999001206 p. 9) because a failed carriage drops the load. Here the slide hangs 2 mm above the bottom cover and is wider than the holder slot: a slide that loses its carriage rests on the cover (≈ 2800 ... 3300 mm²) and its rack stays 7 of 10 mm in mesh - nothing falls out. With this catch the "normal design" row S0 5 ... 8 applies (V2 § 6a); SLS 15 would be needed for ≥ 12. The catch is checked in every build (`carriage_loss_check`) | Catalogue part with rated static moments; changed from size 9 back to size 12 for the tilting moment of the long jaw. One shared rail keeps both jaws parallel by construction. |
 | D5 | Gear | **m = 1, pinion z = 20 (d = 20 mm), steel racks, both catalogue** | z = 20 is above the undercut limit (17), no profile shift. Stroke 10 mm per jaw (D_OPEN) = 57° pinion rotation. Pinion torque at the 44.5 N setpoint: 2 · 44.5 N · 10 mm = **0.89 N·m** (first estimate: 14 mm / 80° / 14.3 N / 0.29 N·m, superseded). |
 | D6 | Drive | **Lying drive under a flat hood** (variant 4, decided 10 Nov 2026): Nanotec ST4118S1404-B + GP42-S1-7-SR + brake (BRAKE-BKE-0,4-5,0 since 21 Nov, before BWA-0,35-5) along X; a 1:1 bevel pair (KHK SMSG1.5-20 R/L since 21 Nov, ground spiral teeth, m = 1.5, z = 20) turns it onto a pinion shaft (own part, two DIN 625 608-2Z) at x = -56. Racks of 35 and 14 teeth keep jaws, hood and flange centred because both racks always run at the same speed in opposite directions. | Stem 63 mm instead of 124 mm, flange to grip centre 148 mm instead of 208 mm, nothing overhangs; COG 3 mm off the flange axis. GPLE22 rejected: 20 N permissible shaft load against ≈ 30 N from the bevel pinion. Static torque at the pinion 1.27 N·m (63.6 N per jaw), brake 2.83 N·m. |
-| D7 | Jaw quick change | **2 dowel pins ISO 8734 + 1 indexing plunger (catalogue, e.g. GN 617) per jaw** on the carriage plate | The assignment requires quick-change jaws ("Greiferzangen ... mit einem Schnellwechselsystem"), not a tool changer. Pins locate, the plunger locks, no tool needed. |
+| D7 | Jaw quick change | **2 dowel pins ISO 8734 + 1 knurled thumb screw DIN 653 M5x20 per jaw** in the holder | The assignment requires quick-change jaws ("Greiferzangen ... mit einem Schnellwechselsystem"), not a tool changer. Pins locate, the thumb screw holds the jaw on them in the pull-off direction, turned by hand. Until 23 Nov a GN 617 indexing plunger: it lay along the dowel axis and did not stop the jaw sliding off when the gripper opens (review). |
 | D8 | Robot interface | **Round adapter Ø76 to ISO 9409-1-40-4-M6** (ABB IRB 1300-7/1.4), fixed to the motor housing lid from the top with 4 × ISO 10642 M4 on PCD 62 | Prescribed by the robot; screw heads stay reachable outside the robot flange. |
 | D9 | Visuals | **Blender** (glTF from FreeCAD) for materials, renders and the open/close animation | FreeCAD has no proper material rendering. Same parameters drive the Blender rig. |
 | D10 | Animation | Kinematic check in the **FreeCAD Assembly workbench** (rack-pinion joint + "Create Simulation"); the **presentation animation in Blender**; the cell sequence stays in **MuJoCo** | FreeCAD proves the kinematics are right, Blender makes it look good, MuJoCo proves the cell. |
@@ -26,7 +26,7 @@ Own parts (milled, drawn):
 |---|---|---|
 | Housing / base plate | EN AW-6082 T6, anodised | carries rail, motor, flange adapter |
 | Flange adapter | EN AW-6082 T6 | ISO 9409-1-40-4-M6 pattern + centring (ABB IRB 1300) |
-| Carriage plate x2 | EN AW-6082 T6 | sits on MGN carriage, carries rack and jaw interface (pins + plunger) |
+| Carriage plate x2 | EN AW-6082 T6 | sits on MGN carriage, carries rack and jaw interface (pins + thumb screw) |
 | Jaw x2 | **EN AW-7075 T6** | the part under FEM; contour matched to part B |
 | Pad plate x2 (bought, rubber-metal) | steel 3 mm + vulcanised NBR 70 Shore A 3 mm (oil resistant) | sits in a 3 mm pocket in the jaw, 2 × ISO 4762 M3×8 + ISO 7089 washer from the back; replaced without glue. No catalogue standard part found (Ganter GN 351/352 are natural rubber and 10-20 mm tall), ordered from a rubber-metal supplier to our drawing |
 | Cover | EN AW-6082 or sheet | keeps chips out of the mesh |
@@ -42,7 +42,7 @@ Standard / catalogue parts:
 | Cap screws | ISO 4762 |
 | Washers | ISO 7089 |
 | Dowel pins | ISO 8734 |
-| Indexing plunger | GN 617 (Ganter) |
+| Jaw retention | knurled thumb screw DIN 653 M5x20 |
 | Set screw / clamping on pinion | ISO 4029 or clamping hub from catalogue |
 | End stops (rubber buffer) | catalogue |
 
@@ -86,7 +86,7 @@ Rules (from the build123d lessons, `pde-werkzeugkette-stolperfallen`):
 | # | Step | Result | Done when |
 |---|---|---|---|
 | 0 | Setup | Fasteners + Gears workbenches installed, folder skeleton, `fc.sh` build runs empty | `build.py` writes an empty FCStd |
-| 1 | Freeze inputs | Gear, rail, motor, plunger chosen with catalogue numbers; vendor STEP downloaded; jaw interface (carriage plate ↔ jaw) dimensioned in `params.py` | Viktoriia has seen the interface |
+| 1 | Freeze inputs | Gear, rail, motor, jaw retention chosen with catalogue numbers; vendor STEP downloaded; jaw interface (carriage plate ↔ jaw) dimensioned in `params.py` | Viktoriia has seen the interface |
 | 2 | Layout | 2 layouts (motor axis vertical beside flange vs. motor coaxial under flange with offset pinion) as boxes only, pick one | one layout picked, reason written down |
 | 3 | Core | housing, rail, carriages, racks, pinion, motor, flange adapter | checks 1-3 pass |
 | 4 | Jaws | carriage plates, quick change, jaws, pads | checks 1-6 pass |
@@ -188,12 +188,19 @@ Rules the build checks or the layout follows:
   flush with the housing on the +y side and with the Ø76 robot adapter; 1.5 mm chamfer on the top edges
 - visible screw heads are countersunk (ISO 10642) or sit in counterbores, nothing stands proud of the outer faces
 
-**Fastener variants** (as in the model): ISO 4762 M3×8 (rail, carriages, pad plates), M3×10 (racks, bracket into HELICOIL plus M3 × 1.5 d),
+**Fastener variants** (as in the model): ISO 4762 M3×6 (pad plates), M3×8 (rail, carriages), M3×10 (racks, bracket into HELICOIL plus M3 × 1.5 d),
 M4×12 (gearbox, hood), M4×25 (jaw holders); ISO 10642 M3×8 (window plate), M3×10 (cover), M4×16 (adapter, into
 HELICOIL plus M4 × 1.5 d inserts in the hood seat); ISO 4029 M4×4; ISO 7089 3; ISO 8734 3×14 and 4×12;
 DIN 6885 A 2×2×8; DIN 471 8; DIN 472 22; DIN 988 8×14.
 Thread engagement in aluminium is at least 1.5 × d with an insert or 2 × d without (window plate 1.7 × d on 2 mm bosses). Brake and encoder are fixed with the screws Nanotec specifies
 for them (3 × M3 brake to motor, 2 × M2.5 encoder to brake). The Rexroth hole pattern fixes M3 at rail and carriages.
+
+**Why not fewer lengths** (checked 23 Nov): each length follows from a bought part or a wall.
+Rail and carriages stay M3×8 (Rexroth counterbore in the rail, 3.5 mm thread in the carriage), the bracket M3×10
+(M3×8 leaves 2 mm in the HELICOIL; a thinner or counterbored foot breaks the 1.5 mm wall), the pad plates M3×6
+(M3×8 would reach the rubber), M4×12 / ×16 / ×25 follow the clamped thickness. Two lengths could be merged: racks
+M3×10 to M3×8 (3.2 mm in C45, > 1 × d) and cover ISO 10642 M3×10 to M3×8 (1.7 × d, as the window plate). That saves
+one variant out of eight, so the design was left as it is.
 
 **Assembly order** (every screw reachable with a straight hex key at its step; same text as the FreeCAD demo and
 the assembly GIF, kept in `parts/demo_seq.py`):
@@ -211,12 +218,12 @@ the assembly GIF, kept in `parts/demo_seq.py`):
    (2 × M3×10 each in slots, jaws aligned symmetric, then drilled and pinned with a dowel 3×14)
 6. Jaw holders with pressed-in dowels onto the slides, 2 × M4×25 each
 7. Bottom cover, 4 × M3×10 countersunk
-8. Jaws onto the dowels until the plunger snaps in; pad plates 2 × M3×8 + washer each
+8. Jaws onto the dowels, thumb screw in by hand (6 mm of thread in the jaw); pad plates 2 × M3×6 in the counterbores
 9. Window plate with cable gland, 4 × M3×8 countersunk; one hybrid cable (motor, encoder, brake)
 10. Adapter onto the robot (ISO screws, robot side), gripper onto the adapter with 4 × M4×16 countersunk
     from the top (heads lie outside the robot flange)
 
-Jaw change in the cell: pull the plunger knob, pull the jaw off the dowels, push the new one on. The jaw has one
+Jaw change in the cell: unscrew the thumb screw by hand, pull the jaw off the dowels, push the new one on, screw in. The jaw has one
 round hole and one slot along the dowel line, so two dowels locate it without over-constraining it.
 
 **Sealing.** Parts may be oily. A brush seal strip along each holder slot in the cover keeps chips and oil off rail and
@@ -232,11 +239,11 @@ General tolerances ISO 2768-mK. Fits:
 | 608 inner rings on the pinion shaft | Ø8 k5 | circumferential load on the inner ring |
 | Housing shoulders | Ø15, touch the outer rings only | the rotating inner ring must not rub on the housing |
 | Retaining ring grooves | DIN 471 / 472 groove dimensions | standard |
-| Bevel wheel and bevel pinion bores | Ø8 H7 / shafts h6 (gearbox shaft as supplied) | slide-on fit, torque by the key |
+| Bevel wheel and bevel pinion bores | Ø8 H7 / shafts h6 (gearbox shaft as supplied) | slide-on fit, torque by the key (wheel: DIN 6885 A 2x2x12; pinion: the key of the GP42-S1 SRS shaft), set screw ISO 4029 M4 for axial hold |
 | Keyway shaft / hub | width 2 P9 / 2 JS9 | DIN 6885 tight fit in the shaft, normal fit in the hub |
 | Dowels in the jaw holder | Ø4 H7 / m6 | pressed in |
 | Dowel holes in the jaw | Ø4 F7 round hole, 4 F7 × 5 slot along the dowel line | quick change without jamming |
-| Plunger pin hole in the jaw | Ø5.2 (pin Ø5) | locking only, not locating |
+| Thumb screw in holder / jaw | Ø5.5 clearance / M5 through thread | holds only, does not locate |
 | Rack dowel | Ø3 H7 / m6, drilled and reamed at assembly | after aligning the jaws |
 | Rail reference edge | parallelism 0.01 to the rail axis over 125 mm, flatness of the land 0.01 | Rexroth mounting tolerances for size 12 [verify table] |
 | Pinion / rack centre distance | ±0.02 via the slots, set at assembly | backlash |
