@@ -343,6 +343,12 @@ These need clearing early, because they get expensive later:
    slides are German. Our working language is English. Confirm with Saliger
    which language the submitted documentation should be in - this does not
    affect the repo either way.
+9. **Cost estimate of the parts (added 24 Nov 2026).** Price every own part
+   with an online quote from the STEP files: xometry.com (instant quote for
+   milled, turned and 3D printed parts), facturee.de (quotes in 24 to 48 h),
+   spanflug.de, and materialise.com for printed parts. Bought parts at catalogue
+   prices from the BOM (`Elias/02_CAD_Body/out/bom.csv`). Result: a cost table
+   per BOM position for the report.
 
 ---
 
