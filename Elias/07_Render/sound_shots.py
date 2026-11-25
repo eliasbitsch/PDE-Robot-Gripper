@@ -111,6 +111,21 @@ elif SHOT == "grid":
     sfx("pro_impact/deep", land, -6, kind="assembled")
     sfx("sub_drop/pro", land, -12)
     sfx("pro_shimmer/m4", land + 0.1, -21)
+elif SHOT == "transform":
+    last = t_of(TL["last"])
+    drone(-16, 0.5 + 0.5 * np.clip(T / last, 0, 1))
+    sfx("pro_impact/deep", 0.1, -9, kind="core")
+    sfx("pro_sub_drop/low", 0.1, -14)
+    big = [(f, s_) for f, s_ in TL["locks"] if s_ > 0.06]
+    for k, (f, s_) in enumerate(big):                   # every big plate: swing in, then a hit when it locks
+        sfx(("whoosh_fast/heavy", "whoosh_fast/tight")[k % 2], t_of(f) - 0.05, -19, at="peak", pan=(-0.25, 0.25)[k % 2])
+        sfx("pro_impact/short" if s_ < 0.15 else "pro_impact/deep", t_of(f), -12 if s_ < 0.15 else -7, kind="lock")
+    bolts = [f for f, s_ in TL["locks"] if s_ == 0.0]
+    for k, f in enumerate(bolts[::3]):                  # the bolt bursts: a quick rattle of pops
+        sfx("pro_pop_in/knock", t_of(f), -22, pan=((k % 5) - 2) * 0.15)
+    sfx("riser/rush", last, -20, at="peak")
+    sfx("impact/deep", last, -7, kind="done")
+    sfx("pro_shimmer/m4", last + 0.1, -20)
 elif SHOT == "robot":
     sp = np.array(TL["speed"])
     pk0, pk1, back = (t_of(f) for f in TL["pick"])

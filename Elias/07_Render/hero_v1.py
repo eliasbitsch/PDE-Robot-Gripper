@@ -1443,6 +1443,176 @@ elif mode == "grid":
     print("grid frames", END, "landed", LAND)
     render_anim(os.environ.get("OUTDIR", "grid"), END)
     print("grid done", sc.render.engine)
+elif mode == "transform":
+    # Transformer build (idea Elias, 25 Nov): the drive core wakes up, then the gripper unfolds from the inside out in
+    # waves: every part slides out of the core on a hinge edge (its bounding-box face towards the core), swings
+    # into place with a small overshoot and locks hard; fasteners shoot in last in two bursts, spinning.
+    from mathutils import Matrix, Quaternion
+    root.animation_data_clear()
+    root.rotation_euler = (0, 0, 0)
+    for k_, p_ in piv.items():
+        p_.animation_data_clear()
+        p_.rotation_euler = (0, 0, 0)
+        if k_ in (-1, 1):
+            p_.location = (0, 0, 0)
+    sc.timeline_markers.clear()
+    bpy.context.view_layer.update()
+    for name, ob in objs.items():
+        ob.animation_data_clear()
+        mw = ob.matrix_world.copy()
+        ob.parent = None
+        ob.matrix_world = mw
+        ctr = sum((Vector(v) for v in ob.bound_box), Vector()) / 8
+        ob.data.transform(Matrix.Translation(-ctr))
+        ob.location = ob.location + ob.matrix_basis.to_3x3() @ ctr
+        ob.rotation_mode = "QUATERNION"
+    bpy.context.view_layer.update()
+
+    def wbox(ob):
+        pts = [ob.matrix_world @ Vector(v) for v in ob.bound_box]
+        return Vector([min(q[i] for q in pts) for i in range(3)]), Vector([max(q[i] for q in pts) for i in range(3)])
+
+    def head_dir(ob):
+        vs = [v.co for v in ob.data.vertices]
+        dims = [max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)]
+        ax = dims.index(max(dims))
+        o1, o2 = [i for i in range(3) if i != ax]
+        r = lambda v: math.hypot(v[o1], v[o2])
+        pos = max((r(v) for v in vs if v[ax] > 0), default=0)
+        neg = max((r(v) for v in vs if v[ax] < 0), default=0)
+        d = Vector((0, 0, 0))
+        d[ax] = 1.0 if pos > neg else -1.0
+        return d
+
+    def back_out(u, s=1.6):                            # ease-out with a small overshoot: the swing lands, then locks
+        u = min(1.0, max(0.0, u)) - 1
+        return 1 + u * u * ((s + 1) * u + s)
+
+    FASTENERS = ("Screw", "Setscrew", "Dowel", "Washer", "Key_", "Circlip", "Shim", "Thumbscrew")
+    CORE = ("Motor", "Gearbox", "Bevel_Pinion")
+    TELESCOPE = ("Brake", "Encoder", "Bracket")
+    core_c = sum((objs[n].location for n in objs if n.startswith(CORE)), Vector()) / max(1, sum(1 for n in objs if n.startswith(CORE)))
+    motor_ax = Vector((1, 0, 0))                        # the drive sandwich threads on along x
+    plan = {}                                          # name -> (start frame, kind)
+    f = 14
+    for n in sorted(n for n in objs if n.startswith(CORE)):
+        plan[n] = (1, "core")
+    for i, n in enumerate(sorted(n for n in objs if n.startswith(TELESCOPE))):
+        plan[n] = (f + 3 * i, "tele")
+    f += 22
+    # inside out: mechanism by distance from the core, then jaws and pads, the shell closes last like armour plates
+    # (sorting everything by distance put the housing first: its centre sits on the core)
+    rest = [n for n in objs if n not in plan and not n.startswith(FASTENERS)]
+    shell_ = sorted((n for n in rest if n.startswith(SHELL)), key=lambda n: -max(objs[n].dimensions))
+    jaws_ = sorted(n for n in rest if n.startswith(JAWS) and n not in shell_)
+    inner = sorted((n for n in rest if n not in shell_ and n not in jaws_), key=lambda n: (objs[n].location - core_c).length)
+    WAVE, WSTEP, STAG = 5, 13, 2
+    locks = []
+    for i, n in enumerate(inner):
+        w, j = divmod(i, WAVE)
+        plan[n] = (f + w * WSTEP + j * STAG, "hinge")
+    f += ((len(inner) + WAVE - 1) // WAVE) * WSTEP + 4
+    for i, n in enumerate(jaws_):
+        plan[n] = (f + (i // 2) * 4, "hinge")
+    f += (len(jaws_) // 2) * 4 + 14
+    for i, n in enumerate(shell_):                      # one plate after the other, a beat apart
+        plan[n] = (f + i * 9, "hinge")
+    f += len(shell_) * 9 + 12
+    rest = inner
+    fast = sorted((n for n in objs if n.startswith(FASTENERS)), key=lambda n: (objs[n].location - core_c).length)
+    half = (len(fast) + 1) // 2
+    for i, n in enumerate(fast):
+        plan[n] = (f + (0 if i < half else 16) + (i % half) * 0.35, "bolt")
+    LAST = int(max(p[0] for p in plan.values())) + 16
+    END = LAST + 75
+    SL, UF = 9, 11                                     # frames: slide out of the core, swing into place
+    rng_ = __import__("random").Random(9)
+    for idx, (n, (f0, kind)) in enumerate(sorted(plan.items(), key=lambda kv: kv[1][0])):
+        ob = objs[n]
+        C = ob.location.copy()
+        S0 = ob.scale.copy()
+        lo, hi = wbox(ob)
+        size = (hi - lo).length
+        r = C - core_c
+        if kind == "hinge":
+            k = max(range(3), key=lambda i: abs(r[i])) if r.length > 1e-4 else 2
+            H = C.copy()
+            H[k] = lo[k] if r[k] > 0 else hi[k]          # the face towards the core is the hinge
+            ax = r.normalized().cross(Vector((0, 0, 1)))
+            if ax.length < 0.3:
+                ax = r.normalized().cross(Vector((1, 0, 0)))
+            ax.normalize()
+            A = math.radians(rng_.choice((-1, 1)) * (150 if size > 0.08 else 110))
+        elif kind == "tele":
+            H, A, ax = C.copy(), 0.0, motor_ax
+        elif kind == "bolt":
+            hd = head_dir(ob)
+            hd = (ob.matrix_world.to_3x3() @ hd).normalized()
+        for fr in range(1, END + 1):
+            if kind == "core":                         # the core breathes up out of nothing: scale with a pulse
+                u = min(1.0, max(0.0, (fr - 1) / 14))
+                s = back_out(u, 2.2)
+                ob.scale = S0 * max(s, 1e-3)
+                ob.keyframe_insert("scale", frame=fr)
+                ob.hide_render = False
+                ob.keyframe_insert("hide_render", frame=fr)
+                continue
+            if kind == "bolt":
+                u = min(1.0, max(0.0, (fr - f0) / 7))
+                e = 1 - (1 - u) ** 3
+                ob.location = C + hd * 0.035 * (1 - e)
+                ob.rotation_quaternion = Quaternion(hd, (1 - e) * 6 * math.pi)
+                ob.hide_render = fr < f0
+            elif kind == "tele":
+                u = min(1.0, max(0.0, (fr - f0) / SL))      # slides out of the motor along its axis
+                ob.location = Vector((core_c.x + (C.x - core_c.x) * back_out(u, 1.2), C.y, C.z))
+                ob.rotation_quaternion = Quaternion()
+                ob.hide_render = fr < f0
+            else:
+                us = min(1.0, max(0.0, (fr - f0) / SL))
+                uu = min(1.0, max(0.0, (fr - f0 - SL * 0.5) / UF))
+                h_t = core_c.lerp(H, 0.2 + 0.8 * (1 - (1 - us) ** 3))
+                q = Quaternion(ax, A * (1 - back_out(uu)))
+                ob.location = h_t + q @ (C - H)
+                ob.rotation_quaternion = q
+                ob.hide_render = fr < f0
+            ob.keyframe_insert("location", frame=fr)
+            ob.keyframe_insert("rotation_quaternion", frame=fr)
+            ob.keyframe_insert("hide_render", frame=fr)
+        if kind in ("hinge", "tele") and size > 0.06:
+            locks.append((int(f0 + SL * 0.5 + UF), round(size, 3)))
+        elif kind == "bolt":
+            locks.append((int(f0 + 7), 0.0))
+    # camera: starts close on the core and pulls out as the gripper grows, slow orbit; a short jolt on big locks
+    asm_c = c
+    keys = [(1, core_c, (0.7, -1.2, 0.35), 0.42, 60), (60, core_c.lerp(asm_c, 0.5), (0.95, -1.15, 0.45), 0.62, 55),
+            (LAST - 10, asm_c, (0.5, -1.4, 0.5), 0.9, 50), (END, asm_c, (-0.1, -1.5, 0.42), 0.85, 55)]
+    cam = spline_camera("CamTransform", keys, END, 7.0)
+    shake = bpy.data.objects.new("Shake", None)
+    sc.collection.objects.link(shake)
+    cam.parent = shake
+    jolt = [Vector() for _ in range(END + 2)]
+    for fl, size in locks:
+        if size <= 0.06:
+            continue
+        for u in range(10):
+            if fl + u <= END:
+                jolt[fl + u] += Vector((0.3, -0.2, -1.0)) * 0.0025 * min(size / 0.15, 1.5) * math.exp(-u / 2.5) * math.cos(math.pi * u / 3)
+    for fr in range(1, END + 1):
+        shake.location = jolt[fr]
+        shake.keyframe_insert("location", frame=fr)
+    sc.camera = cam
+    bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
+    pool = bpy.data.lights["Pool"]
+    pool.animation_data_clear()
+    pool.energy = 45
+    json.dump({"fps": FPS, "end": END, "last": LAST, "locks": sorted(locks)},
+              open(os.path.join(HERE, "out", "transform_timeline.json"), "w"))
+    fade(END, 14, 20)
+    use_eevee()
+    print("transform frames", END, "parts", len(plan), "waves", (len(rest) + WAVE - 1) // WAVE)
+    render_anim(os.environ.get("OUTDIR", "transform"), END)
+    print("transform done", sc.render.engine)
 elif mode == "robot":
     # shot 6 (review 22 Nov): IRB 1300 in the lab, bowed down as if asleep; the gripper snaps onto the flange along
     # the tool axis, the cable draws itself from the gland to the forearm and clicks in, the robot rises in one move,
