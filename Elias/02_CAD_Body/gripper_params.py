@@ -51,11 +51,11 @@ F_GRIP_OILY = S_SICHERHEIT * B_MASSE * (G + A_BAHN) / (N_BACKEN * MU_OILY)   # r
 A_PATH_REAL = 4.96                  # m/s2, cap in the robot program (WorldAccLim \On := 4.96 on the loaded moves, review 1.5)
 F_GRIP_SET = S_SICHERHEIT * B_MASSE * (G + A_PATH_REAL) / (N_BACKEN * MU_OILY)   # operating setpoint, also covers the e-stop (V2)
 
-# Ganter GN 617-5-A indexing plunger (steel, knob, no lock nut), ganternorm.com dimension table
-PLUNGER_PIN_D, PLUNGER_THREAD, PLUNGER_KNOB_D = 5.0, "M10x1", 21.0
-PLUNGER_L1, PLUNGER_L3, PLUNGER_L5_MIN, PLUNGER_SW = 45.0, 17.0, 15.0, 12.0
-PLUNGER_E, PLUNGER_L2 = 13.8, 5.0                # knob height, pin protrusion
-PLUNGER_SPRING = (7.0, 17.0)                     # N, start/end
+# Jaw retention: knurled thumb screw DIN 653 M5x20 (low head), turned by hand from outside through the holder into an
+# M5 through thread in the jaw web. It holds the jaw on the dowels in the pull-off direction (X); the GN 617 plunger
+# it replaced lay along that same axis and did not (review 23 Nov).
+RETAIN_D, RETAIN_L = 5.0, 20.0
+RETAIN_HEAD_D, RETAIN_HEAD_K = 16.0, 4.0         # DIN 653 M5: knurl diameter, head height
 
 # ---------------------------------------------------------------- layout
 # Frame: z = 0 is the underside of the housing top plate, X = grip axis, Y = 0 through jaws and flange axis.
@@ -116,7 +116,9 @@ HOLDER_Z_LOW = -47.0
 HOLDER_SCREW_Y = 13.0
 HOLDER_SCREW_X = 5.5                # from the jaw contact face: counterbore keeps 1.5 mm to it
 DOWEL_D, DOWEL_L, DOWEL_Y, DOWEL_Z = 4.0, 12.0, 5.5, -32.0   # ISO 8734 4 m6 x 12
-PLUNGER_Z = -39.0
+GRIPPER_MASS_TOTAL = 2.950           # kg, whole gripper (checked by build.py)
+MOVING_MASS = {"L": 0.348, "R": 0.400}  # kg per jaw: slide, carriage, holder, rack, jaw, pad, screws (checked by build.py)
+RETAIN_Z = -39.0                   # thumb screw axis: in the jaw web, 17.5 mm above the pad
 
 # Round motor housing around the NEMA 17 stack (square diagonal 59.8), connector pod on +X for the window plate
 TOWER_D, TOWER_WALL, LID_T, LID_HOLE_D = 72.0, 4.0, 8.0, 54.0

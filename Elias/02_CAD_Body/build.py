@@ -94,6 +94,7 @@ def build_static(gear_pin, gear_racks, bev):
             "Bevel_Wheel": (D.wheel(bev), "steel", "rot"),
             "Bevel_Pinion": (D.bevel_pinion(bev), "steel", "rotx"),
             "Setscrew_ISO4029-M4x4_Wheel": (F.iso4029_x(4, 4, xp - P.BEVEL_HUB_D / 2, 0, D.hub_z0() + 3, 1), "steel", "rot"),
+            "Setscrew_ISO4029-M4x4_Pinion": (D.pinion_setscrew(), "steel", "rotx"),
             "Key_DIN6885-A2x2x12": (D.key(), "steel", "rot"),
             "Shim_DIN988-8x14": (D.shim(), "steel", "rot"),
             "Window_Plate": (D.window_plate(), "EN AW-6082", 0),
@@ -127,7 +128,7 @@ def build_static(gear_pin, gear_racks, bev):
             else:
                 parts[f"Screw_ISO4762-M3x8_Pad{tag}{i}"] = (F.iso4762_x(3, 8, xj1 + side * 0.5, y, z, -side), "steel", side)
                 parts[f"Washer_ISO7089-3_Pad{tag}{i}"] = (F.iso7089_x(3, xj1, y, z, side), "steel", side)
-        parts[f"Plunger_GN617-5-A_{tag}"] = (C.plunger(side), "steel", side)
+        parts[f"Thumbscrew_DIN653-M5x20_{tag}"] = (C.thumb_screw(side), "steel", side)
         for i, y in enumerate((-P.DOWEL_Y, P.DOWEL_Y), 1):
             parts[f"Dowel_ISO8734-4x12_{tag}{i}"] = (C.dowel(side, y), "steel", side)
         for i, (x, y) in enumerate(C.holder_screws(side), 1):
@@ -245,12 +246,18 @@ def phase_pinion(parts):
         return s
     best_b = min((overlap(rotb(a / 4), wh), a / 4) for a in range(0, 72))
     parts["Bevel_Pinion"] = (rotb(best_b[1] - theta), parts["Bevel_Pinion"][1], "rotx")   # at() adds theta again
+    if "Setscrew_ISO4029-M4x4_Pinion" in parts:              # the set screw turns with its pinion
+        ss = parts["Setscrew_ISO4029-M4x4_Pinion"][0].copy()
+        ss.rotate(V(0, 0, P.DRIVE_Z), V(1, 0, 0), best_b[1] - theta)
+        parts["Setscrew_ISO4029-M4x4_Pinion"] = (ss, parts["Setscrew_ISO4029-M4x4_Pinion"][1], "rotx")
     print(f"bevel phase {best_b[1]:.1f} deg, residual overlap {best_b[0]:.3f} mm3")
     return math.radians(theta), best[0], best_r[0], best_r[1]
 
 
 SKIP = {frozenset(p) for p in [("Gearbox", "Motor"), ("Motor", "Brake"), ("Gearbox", "Brake"), ("Gearbox", "Bevel_Pinion"), ("Brake", "Encoder")]}
 SKIP |= {frozenset(("Gearbox", f"Screw_ISO4762-M4x12_Gearbox{i}")) for i in range(1, 5)}  # thread depth in the vendor model unknown
+SKIP |= {frozenset((f"Jaw_{t}", f"Thumbscrew_DIN653-M5x20_{t}")) for t in "LR"}   # M5 thread: shank at d, hole at the core
+SKIP.add(frozenset(("Gearbox", "Setscrew_ISO4029-M4x4_Pinion")))   # bears on the gearbox shaft, which the model keeps still
 SKIP |= {frozenset(p) for p in [("Safety_Spring", "Driver"), ("Safety_Spring", "Spring_Guide"), ("Safety_Spring", "Riser"),
                                 ("Cylinder_Rod", "Driver"), ("Cylinder_Rod", "Cylinder_ADN16"), ("Spring_Guide", "Driver"),
                                 ("Fitting_QSM-M5-4_1", "Cylinder_ADN16"), ("Fitting_QSM-M5-4_2", "Cylinder_ADN16")]}
@@ -335,7 +342,7 @@ BOM_INFO = {
     "Bracket": ("Drive bracket", "own part, milled", "EN AW-6082 T6"),
     "Pinion_Shaft": ("Pinion shaft m = 1, z = 20", "own part, turned + hobbed", "16MnCr5 case hardened"),
     "Bevel_Wheel": ("Spiral miter gear m = 1.5, z = 20, left hand; bore 8 H7 + key 2, hub turned to D16, faced to mounting dist. 19", "KHK SMSG1.5-20L", "S45C, teeth induction hardened"),
-    "Bevel_Pinion": ("Spiral miter gear m = 1.5, z = 20, right hand; bore 8 H7, hub turned to D16 x 5", "KHK SMSG1.5-20R", "S45C, teeth induction hardened"),
+    "Bevel_Pinion": ("Spiral miter gear m = 1.5, z = 20, right hand; bore 8 H7 + keyway 2 JS9 for the gearbox shaft key, M4 set screw, hub turned to D16 x 5", "KHK SMSG1.5-20R", "S45C, teeth induction hardened"),
     "Bearing_608_lower": ("Deep groove ball bearing 608-2Z", "DIN 625 (Schaeffler / SKF)", "steel"),
     "Bearing_608_upper": ("Deep groove ball bearing 608-2Z", "DIN 625 (Schaeffler / SKF)", "steel"),
     "Adapter_ISO9409": ("Robot adapter ISO 9409-1-40-4-M6", "own part, turned", "EN AW-6082 T6"),
@@ -353,7 +360,7 @@ BOM_INFO = {
     "Encoder": ("Magnetic encoder NME2 (on the brake), for the external closed-loop controller", "Nanotec", "-"),
     "Brake": ("Permanent-magnet brake BRAKE-BKE-0,4-5,0, 24 V, zero backlash, on a 3 mm adapter plate", "Nanotec", "-"),
     "Cable_Gland_Lapp_SKINTOP_M16": ("Cable gland SKINTOP STR-M 16x1.5", "Lapp", "PA"),
-    "Plunger_GN617-5-A": ("Indexing plunger GN 617-5-A", "Ganter", "steel"),
+    "Thumbscrew_DIN653-M5x20": ("Knurled thumb screw DIN 653 M5x20 (jaw retention, by hand)", "standard part", "steel"),
     "Riser": ("Riser (cylinder housing, robot flange ISO 9409-1-40-4-M6 machined into its top)", "own part, milled", "EN AW-6082 T6"),
     "Cylinder_ADN16": ("Compact cylinder ADN-16-10-A-P-A, double-acting, with magnet for position sensing", "Festo 536220", "-"),
     "Cylinder_Rod": None,
@@ -374,6 +381,9 @@ EXTRA_BOM = [
     ("Wire thread insert HELICOIL plus M4 x 1.5 d, hood seat for the adapter screws", "Boellhoff", "1.4301", 4),
     ("Wire thread insert HELICOIL plus M3 x 1.5 d, top plate for the drive bracket screws", "Boellhoff", "1.4301", 4),
     ("Brush seal strip along the two holder slots in the cover (oily parts)", "e.g. Mink LKB, cut to length", "PA / steel", 2),
+    # robot side of the ISO 9409 flange: 3.5 mm of adapter under the counterbore + 6.5 mm into the robot flange thread
+    ("ISO 4762 M6x10, 8.8, adapter to the robot flange (heads in the counterbores)", "standard part", "steel 8.8", 4),
+    ("Dowel pin ISO 8734 6 m6 x 14, ISO 9409 orientation (pressed into the adapter)", "standard part", "steel", 1),
 ]
 
 
@@ -389,6 +399,9 @@ def bom(parts, masses):
             m = re.match(r"(ISO\d+)-(.*)", std)
             grade = {"4762": "steel 8.8", "10642": "steel 8.8", "4029": "steel 45H", "7089": "steel 200 HV"}.get(m.group(1)[3:], "steel")
             key = (f"ISO {m.group(1)[3:]} {m.group(2)}", "standard part", grade)
+        elif name in ("Rack_L", "Rack_R"):                    # different lengths: two positions, not one
+            z = P.RACK_TEETH_SIDE[-1 if name.endswith("L") else 1]
+            key = (f"Rack m = 1, 10 x 12, {z} teeth, cut to {z * math.pi:.1f}", "Maedler", "C45")
         else:
             info = BOM_INFO.get(re.sub(r"_([LR]|\d+)$", "", name), (name, "?", "?"))
             if info is None:
@@ -580,6 +593,14 @@ def main():
     print(f"cabinet BOM: {len(cabinet.CABINET_BOM)} positions -> out/bom_cabinet.csv")
     report["mass_kg"] = mass
     report["mass_parts_kg"] = masses
+    # moving group per jaw (everything that travels with the slide): the one mass table for drive, V2 and simulation
+    mov_m = {t: sum(masses[n] for n, (_, _, mv) in parts.items() if mv == sd) for sd, t in ((-1, "L"), (1, "R"))}
+    report["moving_mass_kg"] = mov_m
+    if abs(mass - P.GRIPPER_MASS_TOTAL) >= 0.005:
+        print(f"gripper mass {mass:.3f} kg differs from gripper_params.GRIPPER_MASS_TOTAL {P.GRIPPER_MASS_TOTAL:.3f}")
+    for t in "LR":
+        flag = "" if abs(mov_m[t] - P.MOVING_MASS[t]) < 0.005 else "  <-- update gripper_params.MOVING_MASS"
+        print(f"moving mass {t}: {mov_m[t] * 1000:.0f} g (gripper_params {P.MOVING_MASS[t] * 1000:.0f} g){flag}")
     with open(os.path.join(OUT, "checks.json"), "w") as f:
         json.dump(report, f, indent=1)
 

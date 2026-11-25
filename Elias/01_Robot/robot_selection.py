@@ -14,6 +14,7 @@ import math
 import os
 import sys
 
+import mujoco
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -56,7 +57,10 @@ def payload():
     m_p = float(bp.mass[0])
     c_p = (np.array(S.GP.PART_OFFSET) + np.array(bp.ipos) * 1e3) * 1e-3
     c_p[2] -= B.flange_face_z() * 1e-3
-    J_p = np.diag(bp.inertia)                                        # principal axes of the part, close enough
+    Rq = np.zeros(9)
+    mujoco.mju_quat2Mat(Rq, bp.iquat)                                # MuJoCo keeps the CAD tensor in principal axes
+    Rq = Rq.reshape(3, 3)
+    J_p = Rq @ np.diag(bp.inertia) @ Rq.T
     m = m_g + m_p
     c = (m_g * c_g + m_p * c_p) / m
 
@@ -146,8 +150,8 @@ def main():
     import sim as S
     path = S.transfer_path(LIFT)
     v80 = tuple(0.8 * np.array(AXIS_SPEED))                 # axes at most 80 % of the data sheet speed
-    t_loaded = S.TimeLaw(path, S.GP.A_PATH_REAL, vmax_deg=v80).T   # TCP acceleration the grip force is sized for
-    t_empty = S.TimeLaw(path, 15.0, vmax_deg=v80).T                # empty way back (15 m/s2)
+    t_loaded = S.TimeLaw(path, S.GP.A_PATH_REAL, vmax_deg=v80, v_lim=2.0).T   # v2000, TCP acceleration the grip is sized for
+    t_empty = S.TimeLaw(path, 15.0, vmax_deg=v80, v_lim=3.0).T                # empty way back (15 m/s2, v3000)
     t_budget = 2 * T_WAY
     print(f"transfer through the vias (fence): loaded {t_loaded:.2f} s at {S.GP.A_PATH_REAL} m/s2, empty {t_empty:.2f} s, "
           f"together {t_loaded + t_empty:.2f} of {t_budget:.1f} s")

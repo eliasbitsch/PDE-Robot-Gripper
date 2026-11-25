@@ -25,7 +25,7 @@ OUT = os.path.join(HERE, "out")
 V = App.Vector
 VIEWS = {"A-A": V(0, -1, 0), "top": V(0, 0, 1), "left": V(-1, 0, 0), "iso": V(1, -1, 1)}
 UNCUT = ("Screw", "Dowel", "Washer", "Setscrew", "Key", "Pinion_Shaft", "Gearbox", "Motor", "Brake", "Encoder",
-         "Plunger", "Circlip", "Cable_Gland")
+         "Thumbscrew", "Circlip", "Cable_Gland")
 DEFL = 0.05
 
 

@@ -1,13 +1,16 @@
 """Joint path as an ABB controller runs it: MoveJ = straight lines in joint space between the targets, corner
 paths in the zones (review 1.5, 21 Nov 2026; RobotStudio is not used, this rebuilds the controller behaviour).
 
-RAPID the model stands for (loaded transfer, chain 2; the empty way back is the same with WorldAccLim off):
+RAPID the model stands for (loaded transfer, chain 2; the empty way back is the same with WorldAccLim off and v3000):
 
     WorldAccLim \\On := 4.96;                      ! tool + payload acceleration in world <= 4.96 m/s2 (grip sizing)
-    MoveJ pPickUp,  v1000, fine, tGripper \\WObj:=wBelt;
-    MoveJ pVia2,    v1000, zVIA, tGripper;          ! retracted mid-swing, corner path, no stop
-    MoveJ pPlaceUp2,v1000, fine, tGripper \\WObj:=wChain2;
+    MoveJ pPickUp,  v2000, fine, tGripper \\WObj:=wBelt;
+    MoveJ pVia2,    v2000, zVIA, tGripper;          ! retracted mid-swing, corner path, no stop
+    MoveJ pPlaceUp2,v2000, fine, tGripper \\WObj:=wChain2;
     WorldAccLim \\Off;
+
+The time law enforces the programmed TCP speed (e4_cycle.V_LOADED / V_EMPTY): loaded it peaks at 1.83 m/s, empty at
+2.58 m/s, so neither speeddata limit binds; the acceleration cap and the axis speeds set the times.
 
 zone model: the corner path starts where the TCP comes within the zone radius of the via along the incoming MoveJ
 and ends where it leaves that radius on the outgoing one (ABB halves the zone if it is larger than half a

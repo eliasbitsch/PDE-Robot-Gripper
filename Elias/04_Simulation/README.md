@@ -37,21 +37,22 @@ properties of its CAD mesh. Timing as the robot runs it (`e4_cycle.py`): the bui
 TCP acceleration <= 4.96 m/s² (WorldAccLim). The simulated robot following it overshoots to 5.9 m/s² for a moment
 (servo response); the friction use includes it. Friction use = |vector sum of the pad friction forces| / (μ ΣF_n),
 median over the moving phases and 50 ms peak. "Held" = both pads in contact and each below its friction limit at
-every physics step, part not dropped, movement beyond the creep base < 0.5 mm. This is retention during the
+every physics step (each below 0.99: noslip puts a sliding contact exactly on the friction cone, so 1.00 means the
+pad slides), part not dropped, movement beyond the creep base < 0.5 mm. This is retention during the
 unsupported motion; the per-pad check uses each pad's resultant, so local sliding inside one pad is not resolved, and
 the placing accuracy on the carrier is not evaluated (the run ends with the jaws closed).
 
 | Case | Force per jaw | friction use median / peak (where) | worst pad, every step | part movement (raw / beyond creep base) | |
 |---|---|---|---|---|---|
-| required (hand calc., 2.05 m/s²) | 35.7 N | 0.42 / 0.64 (lift) | 0.91 | 2.25 / +0.00 mm | held |
+| required (hand calc., 2.05 m/s²) | 35.7 N | 0.42 / 0.64 (lift) | 0.94 | 2.26 / +0.00 mm | held |
 | no safety (F / S) | 17.9 N | - / 1.00 | 1.00 | dropped | expected: sized for 2.05 m/s², the path needs 4.96 |
-| **setpoint** (path 4.96 m/s², WorldAccLim) | 44.5 N | 0.34 / 0.52 (lift), S_eff 1.93 | 0.74 | 2.25 / -0.00 mm | held |
-| e-stop at required, category 0, axes brake on their own | 35.7 N | 0.41 / 0.70 (transfer) | 1.00 | 0.33 / +0.00 mm | held, at the limit |
-| e-stop at setpoint | 44.5 N | 0.33 / 0.56 (transfer), S_eff 1.79 | 0.85 | 0.33 / -0.00 mm | held |
+| **setpoint** (path 4.96 m/s², WorldAccLim) | 44.5 N | 0.34 / 0.52 (lift), S_eff 1.93 | 0.76 | 2.26 / -0.00 mm | held |
+| e-stop at required, category 0, axes brake on their own | 35.7 N | 0.41 / 0.73 (transfer) | 1.00 | 0.65 / -0.00 mm | one pad slides locally, the part stays in the jaws |
+| e-stop at setpoint | 44.5 N | 0.33 / 0.59 (transfer), S_eff 1.70 | 0.87 | 0.65 / +0.00 mm | held |
 
 The governing instant is the lift: straight up at the loaded acceleration, so m (g + a) acts on the pads in full,
 which is exactly the design case of V2 (S = 2 at the commanded 4.96 m/s²; the simulation's 1.93 comes from the
-servo overshoot). The e-stop runs on chain 1, whose worst stop needs the most force (e_stop.py). Its margin (1.79) is the reciprocal of the filtered net friction use in the dynamic
+servo overshoot). The e-stop runs on chain 1, whose worst stop needs the most force (e_stop.py). Its margin (1.70) is the reciprocal of the filtered net friction use in the dynamic
 replay; the separate shear-and-twist check below gives 1.30 for the same stop (worst pad, twist included).
 
 Until 21 Nov the jaws started 0.3 mm before the part, snapped shut at full force and the lift came 0.4 s later at a

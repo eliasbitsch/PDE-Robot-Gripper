@@ -91,7 +91,7 @@ class TimeLaw:
     axis below its speed: forward / backward pass on the squared path speed over the TCP arc length.
     __call__(t) -> (u, du/dt), like trapezoid() for a straight segment."""
 
-    def __init__(self, path, a_lim, n=800, m=None, d=None, vmax_deg=(249, 180, 247, 500, 415, 720)):
+    def __init__(self, path, a_lim, n=800, m=None, d=None, vmax_deg=(249, 180, 247, 500, 415, 720), v_lim=None):
         if m is None:
             m, d = load()
         u = np.linspace(0.0, 1.0, n)
@@ -109,6 +109,8 @@ class TimeLaw:
         kappa = np.linalg.norm(np.gradient(dp, sig, axis=0), axis=1)
         dq_dsig = np.abs(path(u, 1)) / np.maximum(dsig, 1e-9)[:, None]
         v2 = np.minimum(a_lim / np.maximum(kappa, 1e-9), np.min((np.radians(vmax_deg) / np.maximum(dq_dsig, 1e-12)) ** 2, axis=1))
+        if v_lim is not None:                                       # programmed TCP speed (RAPID speeddata)
+            v2 = np.minimum(v2, v_lim ** 2)
         v2[0] = v2[-1] = 0.0
         at = lambda i, w: np.sqrt(max(a_lim ** 2 - (kappa[i] * w) ** 2, 0.0))
         for i in range(n - 1):

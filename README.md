@@ -10,7 +10,8 @@ the robot, robot in the cell with safety fence, buffer belt and workpiece
 carrier, plus motion and grip analysis.
 
 **Team:** Bitsch Elias · Ovdiienko Viktoriia - Group 10
-**Plan:** [PLAN.md](PLAN.md) · **Status:** concept phase, design freeze 4 Oct 2026
+**Plan:** [PLAN.md](PLAN.md) · **Status (23 Nov 2026):** design built and proven in simulation and FEM; interim report
+3 Dec 2026, final review 22 Jan 2027. Current state and open points: [docs/HANDOVER.md](docs/HANDOVER.md)
 
 ---
 
@@ -34,8 +35,9 @@ belt, which rules out both a vacuum cup and anything that reaches underneath.
 
 ## The concept
 
-A **2-finger parallel gripper** with **rack and pinion**: one servo turns a
-pinion between two racks, each rack carries one jaw.
+A **2-finger parallel gripper** with **rack and pinion**: a closed-loop stepper with planetary gearbox,
+zero-backlash holding brake and a 1:1 spiral bevel pair turns a pinion between two racks; each rack carries one
+jaw slide on a miniature ball rail.
 
 The design takes **one half** of the
 [Cartesian Hand](https://arxiv.org/abs/2609.25696) (Duke, 2026,
@@ -49,11 +51,11 @@ Why rack and pinion:
 
 - Jaws move in a **straight line** and stay parallel - no scrub on Ra 1.6
 - **Constant jaw force** over the whole stroke, no transmission angle to prove
-- One gear mesh and one guide to calculate; racks run in a dovetail slot, no bought linear rails
+- One gear mesh to calculate; one shared ball rail (Rexroth size 12) keeps both jaws parallel
 
-The price, stated honestly: the rack is **back-drivable**. Holding on power
-failure needs a self-locking stage or a holding brake in the drive - to be
-decided in the sizing.
+The rack is **back-drivable**, so a permanent-magnet holding brake (Nanotec BKE-0,4-5,0, zero backlash) keeps
+the jaws closed on power failure. The jaws change without tools: two dowel pins locate them, a knurled thumb screw
+holds them.
 
 The design is industrial: milled aluminium housing, catalogue rack and pinion
 in steel, a 24 V closed-loop stepper with gearbox and zero-backlash brake. The Cartesian Hand is the model for the
@@ -79,11 +81,12 @@ workpiece carrier for more margin (20.6°, 74 % stretched). Placement study: `El
 
 | Tool | Used for |
 |---|---|
-| **Onshape** | parametric CAD and FEM on the same model |
-| **LaTeX** | calculations and the written report |
-| **MuJoCo** | motion sequence, collision check, contact forces |
-| **build123d / gmsh / CalculiX** | scripted geometry and the independent FEM cross-check |
-| **FDM printing** | a printed jaw, loaded and measured, as a third data point against the FEM |
+| **FreeCAD / CadQuery (scripted)** | gripper assembly, jaws, cell assembly, drawing views |
+| **marimo / Python** | sizing (V2), analytical strength (V4), validation notebook with live preview |
+| **MuJoCo** | cell, motion sequence, collision check, grip, closing, e-stop, Monte Carlo robustness |
+| **gmsh / CalculiX** | FEM of the jaw, compared against the hand calculation (within 5 %) |
+| **Onshape** | early concept sketches and PLM exercises |
+| **FDM printing (planned, V5)** | a printed jaw and a friction test of the pad, as extra data points |
 
 ---
 
@@ -112,11 +115,10 @@ assignment prescribes that structure verbatim.
 | | |
 |---|---|
 | Design freeze | 4 Oct 2026 |
-| Interim report | **26 Nov 2026** |
-| Final review | **15 Jan 2027** |
+| Interim report | **3 Dec 2026** (BB-2) |
+| Final review | **22 Jan 2027** (BB-2) |
 
-Both are BB-1 dates. We are in different course groups and run on the earlier
-schedule deliberately - see open point 0 in the plan.
+Both run on the BB-2 dates (decided 19 Oct 2026, see PLAN.md).
 
 ---
 

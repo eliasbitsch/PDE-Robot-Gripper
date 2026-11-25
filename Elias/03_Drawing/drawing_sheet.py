@@ -354,10 +354,10 @@ def sheet1(pdf):
     balloons(sh, "top", oT, rest, boxT)
     # fits and notes
     x0, y0 = W - 10 - 180, 55
-    notes = ["Passungen", "Lager 608-2Z: Gehäusebohrung 22 H7, Welle 8 k6 (oben Fest-, unten Loslager)",
-             "Backe auf Halter: Zylinderstifte ISO 8734 4 m6 in 4 H7; Arretierbolzen GN 617-5 in 5,2",
+    notes = ["Passungen", "Lager 608-2Z: Gehäusebohrung 22 H7, Welle 8 k5 (oben Fest-, unten Loslager)",
+             "Backe auf Halter: Zylinderstifte ISO 8734 4 m6 im Halter (4 H7), Backe Rundloch + Langloch 4 F7; Rändelschraube DIN 653 M5x20",
              "Roboterflansch ISO 9409-1-40-4-M6: Zentrierbund 25 h7, Passstift 6 H7",
-             f"Kegelrad auf Welle: 8 H7/k6 + Passfeder DIN 6885 A 2x2x{P.KEY_L:.0f}; Ritzelnabe 8 H7",
+             f"Kegelrad und Kegelritzel: 8 H7/h6 + Passfeder DIN 6885 A 2x2 (Rad {P.KEY_L:.0f} lang, Ritzel: Feder der Getriebewelle)",
              "Hinweise", "Dargestellt in Greifstellung (Beläge 70 mm); Hub 2 x 10 mm",
              f"Masse {json.load(open(os.path.join(CAD, 'out', 'checks.json')))['mass_kg']:.2f} kg; Stückliste auf Blatt 2".replace(".", ","), "Schrauben ISO 4762 / ISO 10642, 8.8, mittelfest gesichert"]
     for i, s in enumerate(notes):

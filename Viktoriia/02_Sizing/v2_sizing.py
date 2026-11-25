@@ -756,7 +756,7 @@ def _(F_max, F_req, F_set, P, math, mo, np, plt, r_p):
     phi_m = phi_p * i_g
     w_m = 2 * phi_m / t_close                            # peak motor speed, rad/s
     al_m = 4 * phi_m / t_close**2                        # motor acceleration, rad/s²
-    m_side = (54 + 29 + 81 + 74 + 65 + 40 + 6) / 1000   # kg: jaw, holder, slide, carriage, rack, pad plate, NBR (BOM 21 Nov)
+    m_side = max(P.MOVING_MASS.values())                 # kg per jaw incl. carriage, rack, screws (gripper_params, from the CAD build)
     J_rotor = 38e-7                                       # kg m²
     J_load = 2 * m_side * (r_p / 1000) ** 2 / i_g**2      # translating masses reflected to the motor
     J_gear = 1.5e-6 + 1.0e-6 + 0.5 * 0.055 * 0.012**2 / i_g**2   # kg m²: gearbox input, brake disc, m 1.5 bevels (drive.py)

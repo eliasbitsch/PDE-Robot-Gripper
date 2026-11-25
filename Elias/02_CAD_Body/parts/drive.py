@@ -96,10 +96,22 @@ def bevel_pinion(bev):
     s = bev.copy()
     s = s.fuse(cylz(P.BEVEL_HUB_D / 2, -P.BEVEL_HUB_L, 0.1))
     s = s.cut(cylz(P.BEARING[0] / 2, -P.BEVEL_HUB_L - 1, r + 1))
+    # keyway for the key of the GP42-S1 SRS shaft: torque by the key, the set screw only holds it axially
+    s = s.cut(box(-P.BEARING[0] / 2 - P.KEY_T2, -P.BEARING[0] / 2 + 1, -P.KEY_B / 2, P.KEY_B / 2, -P.BEVEL_HUB_L - 1, r + 1))
     s = s.cut(Part.makeCylinder(1.65, P.BEVEL_HUB_D / 2 + 1, V(0, 0, -P.BEVEL_HUB_L / 2), V(1, 0, 0)))  # M4 set screw (local +x = up)
     s.rotate(V(0, 0, 0), V(0, 1, 0), -90)        # local z -> global -X, local x -> global +Z
     s.translate(V(XP + r, 0, ZA))
     return s.removeSplitter()
+
+
+def pinion_setscrew():
+    """ISO 4029 M4x4 in the bevel pinion hub, in the pinion's frame as built by bevel_pinion()."""
+    from parts import fasteners as F
+    r = P.BEVEL_Z * P.BEVEL_M / 2
+    s = F.iso4029_x(4, 4, P.BEVEL_HUB_D / 2, 0, -P.BEVEL_HUB_L / 2, -1)
+    s.rotate(V(0, 0, 0), V(0, 1, 0), -90)
+    s.translate(V(XP + r, 0, ZA))
+    return s
 
 
 def gearbox_flange_x():

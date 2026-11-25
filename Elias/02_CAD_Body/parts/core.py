@@ -197,14 +197,14 @@ def slot_z(r, x, y, z0, z1, half):
 
 
 def holder(side):
-    """Jaw holder under the slide; the jaw rests on its inner face, pins + plunger along X."""
+    """Jaw holder under the slide; the jaw rests on its inner face, pins + thumb screw along X."""
     _, _, xj1, xh_top, xh_low = jaw_x(side)
     w = P.HOLDER_W / 2
     z_cov = P.POCKET_Z - P.COVER_T - 0.5
     s = box(xj1, xh_top, -w, w, z_cov, P.SLIDE_Z_TOP - P.SLIDE_T)
     s = s.fuse(box(xj1, xh_low, -w, w, P.HOLDER_Z_LOW, z_cov))
     tools = [cylx(P.DOWEL_D / 2, xj1 - side, xh_low + side, y, P.DOWEL_Z) for y in (-P.DOWEL_Y, P.DOWEL_Y)]
-    tools.append(cylx(4.5, xj1 - side, xh_low + side, 0, P.PLUNGER_Z))     # M10x1 tapped
+    tools.append(cylx(2.75, xj1 - side, xh_low + side, 0, P.RETAIN_Z))     # 5.5 clearance for the thumb screw
     for hx, hy in holder_screws(side):
         tools += [cylz(2.25, P.HOLDER_Z_LOW - 1, 0, hx, hy), cylz(4.0, P.HOLDER_Z_LOW - 1, P.HOLDER_Z_LOW + 4.5, hx, hy)]
     return cut_all(s, tools).removeSplitter()
@@ -226,7 +226,7 @@ def jaw(side):
     tools = [cylx(P.DOWEL_D / 2, xj1 - side * 6.5, xj1 + side, -P.DOWEL_Y, P.DOWEL_Z)]
     tools += [cylx(P.DOWEL_D / 2, xj1 - side * 6.5, xj1 + side, P.DOWEL_Y + dy, P.DOWEL_Z) for dy in (-0.5, 0.5)]
     tools.append(box(*sorted((xj1 - side * 6.5, xj1 + side)), P.DOWEL_Y - 0.5, P.DOWEL_Y + 0.5, P.DOWEL_Z - P.DOWEL_D / 2, P.DOWEL_Z + P.DOWEL_D / 2))
-    tools.append(cylx(P.PLUNGER_PIN_D / 2 + 0.1, xj1 - side * 6, xj1 + side, 0, P.PLUNGER_Z))
+    tools.append(cylx(2.1, xj0 - side, xj1 + side, 0, P.RETAIN_Z))      # M5 through thread (tapping drill 4.2)
     tools += [cylx(1.7, x_plate - side, xj1 + side, y, z) for y, z in pad_screws(side)]   # M3 clearance
     s = cut_all(s, tools)
     plate = box(xj0, x_plate, -wk + 0.1, wk - 0.1, P.PAD_Z[0] + 0.1, P.PAD_Z[1] - 0.1)
@@ -240,19 +240,14 @@ def dowel(side, y):
     return cylx(P.DOWEL_D / 2, xj1 - side * 6, xj1 + side * (P.DOWEL_L - 6), y, P.DOWEL_Z)
 
 
-def plunger(side):
-    """GN 617-5-A, simplified from the Ganter dimension table, axis along X, knob outwards."""
-    _, _, xj1, _, xh_low = jaw_x(side)
-    x_tip = xj1 - side * 5.0
-    x_body = xh_low - side * 10.0                    # 10 mm of thread in the holder
-    x_body_end = x_body + side * P.PLUNGER_L3
-    x_knob = x_body_end + side * 3.0
-    x_end = x_tip + side * P.PLUNGER_L1
-    s = cylx(P.PLUNGER_PIN_D / 2, x_tip, x_body + side * 0.1)
-    s = s.fuse(cylx(4.5, x_body, x_body_end))
-    s = s.fuse(cylx(2.5, x_body_end - side * 0.1, x_knob + side * 0.1))
-    s = s.fuse(cylx(P.PLUNGER_KNOB_D / 2, x_knob, x_end))
-    s.translate(V(0, 0, P.PLUNGER_Z))
+def thumb_screw(side):
+    """DIN 653 M5x20, head on the holder's outer face, tip 2 mm short of the jaw's inner face (6 mm of thread)."""
+    _, xj0, _, _, xh_low = jaw_x(side)
+    x_tip = xh_low - side * P.RETAIN_L
+    assert abs(x_tip - (xj0 + side * 2.0)) < 1e-6, "screw length does not match holder + jaw"
+    s = cylx(P.RETAIN_D / 2, x_tip, xh_low + side * 0.1)
+    s = s.fuse(cylx(P.RETAIN_HEAD_D / 2, xh_low, xh_low + side * P.RETAIN_HEAD_K))
+    s.translate(V(0, 0, P.RETAIN_Z))
     return s.removeSplitter()
 
 

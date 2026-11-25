@@ -1,7 +1,10 @@
 """Monte Carlo robustness of the grip: full cycles (built two-stage closing from fully open, lift, transfer on the
 real robot path, lower) with scattered inputs.
 
-python robustness.py [n_spec] [n_stress]  ->  out/robustness.json, figures/robustness.png
+python robustness.py [n_spec] [n_stress]  ->  out/robustness_cpu.json, figures/robustness_cpu.png
+
+CPU reference of the study (float64, one process per core). The study itself runs on the GPU, robustness_gpu.py
+(MuJoCo Warp, about 2 min instead of an hour) and writes out/robustness.json; this script checks it.
 
 spec    inputs inside their documented ranges: does every grip hold?
           part position across the grip axis  +-5 mm uniform      CAD_PLAN point 0
@@ -106,23 +109,22 @@ def main(n_spec=10000, n_stress=2000, workers=None):
     res.sort(key=lambda r: (r["study"], r["i"]))             # completion order differs from run to run
     json.dump(dict(ranges=RANGES, slip_ok=V.SLIP_OK, creep_grid=dict(mu=MU_GRID.tolist(), base=list(base_grid)),
                    runtime_s=time.time() - t0, results=res),
-              open(os.path.join(S.B.OUT, "robustness.json"), "w"))
+              open(os.path.join(S.B.OUT, "robustness_cpu.json"), "w"))
     for st in ("spec", "stress"):
         rr = [r for r in res if r["study"] == st]
         if rr:
             u = np.array([r["util_max"] for r in rr])
             print(f"{st}: {sum(r['held'] for r in rr)}/{len(rr)} held, peak friction use median {np.median(u):.3f}, "
                   f"max {u.max():.3f}, dropped {sum(r['dropped'] for r in rr)}")
-    plot(res, os.path.join(HERE, "figures", "robustness.png"))
+    plot(res, os.path.join(HERE, "figures", "robustness_cpu.png"))
 
 
-def saturated(n=200, workers=None):
+def saturated(n=200, workers=6):
     """Extra check outside the standard climate: out/robustness_saturated.json, the main study stays as it is."""
-    workers = workers or max(1, os.cpu_count() - 2)
     base = json.load(open(os.path.join(S.B.OUT, "robustness.json")))["creep_grid"]["base"]
     with Pool(workers) as pool:
         res = pool.map(one, [(s, base) for s in sample("saturated", n, 3)])
-    json.dump(dict(range=RANGES["saturated"], results=res), open(os.path.join(S.B.OUT, "robustness_saturated.json"), "w"))
+    json.dump(dict(range=RANGES["saturated"], results=res), open(os.path.join(S.B.OUT, "robustness_saturated_cpu.json"), "w"))
     u = np.array([r["util_max"] for r in res])
     print(f"saturated: {sum(r['held'] for r in res)}/{n} held, peak friction use median {np.median(u):.3f}, "
           f"max {u.max():.3f} (safety {1 / u.max():.2f})")
@@ -148,7 +150,7 @@ def width(workers=6):
     cases = [(dw, off) for dw in (-2.0, -1.5, -1.25, -1.0, -0.75, -0.5, -0.3, 0.0, 0.3, 0.5, 1.0) for off in (0.0, TOL)]
     with Pool(workers) as pool:
         res = pool.map(_width_case, cases)
-    json.dump(res, open(os.path.join(S.B.OUT, "width_tolerance.json"), "w"), indent=1)
+    json.dump(res, open(os.path.join(S.B.OUT, "width_tolerance_cpu.json"), "w"), indent=1)
     for r in res:
         tg = f"{r['t_grip'] * 1000:5.0f} ms" if r["t_grip"] is not None else "not before the lift"
         print(f"width {r['width_mm']:+5.2f} mm  offset {r['offset_mm']:3.0f} mm  jaws {r['f_left']:5.1f} / {r['f_right']:5.1f} N "
@@ -165,7 +167,7 @@ def corners(workers=6):
     todo = [dict(study="corner", i=i, **{k: rg[k][(i >> j) & 1] for j, k in enumerate(keys)}) for i in range(16)]
     with Pool(workers) as pool:
         res = pool.map(one, [(c, base) for c in todo])
-    json.dump(res, open(os.path.join(S.B.OUT, "robustness_corners.json"), "w"), indent=1)
+    json.dump(res, open(os.path.join(S.B.OUT, "robustness_corners_cpu.json"), "w"), indent=1)
     for r in sorted(res, key=lambda r: -r["util_max"]):
         print(f"offset {r['offset'] * 1000:+.0f} mm  mu {r['mu']:.2f}  F {r['force']:.1f} N  mass x{r['mass']:.2f}:  peak use "
               f"{r['util_max']:.3f} (S {1 / r['util_max']:.2f})  worst pad {r['util_pad_raw']:.2f}  {'held' if r['held'] else 'SLIPS'}")

@@ -23,10 +23,11 @@ JAW_T, JAW_W = P.JAW_T, P.JAW_W                     # 8 x 25 mm, EN AW-7075 T6
 Z_TOP, Z_BOT = P.JAW_Z_TOP, P.JAW_Z_BOTTOM           # -28.5 ... -98   (69.5 mm)
 X_IN = P.PAD_X0 + P.PAD_T + P.D_GRIP                 # 38  inner face at the grip position (|x|)
 X_OUT = X_IN + JAW_T                                 # 46  outer face, sits on the holder
-DOWEL_D, DOWEL_DEPTH, DOWEL_Y = 4.0, 6.5, P.DOWEL_Y  # 2 x O4 H7, 6.5 deep, y = +-5.5
+DOWEL_D, DOWEL_DEPTH, DOWEL_Y = 4.0, 6.5, P.DOWEL_Y  # O4 F7 round hole (y = -5.5) + 4 x 5 slot (y = +5.5), 6.5 deep
+SLOT_L = 1.0                                         # slot length along the dowel line: two round holes over-constrain
 DOWEL_Z = Z_TOP - 3.5                                # -32
-PLUNGER_D, PLUNGER_DEPTH = 5.2, 6.0                  # GN 617-5 pin O5 -> O5.2, 6 deep
-PLUNGER_Z = Z_TOP - 10.5                             # -39
+RETAIN_CORE = 4.2                                    # M5 through thread for the DIN 653 thumb screw (tapping drill)
+RETAIN_Z = P.RETAIN_Z                                # -39, 10.5 below the top
 POCKET_D, POCKET_W = 3.0, P.PAD_W                   # 82: wide pad against the twist of the part (review 21 Nov)
 POCKET_Z = P.PAD_Z                                   # -81.5 ... -60.5
 W_PAD, Z_PAD_TOP = P.JAW_W_PAD, P.JAW_PAD_TOP          # T-shaped jaw: 88 wide plate under the 25 wide web
@@ -61,11 +62,11 @@ def jaw_left():
               .edges("|X").fillet(POCKET_R)
               .translate((-(X_IN + POCKET_D / 2), 0, (POCKET_Z[0] + POCKET_Z[1]) / 2)))
     body = body.cut(pocket)
-    # dowel holes and indexing-plunger hole from the outer face
+    # dowel round hole + slot and the thumb-screw thread from the outer face
     outer = cq.Workplane("YZ", origin=(-X_OUT, 0, 0))
-    for y in (-DOWEL_Y, DOWEL_Y):
-        body = body.cut(outer.center(y, DOWEL_Z).circle(DOWEL_D / 2).extrude(DOWEL_DEPTH))
-    body = body.cut(outer.center(0, PLUNGER_Z).circle(PLUNGER_D / 2).extrude(PLUNGER_DEPTH))
+    body = body.cut(outer.center(-DOWEL_Y, DOWEL_Z).circle(DOWEL_D / 2).extrude(DOWEL_DEPTH))
+    body = body.cut(outer.center(DOWEL_Y, DOWEL_Z).slot2D(DOWEL_D + SLOT_L, DOWEL_D, 0).extrude(DOWEL_DEPTH))
+    body = body.cut(outer.center(0, RETAIN_Z).circle(RETAIN_CORE / 2).extrude(JAW_T))     # through: tip ends 2 mm short
     # pad-plate screws: through holes + shallow counterbore on the outer face
     for y in SCREW_Y:
         body = body.cut(outer.center(y, SCREW_ZC).circle(SCREW_HOLE / 2).extrude(JAW_T))

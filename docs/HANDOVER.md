@@ -1,6 +1,23 @@
 # Handover
 
-**22 Nov 2026, branch `master`, status: flight preview v2 with sound, waiting for Elias' approval.**
+**25 Nov 2026, branch `master`, status: whole-project review fixed on both sides; GPU robustness rerun pending.**
+
+## Done (23 - 24 Nov)
+
+- Codex whole-project review (Elias: option A, both sides changed, he tells Viktoriia) worked through: thumb screw
+  DIN 653 M5x20 instead of the indexing plunger (holder, jaws, Viktoriia's jaws.py and STEPs), pinion keyway + set
+  screw, moving masses L 0.348 / R 0.400 kg, gripper 2.950 kg, RAPID v2000 / v3000 as a TimeLaw cap, wrist torque
+  with axis 4, grip proof per pad with PAD_LIMIT 0.99, drawing fit notes, READMEs. Full recompute chain ran
+  (FEM, drawing, robot, closing, e-stop, power fail).
+- Monte Carlo ported to the GPU: `Elias/04_Simulation/robustness_gpu.py` (MuJoCo Warp, CUDA graph, 12 000 grips in
+  about 2 min). It writes the primary `out/robustness.json`, corners, saturated and width files; `robustness.py`
+  is now the CPU reference and writes `*_cpu.json`. Validated on 24 grips (util |d| <= 0.0007) and the width set.
+- CPU reference results (out/*_cpu.json, 23 Nov): spec 10000/10000 held, max 0.557; corners and saturated
+  (200/200) held. The CPU stress run still used the old pad criterion: re-evaluate with 0.99 (script below).
+- Fastener lengths reviewed: design left as is, reasoning in CAD_PLAN.md section 8 (for the report).
+- PLAN.md open point 9: cost estimate of the parts (online quotes); lecture slide in the FH OneDrive
+  `PDE/Vorlesung/`.
+
 
 ## Done (this session)
 
@@ -27,6 +44,18 @@
   heavier part as if saturated (+9 ... +10 %) checked separately: 200/200 held, peak 0.571 (S 1.75).
 
 ## Open
+
+- [ ] NEXT: rerun the GPU study. `out/robustness.json` is missing until then (scene and notebook read it).
+      The first rerun crashed at the first big batch (access violation in `wp.capture_launch`, other apps held
+      ~7 GB of GPU memory) and hung; Elias stopped the second one. Close GPU-heavy apps, then in
+      `Elias/04_Simulation`: `GPU_BATCH=3072 python robustness_gpu.py`, then `--corners`, `--saturated`, `--width`.
+- [ ] Compare all 12 000 samples GPU vs CPU (CPU held recomputed with util_pad_raw < 0.99, slip_excess < SLIP_OK,
+      not dropped, not lost); then update the Monte Carlo and width sections of 04_Simulation/README.md
+      (GPU method, validation, strict pad criterion: gross failure near the hand calculation, local pad sliding up
+      to mu F about 7 N, spec minimum 8.47 N), the notebook text and this file.
+- [ ] Cost estimate of the parts (PLAN.md point 9).
+- [ ] Elias: remove the simulation videos from the public repo or not (unanswered). The new
+      `figures/cell_grid.mp4` stays untracked until then.
 
 - [ ] NEXT (explainer, after two Codex review rounds, Elias: technically clean): finalize - Manim scenes 3, 5
       (curves -> film/assets/s5_curves.mp4), robustness in 1080p; re-render cell_grid.py (brighter light; the

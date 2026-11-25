@@ -36,7 +36,7 @@ STEP_TEXT = [
     "carriages, slides (4 x M3x8 each), racks (2 x M3x10 in slots, align, dowel 3x14)",
     "jaw holders on dowels, 2 x M4x25 each",
     "bottom cover, 4 x M3x10 countersunk",
-    "jaws onto the dowels until the plunger snaps in; pad plates 2 x M3x8 + washer",
+    "jaws onto the dowels, thumb screw in by hand; pad plates 2 x M3x6 in the counterbores",
     "window plate with cable gland, 4 x M3x8 countersunk",
     "adapter on the robot; gripper onto it with 4 x M4x16 countersunk from the top",
 ]
@@ -55,7 +55,7 @@ def explode_rules(s):
         ("Screw_ISO4762-M3x6_Pad", 8, (45 * s, 0, -200)), ("Washer_", 8, (35 * s, 0, -200)),
         ("PadPlate_", 8, (-10 * s, 0, -235)), ("Pad_", 8, (-10 * s, 0, -235)), ("Jaw_", 8, (12 * s, 0, -200)),
         ("Screw_ISO10642-M3x10_Cover", 7, (0, 0, -175)), ("Cover", 7, (0, 0, -140)),
-        ("Plunger_", 6, (40 * s, 0, -120)), ("Dowel_ISO8734-4x12", 6, (-15 * s, 0, -120)),
+        ("Thumbscrew_", 6, (40 * s, 0, -120)), ("Dowel_ISO8734-4x12", 6, (-15 * s, 0, -120)),
         ("Screw_ISO4762-M4x25_Holder", 6, (0, 0, -150)), ("Holder_", 6, (0, 0, -120)),
         ("Screw_ISO4762-M3x8_Carriage", 5, (0, 0, -115)), ("Screw_ISO4762-M3x10_Rack", 5, (0, 0, -115)),
         ("Dowel_ISO8734-3x14_Rack", 5, (0, 0, -115)), ("Slide_", 5, (0, 0, -90)), ("Carriage_", 5, (0, 0, -55)),

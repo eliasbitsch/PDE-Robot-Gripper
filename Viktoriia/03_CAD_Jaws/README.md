@@ -26,8 +26,10 @@ All parts sit in the gripper frame at the grip position (d = 2 mm), so they repl
 
 - web 25 x 8 mm from the top (z = -28.5) to z = -56.5, plate 88 x 27.5 x 8 mm below (to z = -84), fillets R4;
   outer face on the holder from the top edge down to 18.5 mm (unchanged)
-- 2 x O4 H7, 6.5 deep, y = +-5.5, 3.5 below the top (dowels ISO 8734 4 m6 x 12)
-- O5.2, 6 deep, y = 0, 10.5 below the top (indexing plunger GN 617-5-A)
+- O4 F7 round hole (y = -5.5) and 4 F7 x 5 slot along the dowel line (y = +5.5), 6.5 deep, 3.5 below the top
+  (dowels ISO 8734 4 m6 x 12 in the holder); two round holes would over-constrain the jaw (review 23 Nov)
+- M5 through thread, y = 0, 10.5 below the top: knurled thumb screw DIN 653 M5x20 from outside through the holder
+  holds the jaw on the dowels in the pull-off direction (until 23 Nov a GN 617 plunger along the dowel axis, which did not)
 - pocket 82 x 21 x 3 mm, z = -60.5 ... -81.5; 2 x O3.4 through, side by side at y = +-28 at the pocket centre height
 
 ## What I changed inside the jaw
@@ -46,8 +48,9 @@ friction force by form fit.
 ## Checks
 
 - Collision check against all 105 solids of `gripper_assembly.step` (11 Nov): the new parts only overlap the
-  placeholder jaw, plate and pad they replace - no contact with holder, dowels, plunger, slides or housing.
-- V4 updated to the T-jaw (web 25 x 8, plate 88 x 8, pocket web 88 x 5 + 3 mm rims); stress vs FEM +2.6 %.
+  placeholder jaw, plate and pad they replace - no contact with holder, dowels, retention screw, slides or housing.
+- V4 updated to the T-jaw (web 25 x 8, plate 88 x 8, pocket web 88 x 5 + 3 mm rims); stress vs FEM +1.6 % (final
+  comparison in `Elias/05_FEM/README.md`).
 - Full CAD rebuilt with the T-jaw (21 Nov): no interference closed / grip / open, demo sequence clean.
 
 ## Open

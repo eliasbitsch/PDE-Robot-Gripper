@@ -20,8 +20,7 @@ K_M = GP.MOTOR_T_HOLD / I_RATED                   # N*m/A = V*s/rad
 # Not on the datasheets, estimated: GP42 1-stage input side, BKE armature disc (~10 g, d 28), bevel pair + pinion shaft
 J_GEAR_IN, J_BRAKE = 1.5e-6, 1.0e-6
 J_OUT = 2 * 0.5 * 0.028 * 0.012 ** 2 + 0.5 * 0.035 * 0.005 ** 2   # at the pinion: m 1.5 bevel gears (CAD 26 + 29 g) + shaft
-# moving mass per jaw: slide, holder, jaw, ball carriage, rack (bom.csv)
-M_JAW = (73 + 29 + 31 + 51 + 65) / 1000.0
+M_JAW = max(GP.MOVING_MASS.values())             # kg, heavier moving group per jaw (gripper_params, from the build)
 F_FRICTION = 2.5                                  # N per jaw: carriage seals + brush seal along the slot (estimate)
 ETA = GP.GEAR_ETA * GP.ETA_BEVEL * GP.ETA_RP       # planetary x bevel x rack-pinion, as in V2 § 10
 

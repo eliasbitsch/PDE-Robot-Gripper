@@ -20,7 +20,7 @@ MM = 0.001
 PANEL = (640, 400)
 ACCENT = (194, 65, 12)
 # gripper parts the part must never touch (only the pads may), and cell objects the gripper/robot must clear
-GRIPPER_KEEP_OUT = ("Jaw_", "PadPlate_", "Holder_", "Cover", "Housing", "Plunger_", "Screw_ISO4762-M3x6_Pad")
+GRIPPER_KEEP_OUT = ("Jaw_", "PadPlate_", "Holder_", "Cover", "Housing", "Thumbscrew_", "Screw_ISO4762-M3x6_Pad")
 CELL_KEEP_OUT = ("belt", "carrier", "pedestal")
 PAD_NEAR = 0.055                      # m: contact markers within this distance of a pad centre are shown
 SEE_ALPHA = 0.2                       # share of the see-through parts in the composited panels

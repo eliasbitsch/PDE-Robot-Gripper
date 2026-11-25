@@ -81,7 +81,10 @@ the pad is 80.8 x 19.8 mm instead of 21.8 x 33.8 mm, low on the flat zone betwee
 | LC4 emergency stop | 45.3 | 0.062 | 15.2 / 16.4 | 20.1 / 12.5 | 10.6 / 43.3 |
 | LC5 brake limit | 92.9 | 0.131 | 30.5 / 8.2 | 34.3 / 7.3 | 18.3 / 25.1 |
 
-- Strength is far from critical: S ≥ 7.3 everywhere, also at the brake limit.
+- Strength is far from critical: the peak stresses in the table give S ≥ 7.3 at the 2 mm mesh, also at the brake
+  limit. These peaks sit at hole and support edges and keep growing with refinement (singular, see below), so the
+  verdict rests on the converged quantities (deflection, tilt, strain energy) and on the section stress compared
+  with V4; the margin of 7 covers the growth of the peaks seen in the convergence study.
 - Stiffness: LC2 tilt 0.059° with the carriage rigid (0.091° with the old jaw: the shorter lever helps more than the
   heavier plate costs).
 

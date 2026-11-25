@@ -46,18 +46,19 @@ def run(side):
     jg = np.array(json.load(open(os.path.join(ROOT, "02_CAD_Body", "out", "checks.json")))["inertia_cog_kgm2"])
     bf = m.body("gripper_frame").id
     adr = [m.joint(f"A{i + 1}").qposadr[0] for i in range(6)]
-    j5, j6 = m.joint("A5").id, m.joint("A6").id
-    pos, rot, ax5, an5, ax6, an6 = [], [], [], [], [], []
+    j4, j5, j6 = m.joint("A4").id, m.joint("A5").id, m.joint("A6").id
+    pos, rot, ax4, an4, ax5, an5, ax6, an6 = [], [], [], [], [], [], [], []
     for qi in q:
         d.qpos[adr] = qi
         mujoco.mj_kinematics(m, d)
         mujoco.mj_comPos(m, d)
         pos.append(d.xpos[bf].copy()); rot.append(d.xmat[bf].reshape(3, 3).copy())
+        ax4.append(d.xaxis[j4].copy()); an4.append(d.xanchor[j4].copy())
         ax5.append(d.xaxis[j5].copy()); an5.append(d.xanchor[j5].copy())
         ax6.append(d.xaxis[j6].copy()); an6.append(d.xanchor[j6].copy())
     pos, rot = np.array(pos), np.array(rot)
     g = np.array([0, 0, -S.GP.G])
-    out = {"t": t, "T5": [], "T6": [], "loaded": loaded}
+    out = {"t": t, "T4": [], "T5": [], "T6": [], "loaded": loaded}
     for case, mask in (("loaded", loaded), ("empty", ~loaded)):
         mass = mg + mp if case == "loaded" else mg
         c = (mg * cg + mp * cp) / (mg + mp) if case == "loaded" else cg
@@ -68,13 +69,14 @@ def run(side):
         w_sk = np.einsum("nij,nkj->nik", rd, rot)
         w = np.c_[w_sk[:, 2, 1] - w_sk[:, 1, 2], w_sk[:, 0, 2] - w_sk[:, 2, 0], w_sk[:, 1, 0] - w_sk[:, 0, 1]] / 2
         al = np.gradient(smooth(w), DT, axis=0)
-        J = jg if case == "empty" else jg + 0.0                       # part inertia is small next to its lever (in F)
+        J = jg if case == "empty" else np.array(pl["J_cog"])          # loaded: gripper + part about their common CoG
         jw = np.einsum("nij,jk,nlk->nil", rot, J, rot)
         mom = np.einsum("nij,nj->ni", jw, al) + np.cross(w, np.einsum("nij,nj->ni", jw, w))
         f = mass * (a - g)
-        for key, ax, an in (("T5", ax5, an5), ("T6", ax6, an6)):
+        for key, ax, an in (("T4", ax4, an4), ("T5", ax5, an5), ("T6", ax6, an6)):
             tau = np.einsum("ni,ni->n", np.array(ax), np.cross(r - np.array(an), f) + mom)
             out.setdefault(key + "_" + case, np.where(mask, tau, np.nan))
+    out["T4"] = np.fmax(np.nan_to_num(np.abs(out["T4_loaded"])), np.nan_to_num(np.abs(out["T4_empty"])))
     out["T5"] = np.fmax(np.nan_to_num(np.abs(out["T5_loaded"])), np.nan_to_num(np.abs(out["T5_empty"])))
     out["T6"] = np.fmax(np.nan_to_num(np.abs(out["T6_loaded"])), np.nan_to_num(np.abs(out["T6_empty"])))
     return out
@@ -86,11 +88,12 @@ def main():
     for side, chain in ((+1, "chain_2"), (-1, "chain_1")):
         o = run(side)
         runs[chain] = o
-        i5, i6 = int(np.argmax(o["T5"])), int(np.argmax(o["T6"]))
+        i4, i5, i6 = int(np.argmax(o["T4"])), int(np.argmax(o["T5"])), int(np.argmax(o["T6"]))
         static5 = float(np.nanmax(np.abs(o["T5_loaded"][:5])))
-        res[chain] = dict(t5_max=float(o["T5"][i5]), t5_at=float(o["t"][i5]), t6_max=float(o["T6"][i6]),
-                          t6_at=float(o["t"][i6]), t5_static_pick=static5)
-        print(f"{chain}: axis 5 max {o['T5'][i5]:.2f} N m at t {o['t'][i5]:.2f} s ({o['T5'][i5] / RS.T45_MAX * 100:.0f} % "
+        res[chain] = dict(t4_max=float(o["T4"][i4]), t4_at=float(o["t"][i4]), t5_max=float(o["T5"][i5]),
+                          t5_at=float(o["t"][i5]), t6_max=float(o["T6"][i6]), t6_at=float(o["t"][i6]), t5_static_pick=static5)
+        print(f"{chain}: axis 4 max {o['T4'][i4]:.2f} N m ({o['T4'][i4] / RS.T45_MAX * 100:.0f} % of {RS.T45_MAX}); "
+              f"axis 5 max {o['T5'][i5]:.2f} N m at t {o['t'][i5]:.2f} s ({o['T5'][i5] / RS.T45_MAX * 100:.0f} % "
               f"of {RS.T45_MAX}), static at the pick {static5:.2f} N m; axis 6 max {o['T6'][i6]:.2f} N m "
               f"({o['T6'][i6] / RS.T6_MAX * 100:.0f} % of {RS.T6_MAX})")
     pl = RS.payload()

@@ -31,6 +31,7 @@ T_CLOSE, T_SETTLE, T_LIFT = 0.25, 0.25, 0.4   # s
 T_TRANSFER = GP.T_EINWEG                      # 2.0 s budget per way; the loaded way now runs on S.TimeLaw (1.84 s)
 TA = GP.V_BAHN / GP.A_BAHN                    # accel phase of the trapezoid
 SLIP_OK = 0.5                                 # mm of slip beyond the model's creep base (see creep_base)
+PAD_LIMIT = 0.99                              # a pad at its friction limit slides (noslip puts sliding contacts on the cone)
 F_REF = 100.0                                 # N per jaw: far above any friction limit, the part cannot slip
 _CREEP = {}
 
@@ -149,7 +150,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
     q3, _ = S.q_place(0.0, side)
     path = S.transfer_path(LIFT, side)                 # through the vias: a straight swing hits the fence
     vmax = tuple(E.SPEED_USE * E.VMAX)                 # the axis speed limits the E4 cycle runs with
-    law = S.TimeLaw(path, GP.A_PATH_REAL, vmax_deg=vmax)   # fastest with the TCP acceleration the grip is sized for
+    law = S.TimeLaw(path, GP.A_PATH_REAL, vmax_deg=vmax, v_lim=E.V_LOADED)   # as e4_cycle runs the loaded transfer
     T_TR = law.T if t_transfer is None else t_transfer
     k_t = law.T / T_TR
 
@@ -180,8 +181,8 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
         T_UP = T_DN = T_LIFT
     else:                                     # as the robot runs it (e4_cycle): fastest at the loaded TCP limit
         lu, ld = E.line(q0, q1), E.line(q2, q3)
-        law_up = S.TimeLaw(lu, GP.A_PATH_REAL, m=m, d=d, vmax_deg=vmax)
-        law_dn = S.TimeLaw(ld, GP.A_PATH_REAL, m=m, d=d, vmax_deg=vmax)
+        law_up = S.TimeLaw(lu, GP.A_PATH_REAL, m=m, d=d, vmax_deg=vmax, v_lim=E.V_LOADED)
+        law_dn = S.TimeLaw(ld, GP.A_PATH_REAL, m=m, d=d, vmax_deg=vmax, v_lim=E.V_LOADED)
         up = lambda tt: lu(law_up(tt)[0])
         dn = lambda tt: ld(law_dn(tt)[0])
         T_UP, T_DN = law_up.T, law_dn.T
@@ -313,7 +314,7 @@ def run(case, force, estop=False, mu=None, t_transfer=None, dt_log=0.005, rec=No
     res = dict(case=case, force=force, estop=estop, slip_max=float(slip[win].max()), creep_base=base, slip_excess=excess,
                slip_end=float(slip[-1]), util_max=u_max, util_median=u_cruise, util_pad_max=u_pad,
                safety_eff=float(1.0 / u_max) if u_max > 0 else float("inf"),
-               held=bool(not dropped and not lost_contact and pad_raw < 1.0 and excess < SLIP_OK),
+               held=bool(not dropped and not lost_contact and pad_raw < PAD_LIMIT and excess < SLIP_OK),
                util_pad_raw=pad_raw, lost_contact=lost_contact, t_peak=t_peak, phase_peak=ph_peak,
                a_tcp_max=float(a_mag[win].max()), dropped=dropped,
                seat_mm=((ref - S.PART_OFFSET) / MM).tolist() if ref is not None else None)   # part in the jaws after closing

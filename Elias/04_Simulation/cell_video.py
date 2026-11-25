@@ -93,7 +93,7 @@ def timeline(m, d, side):
             out.append((t0, lim, (lambda t, p=path: p), jaw))
             t0 += lim
         else:
-            law = S.TimeLaw(path, lim, m=m, d=d, vmax_deg=tuple(E.SPEED_USE * E.VMAX))
+            law = S.TimeLaw(path, lim, m=m, d=d, vmax_deg=tuple(E.SPEED_USE * E.VMAX), v_lim=E.v_lim(lim))
             out.append((t0, law.T, (lambda t, p=path, l=law: p(l(t)[0])), jaw))
             t0 += law.T
     return out, t0

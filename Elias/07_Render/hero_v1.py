@@ -63,7 +63,7 @@ def pick(name, material, M):
         return M["oxide"]
     if name.startswith(("Washer", "Dowel")):
         return M["steel"]
-    if name.startswith(("Plunger", "Cable")):
+    if name.startswith(("Thumbscrew", "Cable")):
         return M["plastic"]
     if name.startswith(("Rack", "Bevel", "Pinion")):
         return M["steel_dark"]
@@ -720,7 +720,7 @@ elif mode == "assemble":
         (("Screw_ISO4762-M3x8_Carriage", "Screw_ISO4762-M3x10_Rack"), "head", 40), (("Dowel_ISO8734-3x14_Rack",), DOWN, 40),
         (("Cover",), DOWN, 70), (("Screw_ISO10642-M3x10_Cover",), "head", 40),
         (("Holder_",), DOWN, 60), (("Screw_ISO4762-M4x25_Holder",), "head", 50),
-        (("Dowel_ISO8734-4x12",), "in", 30), (("Plunger_",), "out", 50),
+        (("Dowel_ISO8734-4x12",), "in", 30), (("Thumbscrew_",), "out", 50),
         (("Jaw_",), "in", 28), (("PadPlate_", "Pad_"), "in", 18), (("Screw_ISO4762-M3x6_Pad", "Washer_"), "head", 25),
         (("Window_Plate",), FRONT, 60), (("Screw_ISO10642-M3x8_Window",), "head", 40), (("Cable_Gland",), FRONT, 60),
         (("Adapter_ISO9409",), UP, 80), (("Screw_ISO10642-M4x16_Adapter",), "head", 45),

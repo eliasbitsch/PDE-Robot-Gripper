@@ -30,7 +30,8 @@ MM = 0.001
 K_PAD_SHEAR, M_PAD_ARM = 3.7e4, 0.05
 C_PAD_SHEAR = 2 * (K_PAD_SHEAR * M_PAD_ARM) ** 0.5
 MU_PAD = GP.MU_OILY                       # NBR pad on oily PA 6, the value V2 has to justify
-GRIPPER_MASS, SLIDE_MASS = 2.38, 0.27     # kg, from the build (2.915 total incl. the moving groups, rail size 12)
+SLIDE_MASS = {-1: GP.MOVING_MASS["L"], 1: GP.MOVING_MASS["R"]}   # kg per moving group (gripper_params, from the build)
+GRIPPER_MASS = GP.GRIPPER_MASS_TOTAL - sum(GP.MOVING_MASS.values())    # kg, the part of the gripper that does not move
 GRIPPER_COM = (0.0, -4.2, 76.0 - 66.0)    # mm in the gripper frame (build: 66 mm below the flange face z = 76)
 ROBOT_LINK_MASS = [18.0, 9.0, 6.0, 3.0, 2.5, 0.8, 0.1]   # kg, rough split of the 65 kg arm; gravity compensated anyway
 COLORS = {"EN AW-6082": "0.72 0.75 0.78 1", "EN AW-7075": "0.76 0.25 0.05 1", "steel": "0.45 0.48 0.50 1",
@@ -111,7 +112,7 @@ def build():
         pad_geoms.append(f"pad_{tag}")
         slide_xml[side] = f'''
             <body name="slide_{tag}">
-              <inertial pos="{v(c, MM)}" mass="{SLIDE_MASS}" diaginertia="2e-4 2e-4 2e-4"/>
+              <inertial pos="{v(c, MM)}" mass="{SLIDE_MASS[side]}" diaginertia="2e-4 2e-4 2e-4"/>
               <joint name="jaw_{tag}" type="slide" axis="{side} 0 0" range="-0.001 {(GP.D_OPEN + 4) * MM:.4f}" damping="20" armature="{DRV.ARMATURE_PER_JAW:.4f}"/>  <!-- rotor, gearbox, brake seen at the jaw -->
               {chr(10).join("              " + b for b in body)}
             </body>'''

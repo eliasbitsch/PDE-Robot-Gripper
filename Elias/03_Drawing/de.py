@@ -11,7 +11,7 @@ DESIGNATION = {
     "Drive bracket": "Antriebswinkel",
     "Drive hood": "Antriebshaube",
     "Gear housing": "Getriebegehäuse",
-    "Indexing plunger GN 617-5-A": "Arretierbolzen GN 617-5-A",
+    "Knurled thumb screw DIN 653 M5x20 (jaw retention, by hand)": "Rändelschraube DIN 653 M5x20 (Backensicherung, von Hand)",
     "Jaw holder": "Backenhalter",
     "Jaw": "Greiferbacke",
     "Magnetic encoder NME2 (on the brake), for the external closed-loop controller": "Magnetischer Drehgeber NME2 (an der Bremse)",
