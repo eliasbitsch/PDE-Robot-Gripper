@@ -1266,7 +1266,10 @@ elif mode == "xray":
         u = -1.15 + 2.3 * soft((f - WIPE[0]) / (WIPE[1] - WIPE[0]))
         wv.outputs[0].default_value = u * (sc.camera.data.sensor_width / 2) / cam.data.lens
         wv.outputs[0].keyframe_insert("default_value", frame=f)
-    key_jaws([(150, 176, D_OPEN, D_GRIP), (205, 228, D_GRIP, D_OPEN), (240, 262, D_OPEN, D_GRIP)], END)
+    JAWS_X = [(150, 176, D_OPEN, D_GRIP), (205, 228, D_GRIP, D_OPEN), (240, 262, D_OPEN, D_GRIP)]
+    key_jaws(JAWS_X, END)
+    json.dump({"fps": FPS, "end": END, "wipe": WIPE, "jaws": JAWS_X, "fade_out": END - 20},
+              open(os.path.join(HERE, "out", "xray_timeline.json"), "w"))
     bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
     pool = bpy.data.lights["Pool"]
     pool.animation_data_clear()
@@ -1412,6 +1415,11 @@ elif mode == "grid":
                 ob.keyframe_insert("location", frame=f)
                 ob.keyframe_insert("rotation_quaternion", frame=f)
                 ob.keyframe_insert("hide_render", frame=f)
+    json.dump({"fps": FPS, "end": END, "land": LAND, "fly0": FLY0,
+               "drops": sorted(DROP0 + seq.index(n) * DROP_STEP for n in seq),
+               "flights": sorted((fly_at[n], fly_at[n] + DUR, n.startswith(("Screw", "Setscrew", "Thumbscrew")),
+                                  round(max(objs[n].dimensions), 4)) for n in seq)},
+              open(os.path.join(HERE, "out", "grid_timeline.json"), "w"))
     # light rig: wider and stronger, the grid is three times the gripper
     tgt.location = c + Vector((0, 0, LIFT * 0.5))
     for n_ in ("Key", "Top", "RimL", "RimR", "Fill"):
@@ -2045,8 +2053,13 @@ elif mode == "robot":
             SHOTS_R.append((f0, f1, name, side))
             PCUTS.append(f0)
         print("pick cuts", PCUTS)
+        qs = [pose(fr) for fr in range(1, END + 2)]
         json.dump({"fps": FPS, "end": END, "dip_cuts": list(CUTS), "jump_cuts": PCUTS, "cycle_starts": starts,
-                   "grips": grip_f, "releases": rel_f}, open(os.path.join(HERE, "out", "robot_timeline.json"), "w"))
+                   "cycles": CYC, "grips": grip_f, "releases": rel_f, "seat": SEAT, "g0": G0, "cable": (C0, C1),
+                   "plug": PLUG, "twist": (TW0, TW1), "rise": (R0, R1), "look": (L0, L1), "wave": (W0, W1),
+                   "blinks": [234 + SH, 254 + SH], "pick": (TR0, CY_END, BACK),
+                   "speed": [round(sum(abs(b - a) for a, b in zip(qs[i], qs[i + 1])), 3) for i in range(END)]},
+                  open(os.path.join(HERE, "out", "robot_timeline.json"), "w"))
     cam = camera("CamRobot", fl, SHOTS_R[0][2][1], 0.75, 70, 3.2)
     cam.constraints.clear()
     foc = cam.data.dof.focus_object
