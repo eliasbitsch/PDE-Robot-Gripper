@@ -34,9 +34,12 @@ def place(y, t_onset, gain_db, align=0.0, pan=0.0):
         mix[a:b] += y[a - i:b - i] * 10 ** (gain_db / 20)
 
 
+SFX_DB = float(os.environ.get("SFX_DB", "-6"))   # effects under the music: subtle by default (review 25 Nov)
+
+
 def sfx(sid, t, gain_db, at="onset", pan=0.0, kind=None, **kn):
     y, m = bank.render(sid, checks=False, **kn)
-    place(y, t, gain_db, align=m["peak_s"] if at == "peak" else m["onset_s"], pan=pan)
+    place(y, t, gain_db + SFX_DB, align=m["peak_s"] if at == "peak" else m["onset_s"], pan=pan)
     if kind:
         cues.append({"t": round(t, 3), "kind": kind})
 

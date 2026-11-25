@@ -1675,6 +1675,7 @@ elif mode == "robot":
         print("pick TCP error mm", round((tcp_chk - want).length / MM, 2), "place a6", best[1])
         for q_ in (Q_P, Q_AP, Q_L, Q_AL):
             print("pose", [round(a, 1) for a in q_])
+        eval_root([0.0] * 6)                            # back to home: the cable route below is taken at home pose
         BELT_Z = M_PICK.translation.z - 0.040           # part bottom on the belt
         OUT_Z = M_PLACE.translation.z - 0.040
         TR0, TR1 = W1 + 4, W1 + 34                      # from the wave to above the belt
@@ -1939,7 +1940,7 @@ elif mode == "robot":
         k_in, k_out = km.translation - ax * 0.012, km.translation + ax * 0.012
         return out_g, p0, ax, k_in, k_out
 
-    cn_home = conn.matrix_world.translation.copy()
+    cn_home = BASE + Vector((636.5, -15.0, 1239.1)) * MM   # the connector at home pose (matrix_world here is a later frame)
 
     def route_world():                                  # route points on the forearm, carried with it
         m = conn.matrix_world
