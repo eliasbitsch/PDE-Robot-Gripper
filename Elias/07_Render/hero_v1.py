@@ -387,6 +387,144 @@ def lab_set(FLOOR_Z=-1.0, CEIL_Z=2.2):
         box(f"MachineWin{k_}", (x - 0.35, y - 0.52, FLOOR_Z + 0.8), (x + 0.35, y - 0.5, FLOOR_Z + 1.5), dark)
 
 
+# assembly order shared by "assemble" and "grid": (parts by prefix, where they come from: a direction, "in" = from the
+# centre, "out" = from outside, "head" = along the screw axis from its head side; travel in mm)
+DOWN, UP_, FRONT_, RIGHT_, LEFT_ = (0, 0, -1), (0, 0, 1), (0, -1, 0), (1, 0, 0), (-1, 0, 0)
+ASSEMBLY = [
+    (("Rail",), DOWN, 70), (("Screw_ISO4762-M3x8_Rail",), "head", 40),
+    (("Pinion_Shaft", "Bearing_608_lower", "Circlip_DIN471"), DOWN, 70),
+    (("Bearing_608_upper", "Circlip_DIN472"), UP_, 60), (("Shim_", "Key_"), UP_, 50), (("Bevel_Wheel",), UP_, 60),
+    (("Setscrew",), LEFT_, 35),
+    (("Bracket", "Gearbox", "Bevel_Pinion"), RIGHT_, 140),
+    (("Motor",), RIGHT_, 110), (("Brake",), RIGHT_, 90), (("Encoder",), RIGHT_, 70),
+    (("Screw_ISO4762-M4x12_Gearbox",), "head", 40),   # after the sandwich: no turn back and forth
+    (("Screw_ISO4762-M3x10_Bracket",), "head", 40),
+    (("Hood",), UP_, 90), (("Screw_ISO4762-M4x12_Hood",), "head", 45),
+    (("Carriage_",), DOWN, 60), (("Rack_",), DOWN, 60), (("Slide_",), DOWN, 60),
+    (("Screw_ISO4762-M3x8_Carriage", "Screw_ISO4762-M3x10_Rack"), "head", 40), (("Dowel_ISO8734-3x14_Rack",), DOWN, 40),
+    (("Cover",), DOWN, 70), (("Screw_ISO10642-M3x10_Cover",), "head", 40),
+    (("Holder_",), DOWN, 60), (("Screw_ISO4762-M4x25_Holder",), "head", 50),
+    (("Dowel_ISO8734-4x12",), "in", 30), (("Thumbscrew_",), "out", 50),
+    (("Jaw_",), "in", 28), (("PadPlate_", "Pad_"), "in", 18), (("Screw_ISO4762-M3x6_Pad", "Washer_"), "head", 25),
+    (("Window_Plate",), FRONT_, 60), (("Screw_ISO10642-M3x8_Window",), "head", 40), (("Cable_Gland",), FRONT_, 60),
+    (("Adapter_ISO9409",), UP_, 80), (("Screw_ISO10642-M4x16_Adapter",), "head", 45),
+]
+
+
+def soft(u):
+    """quintic ease: no jerk at either end"""
+    u = min(1.0, max(0.0, u))
+    return u * u * u * (u * (6 * u - 15) + 10)
+
+
+def use_eevee():
+    if not os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
+        return
+    for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
+        try:
+            sc.render.engine = eng
+            break
+        except TypeError:
+            continue
+    try:
+        sc.eevee.use_raytracing = True
+        sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
+    except AttributeError:
+        pass
+
+
+def render_anim(folder, end):
+    sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", end))
+    sc.frame_step = int(os.environ.get("STEP", "1"))
+    sc.render.filepath = os.path.join(HERE, "out", folder, "f_")
+    if os.environ.get("STILLS"):                        # review: single frames instead of the clip
+        os.makedirs(os.path.join(HERE, "out", folder + "_stills"), exist_ok=True)
+        for fr in os.environ["STILLS"].split(","):
+            sc.frame_set(int(fr))
+            sc.render.filepath = os.path.join(HERE, "out", folder + "_stills", f"s_{int(fr):04d}.png")
+            bpy.ops.render.render(write_still=True)
+        return
+    bpy.ops.render.render(animation=True)
+
+
+def add_part_b(name, parent=None):
+    """part B (white PA 6) in its STEP frame; with a parent: held in the jaws at PART_OFFSET of the gripper frame"""
+    bpy.ops.wm.stl_import(filepath=os.path.join(HERE, "..", "04_Simulation", "meshes", "part_b.stl"), global_scale=MM)
+    ob = bpy.context.selected_objects[0]
+    ob.name = name
+    if "pa6" not in bpy.data.materials:
+        m = mat("pa6", (0.86, 0.85, 0.81), 0.0, 0.42)
+        b = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        try:
+            b.inputs["Subsurface Weight"].default_value = 0.0   # EEVEE draft: SSS only adds grain
+        except KeyError:
+            pass
+    ob.data.materials.append(bpy.data.materials["pa6"])
+    ob.data.shade_smooth()
+    try:
+        ob.data.set_sharp_from_angle(angle=math.radians(30))
+    except AttributeError:
+        pass
+    if parent is not None:
+        ob.parent = parent
+        ob.matrix_parent_inverse.identity()
+        ob.location = Vector(P.PART_OFFSET) * MM
+    return ob
+
+
+def spline_camera(name, keys, end, fstop=5.6):
+    """keys (frame, target, direction, distance, lens): Catmull-Rom through the keys, gently eased, never stops"""
+    cam = camera(name, keys[0][1], keys[0][2], keys[0][3], keys[0][4], fstop)
+    cam.constraints.clear()
+    foc = cam.data.dof.focus_object
+
+    def cr(p0, p1, p2, p3, t):
+        return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3)
+
+    pos = [k[1] + Vector(k[2]).normalized() * k[3] for k in keys]
+    tg = [Vector(k[1]) for k in keys]
+    for f in range(1, end + 1):
+        k = min(max([i for i in range(len(keys)) if keys[i][0] <= f] or [0]), len(keys) - 2)
+        t = min(1.0, max(0.0, (f - keys[k][0]) / (keys[k + 1][0] - keys[k][0])))
+        t = 0.5 * t + 0.5 * ease(t)
+        ip = lambda arr: cr(arr[max(k - 1, 0)], arr[k], arr[k + 1], arr[min(k + 2, len(arr) - 1)], t)
+        cam.location, foc.location = ip(pos), ip(tg)
+        cam.data.lens = keys[k][4] + (keys[k + 1][4] - keys[k][4]) * t
+        cam.rotation_euler = (foc.location - cam.location).to_track_quat("-Z", "Y").to_euler()
+        cam.keyframe_insert("location", frame=f)
+        cam.keyframe_insert("rotation_euler", frame=f)
+        cam.data.keyframe_insert("lens", frame=f)
+        foc.keyframe_insert("location", frame=f)
+    return cam
+
+
+def key_jaws(spans, end, start=1):
+    """spans [(f0, f1, d_from, d_to)]: all movers keyed from the same jaw travel d, so they stay geared"""
+    for p_ in piv.values():
+        p_.animation_data_clear()
+    for f in range(start, end + 1):
+        d = D_OPEN
+        for f0, f1, a, b in spans:
+            if f >= f0:
+                d = a + (b - a) * ease(min((f - f0) / (f1 - f0), 1.0))
+        piv[-1].location.x, piv[1].location.x = -d * MM, d * MM
+        piv["rot"].rotation_euler.z = piv["rotx"].rotation_euler.x = d / R_PIN
+        for k in (-1, 1):
+            piv[k].keyframe_insert("location", index=0, frame=f)
+        piv["rot"].keyframe_insert("rotation_euler", index=2, frame=f)
+        piv["rotx"].keyframe_insert("rotation_euler", index=0, frame=f)
+
+
+def fade(end, f_in=24, f_out=20):
+    vs = sc.view_settings
+    for f in range(1, end + 1):
+        e = -8 * (1 - ease(min(1.0, f / f_in)))
+        if f > end - f_out:
+            e = -10 * ease((f - (end - f_out)) / f_out)
+        vs.exposure = e
+        vs.keyframe_insert("exposure", frame=f)
+
+
 if mode == "anim":
     sc.render.filepath = os.path.join(HERE, "out", "frames", "f_")
     bpy.ops.render.render(animation=True)
@@ -704,27 +842,7 @@ elif mode == "assemble":
         if k_ in (-1, 1):
             p_.location = (0, 0, 0)
     sc.timeline_markers.clear()
-    DOWN, UP, FRONT, RIGHT, LEFT = (0, 0, -1), (0, 0, 1), (0, -1, 0), (1, 0, 0), (-1, 0, 0)
-    GROUPS = [  # (parts by prefix, where they come from: a direction, "in" = from the centre, "out" = from outside,
-                #  "head" = along the screw axis from its head side; travel in mm)
-        (("Rail",), DOWN, 70), (("Screw_ISO4762-M3x8_Rail",), "head", 40),
-        (("Pinion_Shaft", "Bearing_608_lower", "Circlip_DIN471"), DOWN, 70),
-        (("Bearing_608_upper", "Circlip_DIN472"), UP, 60), (("Shim_", "Key_"), UP, 50), (("Bevel_Wheel",), UP, 60),
-        (("Setscrew",), LEFT, 35),
-        (("Bracket", "Gearbox", "Bevel_Pinion"), RIGHT, 140),
-        (("Motor",), RIGHT, 110), (("Brake",), RIGHT, 90), (("Encoder",), RIGHT, 70),
-        (("Screw_ISO4762-M4x12_Gearbox",), "head", 40),   # after the sandwich: no turn back and forth
-        (("Screw_ISO4762-M3x10_Bracket",), "head", 40),
-        (("Hood",), UP, 90), (("Screw_ISO4762-M4x12_Hood",), "head", 45),
-        (("Carriage_",), DOWN, 60), (("Rack_",), DOWN, 60), (("Slide_",), DOWN, 60),
-        (("Screw_ISO4762-M3x8_Carriage", "Screw_ISO4762-M3x10_Rack"), "head", 40), (("Dowel_ISO8734-3x14_Rack",), DOWN, 40),
-        (("Cover",), DOWN, 70), (("Screw_ISO10642-M3x10_Cover",), "head", 40),
-        (("Holder_",), DOWN, 60), (("Screw_ISO4762-M4x25_Holder",), "head", 50),
-        (("Dowel_ISO8734-4x12",), "in", 30), (("Thumbscrew_",), "out", 50),
-        (("Jaw_",), "in", 28), (("PadPlate_", "Pad_"), "in", 18), (("Screw_ISO4762-M3x6_Pad", "Washer_"), "head", 25),
-        (("Window_Plate",), FRONT, 60), (("Screw_ISO10642-M3x8_Window",), "head", 40), (("Cable_Gland",), FRONT, 60),
-        (("Adapter_ISO9409",), UP, 80), (("Screw_ISO10642-M4x16_Adapter",), "head", 45),
-    ]
+    GROUPS = ASSEMBLY
     PLATES = ("Hood", "Cover", "Rail", "Bracket", "Slide_", "Carriage_", "Holder_", "Window_Plate", "Adapter",
               "Jaw_", "PadPlate_", "Pad_")
     FASTENERS = ("Screw", "Setscrew", "Dowel", "Washer", "Key_", "Circlip", "Shim")
@@ -1007,6 +1125,316 @@ elif mode == "assemble":
     sc.render.filepath = os.path.join(HERE, "out", "assemble" + ("_nozoom" if os.environ.get("NOZOOM") else ""), "f_")
     bpy.ops.render.render(animation=True)
     print("assemble done", sc.render.engine)
+elif mode == "xray":
+    # cinematic push-in on the dark stage; an X-ray wipe runs left to right across the screen and turns the shell into
+    # glowing glass, then the motor drives the jaws onto part B twice. The wipe is in screen space: every shader reads
+    # its point in camera coordinates and compares x / -z with the wipe position WIPE (node group "XRayWipe").
+    END = 300
+    root.animation_data_clear()
+    root.rotation_euler = (0, 0, 0)
+    for ob in objs.values():
+        ob.animation_data_clear()
+        ob.hide_render = False
+    sc.timeline_markers.clear()
+    part = add_part_b("PartB", root)
+    bpy.data.collections["Product"].objects.link(part)
+    part_bottom = (Vector(P.PART_OFFSET) * MM).z - 0.040
+    fl_ob = bpy.data.objects["Floor"]                   # part B stands on the glossy floor, the gripper around it
+    for v in fl_ob.data.vertices:
+        v.co.z = part_bottom
+    zp = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) * MM
+    mech = Vector((-30, -5, 0.5 * (2 + zp / MM))) * MM  # between drive train and pads
+    keys = [(1, c, (1.05, -1.3, 0.42), 1.25, 50), (110, c.lerp(mech, 0.4), (0.8, -1.45, 0.3), 0.8, 60),
+            (210, mech, (0.45, -1.5, 0.22), 0.66, 60), (END, mech, (0.3, -1.55, 0.2), 0.58, 62)]
+    cam = spline_camera("CamXRay", keys, END, 6.3)
+    sc.camera = cam
+
+    ng = bpy.data.node_groups.new("XRayWipe", "ShaderNodeTree")
+    ng.interface.new_socket("Mask", in_out="OUTPUT", socket_type="NodeSocketFloat")
+    ng.interface.new_socket("Band", in_out="OUTPUT", socket_type="NodeSocketFloat")
+    N = ng.nodes
+    go = N.new("NodeGroupOutput")
+    tc = N.new("ShaderNodeTexCoord")
+    tc.object = cam
+    sep = N.new("ShaderNodeSeparateXYZ")
+    ng.links.new(tc.outputs["Object"], sep.inputs[0])
+
+    def math_(op, a, b=None):
+        n = N.new("ShaderNodeMath")
+        n.operation = op
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[i].default_value = v
+            else:
+                ng.links.new(v, n.inputs[i])
+        return n.outputs[0]
+
+    sx = math_("DIVIDE", sep.outputs["X"], math_("MULTIPLY", sep.outputs["Z"], -1.0))
+    wv = N.new("ShaderNodeValue")
+    wv.name = "WIPE"
+    rel = math_("SUBTRACT", sx, wv.outputs[0])
+    mr_ = N.new("ShaderNodeMapRange")                   # 1 left of the wipe line (already scanned), clamped
+    ng.links.new(rel, mr_.inputs["Value"])
+    mr_.inputs["From Min"].default_value, mr_.inputs["From Max"].default_value = -0.003, 0.003
+    mr_.inputs["To Min"].default_value, mr_.inputs["To Max"].default_value = 1.0, 0.0
+    ng.links.new(mr_.outputs["Result"], go.inputs["Mask"])
+    band = math_("POWER", math_("MAXIMUM", math_("SUBTRACT", 1.0, math_("DIVIDE", math_("ABSOLUTE", rel), 0.012)), 0.0), 3.0)
+    ng.links.new(band, go.inputs["Band"])
+
+    CYAN = (0.35, 0.8, 1.0, 1)
+    shell_mats = {}
+    for name, ob in objs.items():
+        m0 = ob.data.materials[0]
+        is_shell = name.startswith(SHELL)
+        key_ = m0.name + ("_xs" if is_shell else "_xi")
+        if key_ not in shell_mats:
+            m = m0.copy()
+            m.name = key_
+            nt = m.node_tree
+            out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+            bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+            g = nt.nodes.new("ShaderNodeGroup")
+            g.node_tree = ng
+            em = nt.nodes.new("ShaderNodeEmission")
+            em.inputs["Color"].default_value = CYAN
+            sm = nt.nodes.new("ShaderNodeMath")
+            sm.operation = "MULTIPLY"
+            nt.links.new(g.outputs["Band"], sm.inputs[0])
+            sm.inputs[1].default_value = 25.0
+            nt.links.new(sm.outputs[0], em.inputs["Strength"])
+            surf = bsdf.outputs[0]
+            if is_shell:
+                # X-ray glass: transparent with a cyan glow at grazing angles (edges and silhouettes)
+                lw = nt.nodes.new("ShaderNodeLayerWeight")
+                lw.inputs["Blend"].default_value = 0.35
+                pw = nt.nodes.new("ShaderNodeMath")
+                pw.operation = "POWER"
+                nt.links.new(lw.outputs["Facing"], pw.inputs[0])
+                pw.inputs[1].default_value = 1.5
+                gl = nt.nodes.new("ShaderNodeEmission")
+                gl.inputs["Color"].default_value = CYAN
+                gs = nt.nodes.new("ShaderNodeMath")
+                gs.operation = "MULTIPLY_ADD"
+                nt.links.new(pw.outputs[0], gs.inputs[0])
+                gs.inputs[1].default_value, gs.inputs[2].default_value = 1.8, 0.035
+                nt.links.new(gs.outputs[0], gl.inputs["Strength"])
+                tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+                xr = nt.nodes.new("ShaderNodeAddShader")
+                nt.links.new(tr.outputs[0], xr.inputs[0])
+                nt.links.new(gl.outputs[0], xr.inputs[1])
+                mx = nt.nodes.new("ShaderNodeMixShader")
+                nt.links.new(g.outputs["Mask"], mx.inputs["Fac"])
+                nt.links.new(surf, mx.inputs[1])
+                nt.links.new(xr.outputs[0], mx.inputs[2])
+                surf = mx.outputs[0]
+                if hasattr(m, "surface_render_method"):
+                    m.surface_render_method = "BLENDED"   # dithered dropped the additive glow
+                if hasattr(m, "use_backface_culling"):
+                    m.use_backface_culling = False
+                if hasattr(m, "use_transparent_shadow"):
+                    m.use_transparent_shadow = True
+            ad = nt.nodes.new("ShaderNodeAddShader")
+            nt.links.new(surf, ad.inputs[0])
+            nt.links.new(em.outputs[0], ad.inputs[1])
+            nt.links.new(ad.outputs[0], out.inputs["Surface"])
+            shell_mats[key_] = m
+        ob.data.materials[0] = shell_mats[key_]
+    # the scan line runs over part B too
+    pm = bpy.data.materials["pa6"].copy()
+    pm.name = "pa6_x"
+    nt = pm.node_tree
+    g = nt.nodes.new("ShaderNodeGroup")
+    g.node_tree = ng
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = CYAN
+    sm = nt.nodes.new("ShaderNodeMath")
+    sm.operation = "MULTIPLY"
+    nt.links.new(g.outputs["Band"], sm.inputs[0])
+    sm.inputs[1].default_value = 25.0
+    nt.links.new(sm.outputs[0], em.inputs["Strength"])
+    ad = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED").outputs[0], ad.inputs[0])
+    nt.links.new(em.outputs[0], ad.inputs[1])
+    nt.links.new(ad.outputs[0], next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])
+    part.data.materials[0] = pm
+
+    WIPE = (70, 130)                                    # screen fraction -1.15 -> 1.15, in x / -z units of the lens
+    for f in range(1, END + 1):
+        sc.frame_set(f)
+        u = -1.15 + 2.3 * soft((f - WIPE[0]) / (WIPE[1] - WIPE[0]))
+        wv.outputs[0].default_value = u * (sc.camera.data.sensor_width / 2) / cam.data.lens
+        wv.outputs[0].keyframe_insert("default_value", frame=f)
+    key_jaws([(150, 176, D_OPEN, D_GRIP), (205, 228, D_GRIP, D_OPEN), (240, 262, D_OPEN, D_GRIP)], END)
+    bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
+    pool = bpy.data.lights["Pool"]
+    pool.animation_data_clear()
+    pool.energy = 45
+    fade(END)
+    use_eevee()
+    print("xray frames", END)
+    render_anim("xray", END)
+    print("xray done", sc.render.engine)
+elif mode == "grid":
+    # knolling: every part lies flat in a grid on the black floor in assembly order (they drop in as a wave), the
+    # camera looks down, tilts to three-quarter, then the parts fly row by row to their seat in the gripper hovering
+    # above the grid: up out of the grid, round into their joining axis, in.
+    from mathutils import Matrix, Quaternion
+    root.animation_data_clear()
+    root.rotation_euler = (0, 0, 0)
+    for k_, p_ in piv.items():
+        p_.animation_data_clear()
+        p_.rotation_euler = (0, 0, 0)
+        if k_ in (-1, 1):
+            p_.location = (0, 0, 0)
+    sc.timeline_markers.clear()
+    bpy.context.view_layer.update()
+    for name, ob in objs.items():
+        ob.animation_data_clear()
+        ob.hide_render = False
+        mw = ob.matrix_world.copy()
+        ob.parent = None
+        ob.matrix_world = mw
+        ctr = sum((Vector(v) for v in ob.bound_box), Vector()) / 8
+        ob.data.transform(Matrix.Translation(-ctr))
+        ob.location = ob.location + ob.matrix_basis.to_3x3() @ ctr
+        ob.rotation_mode = "QUATERNION"
+    bpy.context.view_layer.update()
+    order, used = [], set()
+    rest = sorted(n for n in objs if not any(n.startswith(g[0]) for g in ASSEMBLY))   # housing: the base, first
+    order.append((rest, (0, 0, -1), 60))
+    used.update(rest)
+    for prefixes, how, dist in ASSEMBLY:
+        members = sorted(n for n in objs if n.startswith(prefixes) and n not in used)
+        if members:
+            used.update(members)
+            order.append((members, how, dist))
+    FLOOR_Z = bpy.data.objects["Floor"].data.vertices[0].co.z
+    LIFT = 0.16                                         # the finished gripper hovers this much higher than in "stage"
+
+    def flat(ob):
+        """rotation that lays the part on its largest face, longest side along x; footprint and height after it"""
+        vs = [Vector(v.co) * ob.scale.x for v in ob.data.vertices]
+        dims = [max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)]
+        thin = dims.index(min(dims))
+        q = Quaternion() if thin == 2 else Quaternion((0, 1, 0), math.pi / 2) if thin == 0 else Quaternion((1, 0, 0), math.pi / 2)
+        rv = [q @ v for v in vs]
+        d2 = [max(v[i] for v in rv) - min(v[i] for v in rv) for i in range(3)]
+        if d2[1] > d2[0]:
+            q = Quaternion((0, 0, 1), math.pi / 2) @ q
+            d2 = [d2[1], d2[0], d2[2]]
+        lo_z = min((q @ v).z for v in vs)
+        return q, d2, lo_z
+
+    GAP = 0.014
+    items = [(n, *flat(objs[n])) for g in order for n in g[0]]
+    area = sum((d[0] + GAP) * (d[1] + GAP) for _, _, d, _ in items)
+    ROW_W = max(math.sqrt(area * 1.9), max(d[0] for _, _, d, _ in items) + GAP)
+    rows, row, x = [], [], 0.0
+    for it in items:
+        if row and x + it[2][0] > ROW_W:
+            rows.append(row)
+            row, x = [], 0.0
+        row.append((x, it))
+        x += it[2][0] + GAP
+    rows.append(row)
+    depth = sum(max(it[2][1] for _, it in r) + GAP for r in rows) - GAP
+    gc = Vector((c.x, c.y, FLOOR_Z))
+    grid, y = {}, gc.y + depth / 2
+    for r in rows:
+        rh = max(it[2][1] for _, it in r)
+        rw = r[-1][0] + r[-1][1][2][0]
+        for x0, (n, q, d, lo_z) in r:
+            p = Vector((gc.x - rw / 2 + x0 + d[0] / 2, y - rh / 2, FLOOR_Z - lo_z + 0.0005))
+            grid[n] = (p, q)
+        y -= rh + GAP
+    print("grid", len(rows), "rows", round(ROW_W, 3), "x", round(depth, 3), "m")
+
+    # timeline: drop-in wave, hold, camera tilt, flight row by row, finished gripper turns under the camera
+    DROP0, DROP_STEP, DROP_DUR = 8, 0.55, 14
+    seq = [n for g in order for n in g[0]]
+    FLY0, GSTEP, DUR = 150, 4, 26
+    fly_at, k = {}, FLY0
+    for members, how, dist in order:
+        for i, n in enumerate(members):
+            fly_at[n] = k + i
+        k += GSTEP + len(members) // 4
+    LAND = max(fly_at.values()) + DUR
+    END = LAND + 70
+    home = {n: objs[n].location.copy() + Vector((0, 0, LIFT)) for n in objs}
+
+    def head_dir(ob):
+        vs = [v.co for v in ob.data.vertices]
+        dims = [max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)]
+        ax = dims.index(max(dims))
+        o1, o2 = [i for i in range(3) if i != ax]
+        r = lambda v: math.hypot(v[o1], v[o2])
+        pos = max((r(v) for v in vs if v[ax] > 0), default=0)
+        neg = max((r(v) for v in vs if v[ax] < 0), default=0)
+        d = Vector((0, 0, 0))
+        d[ax] = 1.0 if pos > neg else -1.0
+        return d
+
+    def bez(p0, p1, p2, p3, u):
+        return (1 - u) ** 3 * p0 + 3 * (1 - u) ** 2 * u * p1 + 3 * (1 - u) * u * u * p2 + u ** 3 * p3
+
+    for members, how, dist in order:
+        for n in members:
+            ob = objs[n]
+            s_ = -1 if ob.location.x < c.x - 1e-4 else 1
+            d = (Vector((-s_, 0, 0)) if how == "in" else Vector((s_, 0, 0)) if how == "out"
+                 else head_dir(ob) if how == "head" else Vector(how))
+            p_grid, q_grid = grid[n]
+            p_home = home[n]
+            p1 = p_grid + Vector((0, 0, 0.10 + 0.25 * (p_home - p_grid).length))
+            p2 = p_home + d * (dist * MM + 0.07)
+            i_drop = seq.index(n)
+            f_drop = DROP0 + i_drop * DROP_STEP
+            f_fly = fly_at[n]
+            spin = n.startswith(("Screw", "Setscrew", "Thumbscrew"))
+            for f in range(1, END + 1):
+                if f < f_fly:
+                    t = (f - f_drop) / DROP_DUR
+                    h = 0.0 if t >= 1 else 0.06 * (1 - t) ** 2 * abs(math.cos(2.2 * math.pi * t)) if t > 0 else 0.06
+                    ob.location = p_grid + Vector((0, 0, h))
+                    ob.rotation_quaternion = q_grid
+                    ob.hide_render = t <= 0
+                else:
+                    t = min(1.0, (f - f_fly) / DUR)
+                    u = soft(t)
+                    ob.location = bez(p_grid, p1, p2, p_home, u)
+                    q = q_grid.slerp(Quaternion(), soft(min(1.0, t * 1.4)))
+                    if spin:
+                        q = Quaternion(d, (1 - soft(t)) * 4 * math.pi) @ q
+                    ob.rotation_quaternion = q
+                    ob.hide_render = False
+                ob.keyframe_insert("location", frame=f)
+                ob.keyframe_insert("rotation_quaternion", frame=f)
+                ob.keyframe_insert("hide_render", frame=f)
+    # light rig: wider and stronger, the grid is three times the gripper
+    tgt.location = c + Vector((0, 0, LIFT * 0.5))
+    for n_ in ("Key", "Top", "RimL", "RimR", "Fill"):
+        lo_ = bpy.data.objects[n_]
+        lo_.location = tgt.location + (lo_.location - c) * 1.7
+        bpy.data.lights[n_].energy *= 2.5
+        bpy.data.lights[n_].size *= 1.6
+    pool = bpy.data.lights["Pool"]
+    pool.animation_data_clear()
+    pool.energy, pool.spot_size = 7, math.radians(80)    # brighter blows out the top view in the glossy floor
+    bpy.data.objects["Top"].light_linking.receiver_collection = bpy.data.collections["Product"]
+    top_d = 0.5 * max(ROW_W, depth * 16 / 9) * 1.15 / (18 / 50)
+    asm = c + Vector((0, 0, LIFT))
+    keys = [(1, gc, (0.0, -0.04, 1.0), top_d * 1.08, 50), (110, gc, (0.03, -0.12, 1.0), top_d, 50),
+            (FLY0 + 10, gc.lerp(asm, 0.5), (0.6, -1.25, 0.95), top_d * 0.85, 45),
+            (LAND, asm, (0.95, -1.3, 0.5), 0.95, 55), (END, asm, (0.6, -1.5, 0.38), 0.85, 60)]
+    cam = spline_camera("CamGrid", keys, END, 8.0)
+    sc.camera = cam
+    fade(END, 20, 16)
+    use_eevee()
+    print("grid frames", END, "landed", LAND)
+    render_anim("grid", END)
+    print("grid done", sc.render.engine)
 elif mode == "robot":
     # shot 6 (review 22 Nov): IRB 1300 in the lab, bowed down as if asleep; the gripper snaps onto the flange along
     # the tool axis, the cable draws itself from the gland to the forearm and clicks in, the robot rises in one move,
@@ -1194,6 +1622,174 @@ elif mode == "robot":
     W0, W1 = 272 + SH, 326 + SH                         # wave
     CUTS = (61, 106 + SH, 181 + SH)                     # shots: flange, cable + plug-in, rise, look
     END = 350 + SH
+    # after the wave (Elias, 25 Nov): part B comes along the buffer belt, the robot picks it and sets it down on the
+    # outgoing conveyor, cycle after cycle, each one faster; cut on the action (jump cuts, motion blur). Poses from the
+    # closed-form IK of the cell (tool down), belt heights from where the part actually sits in the jaws.
+    PICK = os.environ.get("PICK", "1") == "1"
+    if PICK:
+        zp = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) * MM
+        TCP_UP = (ZTOP - zp) / MM + CP.L_FL             # mm from TCP to the wrist centre, tool down
+        TCP_AB = 0.5 * (P.PAD_Z[0] + P.PAD_Z[1]) - (P.PART_OFFSET[2] - 40.0)   # TCP above the part's bottom face
+        HOVER = 160.0
+
+        def ik(x, y, h, a6=0.0):
+            q, bad = CP.ik_tool_down((x, y, h + TCP_AB + TCP_UP), a6)
+            if bad:
+                print("IK limits violated on axes", bad, "at", x, y, h)
+            return q
+
+        def eval_root(q):
+            for (j, ax), a in zip(joints, q):
+                e = [0.0, 0.0, 0.0]
+                e[ax] = math.radians(a)
+                j.rotation_euler = e
+            root.location = (0, 0, -ZTOP)
+            bpy.context.view_layer.update()
+            return root.matrix_world.copy()
+
+        PART_LOCAL = Matrix.Translation(Vector(P.PART_OFFSET) * MM)
+        Q_P = ik(CP.X_PICK, 0.0, CP.H_PICK)
+        Q_AP = ik(CP.X_PICK, 0.0, CP.H_PICK + HOVER)
+        M_PICK = eval_root(Q_P) @ PART_LOCAL
+        ax_pick = M_PICK.to_3x3() @ Vector((1, 0, 0))
+        best = None
+        for a6 in range(-300, 301, 5):                  # place with the same part orientation as on the belt
+            qq = CP.ik_tool_down((CP.X_PLACE, CP.DY_CHAIN, CP.H_PLACE + TCP_AB + TCP_UP), a6)[0]
+            mm_ = eval_root(qq) @ PART_LOCAL
+            err = (mm_.to_3x3() @ Vector((1, 0, 0))).angle(ax_pick) + 0.002 * abs(a6 - qq[0])
+            if best is None or err < best[0]:
+                best = (err, a6)
+        Q_L = ik(CP.X_PLACE, CP.DY_CHAIN, CP.H_PLACE, best[1])
+        Q_AL = ik(CP.X_PLACE, CP.DY_CHAIN, CP.H_PLACE + HOVER, best[1])
+        M_PLACE = eval_root(Q_L) @ PART_LOCAL
+        tcp_chk = eval_root(Q_P) @ Vector((0, 0, zp))
+        want = BASE + (Vector((CP.X_PICK, 0, CP.H_PICK + TCP_AB)) - Vector(CP.BASE)) * MM
+        print("pick TCP error mm", round((tcp_chk - want).length / MM, 2), "place a6", best[1])
+        for q_ in (Q_P, Q_AP, Q_L, Q_AL):
+            print("pose", [round(a, 1) for a in q_])
+        BELT_Z = M_PICK.translation.z - 0.040           # part bottom on the belt
+        OUT_Z = M_PLACE.translation.z - 0.040
+        TR0, TR1 = W1 + 4, W1 + 34                      # from the wave to above the belt
+        CYC = [84, 66, 52, 42, 34, 28, 24, 21, 19]      # frames per cycle: each faster than the one before
+        starts = [TR1 + 4]
+        for T_ in CYC[:-1]:
+            starts.append(starts[-1] + T_)
+        CY_END = starts[-1] + CYC[-1]
+        SEG = [(0.00, 0.15, "AP", "P"), (0.15, 0.24, "P", "P"), (0.24, 0.36, "P", "AP"), (0.36, 0.62, "AP", "AL"),
+               (0.62, 0.72, "AL", "L"), (0.72, 0.79, "L", "L"), (0.79, 0.87, "L", "AL"), (0.87, 1.00, "AL", "AP")]
+        QS = {"P": Q_P, "AP": Q_AP, "L": Q_L, "AL": Q_AL}
+        BACK = CY_END + 34                              # back to looking at the camera
+        END = BACK + 60
+        NPART = len(CYC) + 2                            # two more wait in the queue at the end
+        grip_f = [s + 0.24 * T_ for s, T_ in zip(starts, CYC)]
+        rel_f = [s + 0.79 * T_ for s, T_ in zip(starts, CYC)]
+        # belt: speeds up with the cycles; parts ride on it, stop at the end stop or behind the part in front
+        PICK_X = M_PICK.translation.x
+        FAR_X = BASE.x + (CP.BELT_X[1] - CP.BASE[0] - 60) * MM
+        PITCH = 0.115
+        v_belt = [0.0] + [0.45 + 0.9 * soft((fr - TR0) / (CY_END - TR0)) for fr in range(1, END + 1)]
+        B = [0.0]
+        for fr in range(1, END + 1):
+            B.append(B[-1] + v_belt[fr] / FPS)
+        spawn = []
+        for i in range(NPART):                          # the free ride must reach the stop a little before its pick
+            due = (starts[i] - 4) if i < len(starts) else END
+            s_ = max([fr for fr in range(1, due + 1) if B[due] - B[fr] >= FAR_X - PICK_X] or [1])
+            spawn.append(max(s_, spawn[-1] + int(PITCH / v_belt[max(s_, 1)] * FPS) + 1) if spawn else s_)
+        part_x = [[None] * (END + 1) for _ in range(NPART)]
+        for fr in range(1, END + 1):
+            front = PICK_X
+            for i in range(NPART):
+                if i < len(grip_f) and fr >= grip_f[i]:
+                    continue                            # in the gripper or placed: not on the belt any more
+                if fr < spawn[i]:
+                    break
+                x = max(FAR_X - (B[fr] - B[spawn[i]]), front)
+                part_x[i][fr] = x
+                front = x + PITCH
+        parts_b = [add_part_b(f"PartB{i}") for i in range(NPART)]
+        placed_m = [None] * NPART
+        for ob in parts_b:
+            ob.rotation_mode = "QUATERNION"
+        # conveyors: dark frame, belt with a moving stripe texture, steel side rails
+        def conveyor(name, x0, x1, yc, ztop, w):
+            frame = bpy.data.meshes.new(name)
+            hw = w / 2
+            z0 = ztop - 0.07                            # belt slab on legs, not a block down to the floor
+            leg_m = mat("conv_leg", (0.12, 0.12, 0.13), 0.6, 0.4)
+            nl = max(2, int(abs(x1 - x0) / 0.6) + 1)
+            for k in range(nl):
+                lx = x0 + 0.04 + (x1 - x0 - 0.08) * k / (nl - 1)
+                for sy in (-1, 1):
+                    lg = bpy.data.meshes.new(name + "_leg")
+                    ly = yc + sy * (hw - 0.03)
+                    lv = [(lx - 0.02, ly - 0.02, FLOOR), (lx + 0.02, ly - 0.02, FLOOR), (lx + 0.02, ly + 0.02, FLOOR),
+                          (lx - 0.02, ly + 0.02, FLOOR), (lx - 0.02, ly - 0.02, z0), (lx + 0.02, ly - 0.02, z0),
+                          (lx + 0.02, ly + 0.02, z0), (lx - 0.02, ly + 0.02, z0)]
+                    lg.from_pydata(lv, [], [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)])
+                    lo_g = bpy.data.objects.new(name + "_leg", lg)
+                    sc.collection.objects.link(lo_g)
+                    lo_g.data.materials.append(leg_m)
+            vv = [(x0, yc - hw, z0), (x1, yc - hw, z0), (x1, yc + hw, z0), (x0, yc + hw, z0),
+                  (x0, yc - hw, ztop), (x1, yc - hw, ztop), (x1, yc + hw, ztop), (x0, yc + hw, ztop)]
+            frame.from_pydata(vv, [], [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)])
+            ob = bpy.data.objects.new(name, frame)
+            sc.collection.objects.link(ob)
+            m = bpy.data.materials.new(name + "_belt")
+            m.use_nodes = True
+            nt = m.node_tree
+            b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+            b.inputs["Roughness"].default_value = 0.55
+            tc_ = nt.nodes.new("ShaderNodeTexCoord")
+            mp = nt.nodes.new("ShaderNodeMapping")
+            nt.links.new(tc_.outputs["Object"], mp.inputs["Vector"])
+            wt = nt.nodes.new("ShaderNodeTexWave")
+            wt.inputs["Scale"].default_value = 4.0     # cleats every ~8 cm
+            wt.inputs["Distortion"].default_value = 0.0
+            nt.links.new(mp.outputs["Vector"], wt.inputs["Vector"])
+            ramp = nt.nodes.new("ShaderNodeValToRGB")
+            ramp.color_ramp.elements[0].color = (0.035, 0.035, 0.038, 1)
+            ramp.color_ramp.elements[1].color = (0.075, 0.075, 0.08, 1)
+            ramp.color_ramp.elements[0].position, ramp.color_ramp.elements[1].position = 0.45, 0.55
+            nt.links.new(wt.outputs["Fac"], ramp.inputs["Fac"])
+            nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
+            ob.data.materials.append(m)
+            for s_ in (-1, 1):                          # side rails a little above the belt
+                r = bpy.data.meshes.new(name + "_rail")
+                y0, y1 = yc + s_ * hw, yc + s_ * (hw + 0.025)
+                y0, y1 = min(y0, y1), max(y0, y1)
+                rv = [(x0, y0, ztop - 0.06), (x1, y0, ztop - 0.06), (x1, y1, ztop - 0.06), (x0, y1, ztop - 0.06),
+                      (x0, y0, ztop + 0.012), (x1, y0, ztop + 0.012), (x1, y1, ztop + 0.012), (x0, y1, ztop + 0.012)]
+                r.from_pydata(rv, [], [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)])
+                ro = bpy.data.objects.new(name + f"_rail{s_}", r)
+                sc.collection.objects.link(ro)
+                ro.data.materials.append(mat("rail_steel", (0.6, 0.6, 0.62), 1.0, 0.3))
+            return ob, mp
+
+        cell = lambda x_mm: BASE.x + (x_mm - CP.BASE[0]) * MM
+        belt_in, map_in = conveyor("BeltIn", PICK_X - 0.09, cell(CP.BELT_X[1]), M_PICK.translation.y, BELT_Z, CP.BELT_W * MM)
+        stop = bpy.data.objects.new("EndStop", bpy.data.meshes.new("EndStop"))   # the part runs against it
+        sx0 = PICK_X - 0.09
+        yc_ = M_PICK.translation.y
+        stop.data.from_pydata([(sx0 - 0.015, yc_ - 0.16, BELT_Z), (sx0, yc_ - 0.16, BELT_Z), (sx0, yc_ + 0.16, BELT_Z),
+                               (sx0 - 0.015, yc_ + 0.16, BELT_Z), (sx0 - 0.015, yc_ - 0.16, BELT_Z + 0.03),
+                               (sx0, yc_ - 0.16, BELT_Z + 0.03), (sx0, yc_ + 0.16, BELT_Z + 0.03),
+                               (sx0 - 0.015, yc_ + 0.16, BELT_Z + 0.03)], [],
+                              [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)])
+        sc.collection.objects.link(stop)
+        stop.data.materials.append(mat("stop_orange", (0.9, 0.35, 0.05), 0.0, 0.4))
+        OUT_X0, OUT_X1 = cell(CP.CHAIN_X[0]), M_PLACE.translation.x + 0.15
+        belt_out, map_out = conveyor("BeltOut", OUT_X0, OUT_X1, M_PLACE.translation.y, OUT_Z, 0.2)
+        # conveyors only in the pick shots: from the face camera their rails read as a cable in the air (review 25 Nov)
+        for ob in [o for o in sc.objects if o.name.startswith(("BeltIn", "BeltOut", "EndStop"))]:
+            for fr, h in ((1, True), (TR0, False), (CY_END + 2, True)):
+                ob.hide_render = h
+                ob.keyframe_insert("hide_render", frame=fr)
+        for fr in range(1, END + 1):                   # stripes move with the belt (wave scale 1 -> period ~1 m / 2pi)
+            map_in.inputs["Location"].default_value[0] = B[fr]
+            map_in.inputs["Location"].keyframe_insert("default_value", index=0, frame=fr)
+            map_out.inputs["Location"].default_value[0] = B[fr]   # both carry the parts towards -x
+            map_out.inputs["Location"].keyframe_insert("default_value", index=0, frame=fr)
 
     def lerp_q(a, b, u):
         return [x + (y - x) * u for x, y in zip(a, b)]
@@ -1219,7 +1815,29 @@ elif mode == "robot":
             env = bump(u)
             q[5] += 28 * env * math.sin(4 * math.pi * u)
             q[0] += 6 * env * math.sin(4 * math.pi * u)
+        if PICK and fr >= TR0:
+            if fr < starts[0]:
+                return lerp_q(q, Q_AP, soft((fr - TR0) / (TR1 - TR0)))
+            if fr >= CY_END:
+                return lerp_q(Q_AP, LOOK, soft((fr - CY_END) / (BACK - CY_END)))
+            i = max(k for k in range(len(starts)) if starts[k] <= fr)
+            u = (fr - starts[i]) / CYC[i]
+            for a, b, qa, qb in SEG:
+                if a <= u < b:
+                    return lerp_q(QS[qa], QS[qb], soft((u - a) / (b - a)))
         return q
+
+    def jaw_pick(fr):
+        """jaw travel during the cycles: closes in the grip segment, opens in the release segment"""
+        for s_, T_ in zip(starts, CYC):
+            u = (fr - s_) / T_
+            if 0.15 <= u < 0.24:
+                return D_OPEN - (D_OPEN - D_GRIP) * ease((u - 0.15) / 0.09)
+            if 0.24 <= u < 0.72:
+                return D_GRIP
+            if 0.72 <= u < 0.79:
+                return D_GRIP + (D_OPEN - D_GRIP) * ease((u - 0.72) / 0.07)
+        return D_OPEN
 
     for fr in range(1, END + 1):
         q = pose(fr)
@@ -1238,6 +1856,33 @@ elif mode == "robot":
         for b0 in (234 + SH, 254 + SH):
             if b0 <= fr < b0 + 16:
                 d = D_OPEN - (D_OPEN - D_GRIP) * math.sin(math.pi * (fr - b0) / 16)
+        if PICK and starts[0] <= fr < CY_END:
+            d = jaw_pick(fr)
+        if PICK:                                        # parts: on the belt, in the jaws, on the outgoing conveyor
+            bpy.context.view_layer.update()
+            m_hold = root.matrix_world @ PART_LOCAL
+            for i, ob in enumerate(parts_b):
+                if i < len(grip_f) and fr >= rel_f[i]:
+                    m_ = placed_m[i].copy()
+                    m_.translation.x -= B[fr] - B[int(rel_f[i])]
+                    vis = m_.translation.x > OUT_X0 + 0.05
+                elif i < len(grip_f) and fr >= grip_f[i]:
+                    m_ = m_hold
+                    placed_m[i] = m_hold.copy()
+                    vis = True
+                elif part_x[i][fr] is not None:
+                    m_ = M_PICK.copy()
+                    m_.translation.x = part_x[i][fr]
+                    vis = True
+                else:
+                    m_, vis = M_PICK, False
+                vis = vis and TR0 <= fr < CY_END + 2       # only in the pick shots
+                loc_, rot_, _ = m_.decompose()
+                ob.location, ob.rotation_quaternion = loc_, rot_
+                ob.hide_render = not vis
+                ob.keyframe_insert("location", frame=fr)
+                ob.keyframe_insert("rotation_quaternion", frame=fr)
+                ob.keyframe_insert("hide_render", frame=fr)
         piv[-1].location.x, piv[1].location.x = -d * MM, d * MM
         piv["rot"].rotation_euler.z = piv["rotx"].rotation_euler.x = d / R_PIN
         for k in (-1, 1):
@@ -1303,7 +1948,7 @@ elif mode == "robot":
         for o in [plug_h, nut, head, arm_] + list(nut.children):
             o.hide_render = fr < C0
             o.keyframe_insert("hide_render", frame=fr)
-    chords = [(frame_geo(fr)[1] - frame_geo(fr)[4]).length for fr in range(SEAT + 2, END + 1, 4)]
+    chords = [(frame_geo(fr)[1] - frame_geo(fr)[4]).length for fr in range(SEAT + 2, (W1 if PICK else END) + 1, 4)]
     L_FREE = max(chords) * 1.1 + 0.04                   # slack for the widest pose, so the loop never pulls tight
     print("cable loop chord", round(min(chords), 3), round(max(chords), 3), "length", round(L_FREE, 3))
     cam_pts = {}
@@ -1337,7 +1982,7 @@ elif mode == "robot":
     # lights: the studio rig is light-linked to the Product collection and set up around the gripper: add the robot
     # and the cable to that collection and scale the rig up around the robot
     prod = bpy.data.collections["Product"]
-    for ob in [o for o in sc.objects if o.name.startswith(("RobotLink", "Cable", "Plug", "Clip"))]:
+    for ob in [o for o in sc.objects if o.name.startswith(("RobotLink", "Cable", "Plug", "Clip", "PartB", "Belt", "EndStop"))]:
         if ob.name not in prod.objects:
             prod.objects.link(ob)
     rob_c = BASE + Vector((0.45, 0, 0.6))
@@ -1363,8 +2008,45 @@ elif mode == "robot":
         (CUTS[0], 103, (cab, nrm(0.0, -1, 0.35), 0.6, 55), (sock_p, sock_side, 0.26, 60)),   # along the cable to the connector
         (104, CUTS[1] - 1, (sock_p, sock_side, 0.26, 60), (sock_p, (sock_side + Vector((0, -0.25, 0))).normalized(), 0.21, 60)),   # plug goes on
         (CUTS[1], CUTS[2] - 1, (up_c, nrm(0.9, -0.55, 0.0), 2.3, 30), (up_c + Vector((0, 0, 0.3)), nrm(0.72, -0.72, 0.05), 2.4, 30)),   # follows the rise up
-        (CUTS[2], END, (grip_c, face, 1.85, 70), (grip_c, face, 1.6, 70)),   # whole gripper in frame
+        (CUTS[2], (TR0 - 1) if PICK else END, (grip_c, face, 1.85, 70), (grip_c, face, 1.6, 70)),   # whole gripper in frame
     ]
+    PCUTS = []
+    if PICK:
+        # jump cuts on the action: each cycle from other angles, cuts get denser, a short punch-in after every cut and
+        # a shake that grows with the speed
+        pick_pt = M_PICK.translation + Vector((0, 0, 0.03))
+        place_pt = M_PLACE.translation + Vector((0, 0, 0.03))
+        rob_mid = BASE + Vector((0.1, 0.1, 0.6))
+        grip = lambda fr: cam_pts[fr][3] + cam_pts[fr][2] * 0.06
+        TPL = {
+            "hero_low": lambda fr, u, s: (rob_mid.lerp(pick_pt, 0.4) + Vector((0, 0, 0.1)), nrm(0.35 * s, -1, 0.03), 3.0 - 0.3 * u, 24),
+            "pick_close": lambda fr, u, s: (pick_pt + Vector((0, 0, 0.06)), nrm(0.55 * s, -1, 0.35), 0.58 - 0.08 * u, 50),
+            "belt_low": lambda fr, u, s: (pick_pt + Vector((0.3, 0, 0.02)), nrm(0.9, -0.55 * s, 0.07), 0.95 - 0.1 * u, 60),
+            "transfer": lambda fr, u, s: (grip(fr).lerp(rob_mid, 0.5), nrm(-0.2 * s, -1, 0.55), 2.9, 24),
+            "top": lambda fr, u, s: (rob_mid + Vector((0, 0, -0.2)), nrm(0.03, -0.15 * s, 1), 3.4 - 0.3 * u, 22),
+            "place_close": lambda fr, u, s: (place_pt + Vector((0, 0, 0.06)), nrm(-0.45 * s, -1, 0.35), 0.6 - 0.08 * u, 50),
+            "track": lambda fr, u, s: (grip(fr), nrm(0.6 * s, -1, 0.25), 1.0, 35),
+            "face": lambda fr, u, s: (grip_c, face, 1.85 - 0.25 * u, 70),
+        }
+        PLAN = [  # per cycle: (fraction of the cycle where the shot starts, template, side)
+            [(0.10, "pick_close", 1), (0.34, "transfer", 1), (0.63, "place_close", 1)],
+            [(0.0, "belt_low", 1), (0.13, "pick_close", -1), (0.34, "top", 1), (0.63, "place_close", -1)],
+            [(0.0, "track", 1), (0.5, "hero_low", -1)],
+            [(0.0, "pick_close", 1), (0.45, "transfer", -1)],
+            [(0.0, "top", -1)], [(0.0, "belt_low", 1)], [(0.0, "track", -1)], [(0.0, "hero_low", 1)], [(0.0, "top", 1)],
+        ]
+        cuts_p = [(TR0, "hero_low", 1)]
+        for i, (s_, T_) in enumerate(zip(starts, CYC)):
+            for frac, name, side in PLAN[i]:
+                cuts_p.append((int(round(s_ + frac * T_)), name, side))
+        cuts_p.append((CY_END + 2, "face", 1))
+        for k, (f0, name, side) in enumerate(cuts_p):
+            f1 = cuts_p[k + 1][0] - 1 if k + 1 < len(cuts_p) else END
+            SHOTS_R.append((f0, f1, name, side))
+            PCUTS.append(f0)
+        print("pick cuts", PCUTS)
+        json.dump({"fps": FPS, "end": END, "dip_cuts": list(CUTS), "jump_cuts": PCUTS, "cycle_starts": starts,
+                   "grips": grip_f, "releases": rel_f}, open(os.path.join(HERE, "out", "robot_timeline.json"), "w"))
     cam = camera("CamRobot", fl, SHOTS_R[0][2][1], 0.75, 70, 3.2)
     cam.constraints.clear()
     foc = cam.data.dof.focus_object
@@ -1372,10 +2054,20 @@ elif mode == "robot":
         for fr in range(f0, f1 + 1):
             u = (fr - f0) / max(1, f1 - f0)
             u = 0.5 * u + 0.5 * ease(u)                # drifts, never stops
-            t_ = k0[0].lerp(k1[0], u)
-            cd = k0[1].lerp(k1[1], u).normalized()
-            dist = k0[2] + (k1[2] - k0[2]) * u
-            cam.data.lens = k0[3] + (k1[3] - k0[3]) * u
+            if isinstance(k0, str):                    # jump-cut shot from a template
+                t_, cd, dist, lens_ = TPL[k0](fr, u, k1)
+                t_ = t_.copy()
+                k_ = fr - f0
+                lens_ *= 1 + 0.12 * math.exp(-k_ / 3) * (k_ < 10)          # punch-in right after the cut
+                amp = 0.0008 * dist * max(0.0, (fr - starts[0]) / (CY_END - starts[0])) if fr < CY_END else 0.0
+                t_ += Vector((math.sin(fr * 1.7), math.sin(fr * 2.3 + 1), math.sin(fr * 1.1 + 2))) * amp * 4
+                cd = cd.normalized()
+                cam.data.lens = lens_
+            else:
+                t_ = k0[0].lerp(k1[0], u)
+                cd = k0[1].lerp(k1[1], u).normalized()
+                dist = k0[2] + (k1[2] - k0[2]) * u
+                cam.data.lens = k0[3] + (k1[3] - k0[3]) * u
             cam.location, foc.location = t_ + cd * dist, t_
             cam.rotation_euler = (-cd).to_track_quat("-Z", "Y").to_euler()
             cam.keyframe_insert("location", frame=fr)
@@ -1390,9 +2082,30 @@ elif mode == "robot":
             if cf - 12 <= fr < cf + 10:                 # softer: out over 12 frames, in over 10
                 w_ = 12 if fr < cf else 10
                 e = min(e, -7 * (1 - ease(min(1.0, abs(fr - (cf - 0.5)) / w_))))
+        if PICK and fr > END - 20:
+            e = min(e, -10 * ease((fr - (END - 20)) / 20))
         vs.exposure = e
         vs.keyframe_insert("exposure", frame=fr)
     sc.camera = cam
+    if PICK:
+        # motion blur for the swooshes; no interpolation across a cut, or the blur smears the jump
+        sc.render.use_motion_blur = os.environ.get("MBLUR", "1") == "1"
+        sc.render.motion_blur_shutter = 0.5
+        hard = set(CUTS) | set(PCUTS)
+        for idb in (cam, cam.data, foc):
+            act = idb.animation_data.action
+            fcs = list(act.fcurves) if hasattr(act, "fcurves") else [
+                fc for ly in act.layers for st in ly.strips for cb in st.channelbags for fc in cb.fcurves]
+            for fc in fcs:
+                for kp in fc.keyframe_points:
+                    kp.interpolation = "CONSTANT" if int(kp.co.x) + 1 in hard else "LINEAR"
+        for name_, p_ in (("BeltSpot", pick_pt), ("PlaceSpot", place_pt)):   # pools of light on both conveyors
+            ld = bpy.data.lights.new(name_, "SPOT")
+            ld.energy, ld.spot_size, ld.spot_blend, ld.shadow_soft_size = 160, math.radians(50), 0.8, 0.2
+            lo_ = bpy.data.objects.new(name_, ld)
+            sc.collection.objects.link(lo_)
+            lo_.location = p_ + Vector((0.1, -0.1, 1.6))
+            lo_.rotation_euler = (math.radians(4), math.radians(4), 0)
     if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
         for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
             try:
@@ -1409,10 +2122,7 @@ elif mode == "robot":
     if os.environ.get("SAVE_BLEND"):
         bpy.ops.wm.save_as_mainfile(filepath=os.environ["SAVE_BLEND"])
         sys.exit(0)
-    sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
-    sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "robot", "f_")
-    bpy.ops.render.render(animation=True)
+    render_anim("robot", END)
     print("robot done", sc.render.engine)
 elif mode == "preview":
     # quick look: short clips at 480p and few samples (env CLIPS="a:40-100,b:170-230", STEP=2 -> 15 fps)
