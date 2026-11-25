@@ -1277,7 +1277,7 @@ elif mode == "xray":
     fade(END)
     use_eevee()
     print("xray frames", END)
-    render_anim("xray", END)
+    render_anim(os.environ.get("OUTDIR", "xray"), END)
     print("xray done", sc.render.engine)
 elif mode == "grid":
     # knolling: every part lies flat in a grid on the black floor in assembly order (they drop in as a wave), the
@@ -1441,7 +1441,7 @@ elif mode == "grid":
     fade(END, 20, 16)
     use_eevee()
     print("grid frames", END, "landed", LAND)
-    render_anim("grid", END)
+    render_anim(os.environ.get("OUTDIR", "grid"), END)
     print("grid done", sc.render.engine)
 elif mode == "robot":
     # shot 6 (review 22 Nov): IRB 1300 in the lab, bowed down as if asleep; the gripper snaps onto the flange along
@@ -2136,7 +2136,7 @@ elif mode == "robot":
     if os.environ.get("SAVE_BLEND"):
         bpy.ops.wm.save_as_mainfile(filepath=os.environ["SAVE_BLEND"])
         sys.exit(0)
-    render_anim("robot", END)
+    render_anim(os.environ.get("OUTDIR", "robot"), END)
     print("robot done", sc.render.engine)
 elif mode == "preview":
     # quick look: short clips at 480p and few samples (env CLIPS="a:40-100,b:170-230", STEP=2 -> 15 fps)
