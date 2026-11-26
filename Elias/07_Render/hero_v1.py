@@ -1299,6 +1299,10 @@ elif mode == "assemble":
         qe = root.rotation_quaternion.copy().inverted()
         json.dump({"cam": list(qe @ (cam.location - root.location)), "tgt": list(qe @ (foc.location - root.location)),
                    "lens": cam.data.lens, "end": END}, open(os.path.join(HERE, "out", "assemble_end_cam.json"), "w"))
+    json.dump({"fps": FPS, "end": END, "lands": sorted((int(f0 + DUR), n.startswith(PLATES), n.startswith(FASTENERS))
+                                                      for f0, n, *_ in sched),
+               "explode": (E0, EX_END), "snaps": (S1 + SNAP, S2 + SNAP), "lights_out": (END - OUT + 4) if OUT else None},
+              open(os.path.join(HERE, "out", "assemble_timeline.json"), "w"))
     use_eevee()
     print("assemble frames", END)
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
