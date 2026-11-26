@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.2"
-app = marimo.App(width="medium", css_file="../../shared/marimo_paper.css", app_title="Review V2 / V4 against simulation")
+app = marimo.App(width="full", css_file="../../shared/marimo_paper.css", app_title="Review V2 / V4 against simulation")
 
 
 @app.cell
@@ -98,7 +98,7 @@ def _(P, V4C, mo, np, plt, v4, v4_store):
         _rows.append(f"| {_r['quantity']} | {_r['analytic']:.2f} | {_r['fem']:.2f} | {_r['dev']:+.1f} % | {'✓' if _r['ok'] else '✗'} |")
     _keys = sorted(v4_store, key=float, reverse=True)
     _el = [v4_store[k]["rigid"]["elements"] for k in _keys]
-    _fig, _ax = plt.subplots(1, 2, figsize=(11, 3.3))
+    _fig, _ax = plt.subplots(1, 2, figsize=(16, 4.6))
     _ax[0].plot(_el, [v4_store[k]["standard"]["szz"] for k in _keys], "o-", color="#0f766e", label="FEM")
     _ax[0].axhline(an["sigma_check"], color="#C2410C", ls="--", label="V4")
     _ax[0].set_ylabel("σ at z = -53.5 [MPa]")
@@ -124,9 +124,9 @@ def _(P, V4C, mo, np, plt, v4, v4_store):
 @app.cell
 def _(HERE, mo, os):
     _f = lambda n: os.path.join(HERE, "figures", n)
-    mo.hstack([mo.vstack([mo.md("**V3 jaw, von Mises** (standard support, full current)"), mo.image(src=_f("jaw_v3_von_mises.png"), width=460)]),
-               mo.vstack([mo.md("**V3 jaw, deflection u_x**"), mo.image(src=_f("jaw_v3_deflection.png"), width=460)])],
-              justify="start", wrap=True)
+    mo.hstack([mo.vstack([mo.md("**V3 jaw, von Mises** (standard support, full current)"), mo.image(src=_f("jaw_v3_von_mises.png"), width="100%")]),
+               mo.vstack([mo.md("**V3 jaw, deflection u_x**"), mo.image(src=_f("jaw_v3_deflection.png"), width="100%")])],
+              widths="equal", gap=2)
     return
 
 
@@ -171,9 +171,8 @@ def _(P, SIMFIG, mo, os, sim_grip, v2):
 | friction use at {v2['F_req']:.1f} N, peak | {_u_real:.2f} (at {P.A_PATH_REAL} m/s²) | {_req.get('util_max', _nan):.2f} (50 ms peak) | {(_req.get('util_max', _nan) / _u_real - 1) * 100:+.0f} % (jerk of the trapezoid) |
 | setpoint | {v2['F_set']:.1f} N (her e-stop setpoint) | {P.F_GRIP_SET:.1f} N (S 2 at the real path): median {_set.get('util_median', _nan):.2f} / peak {_set.get('util_max', _nan):.2f}, held | {(v2['F_set'] / P.F_GRIP_SET - 1) * 100:+.1f} % |
 """)
-    mo.vstack([_md, mo.hstack([mo.image(src=os.path.join(SIMFIG, "grip_slip.png"), width=520),
-                               mo.video(src=os.path.join(SIMFIG, "cycle_estop.mp4"), controls=True, width=520)],
-                              justify="start", wrap=True)])
+    mo.vstack([_md, mo.image(src=os.path.join(SIMFIG, "grip_slip.png"), width="100%"),
+               mo.video(src=os.path.join(SIMFIG, "cycle_estop.mp4"), controls=True, width="100%")], gap=1.5)
     return
 
 
@@ -229,7 +228,7 @@ Static safety S0 (Rexroth R999001206 p. 9: 3-5 all loads known, **5-8 normal des
 | carriage | setpoint {P.F_GRIP_SET:.1f} N | full current + e-stop side load |
 |---|---|---|
 """ + "\n".join(_rows))
-    mo.vstack([_md, mo.image(src=os.path.join(HERE, "figures", "train_lc2_von_mises.png"), width=620)])
+    mo.vstack([_md, mo.image(src=os.path.join(HERE, "figures", "train_lc2_von_mises.png"), width="100%")])
     return
 
 
@@ -302,7 +301,7 @@ V2 before the review: "the detent torque bridges the gap until the brake engages
 Only a drive that stays powered until the brake has closed keeps the part: buffer module PULS UF20.241 and a
 brake-first shutdown (D11). V2 § 9 is corrected.
 """)
-    mo.vstack([_md, mo.image(src=os.path.join(SIMFIG, "power_fail.png"), width=760)])
+    mo.vstack([_md, mo.image(src=os.path.join(SIMFIG, "power_fail.png"), width="100%")])
     return
 
 
@@ -321,9 +320,8 @@ def _(SIMFIG, mo, os, sim_close):
 | impact on the part | not considered | straight into the part (0.25 s): **{_dir.get('f_peak', _nan):.0f} N** peak; reflected drive inertia {_mr:.1f} kg | new finding |
 | available grip force | 60.5 N (all efficiencies) | `F_JAW_AVAIL` = 60.5 N in the parameters | 0 % |
 """)
-    mo.vstack([_md, mo.hstack([mo.image(src=os.path.join(SIMFIG, "closing.png"), width=600),
-                               mo.video(src=os.path.join(SIMFIG, "closing_two-stage_120ms.mp4"), controls=True, width=480)],
-                              justify="start", wrap=True)])
+    mo.vstack([_md, mo.image(src=os.path.join(SIMFIG, "closing.png"), width="100%"),
+               mo.video(src=os.path.join(SIMFIG, "closing_two-stage_120ms.mp4"), controls=True, width="100%")], gap=1.5)
     return
 
 

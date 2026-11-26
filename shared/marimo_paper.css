@@ -37,3 +37,10 @@ body.dark::before,
 [data-theme="dark"] body::before {
   opacity: 0.55;
 }
+
+/* Full-width notebooks: media spans the page, prose stays at reading width. */
+.markdown p, .markdown li, .markdown h1, .markdown h2, .markdown h3, .markdown blockquote {
+  max-width: 60rem !important;
+}
+
+video { max-height: 88vh; object-fit: contain; background: transparent; }

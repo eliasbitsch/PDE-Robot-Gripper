@@ -1,0 +1,3 @@
+# Project-level marimo settings; overrides the user config for notebooks in this repo.
+[tool.marimo.runtime]
+auto_instantiate = true
