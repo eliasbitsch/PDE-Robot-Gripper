@@ -428,6 +428,18 @@ def _(D, P, img, mo, panel):
 
 
 @app.cell
+def _(mo):
+    # the viewer lives in public/viewer (marimo serves public/ next to the notebook); data: python build_viewer.py
+    mo.vstack([
+        mo.md("### Explore the gripper\n\nTurn it, take it apart with the slider, click any part: what it is, why "
+              "we chose it and the values that decided it (all from the BOM, the parameters and the results)."),
+        mo.Html('<iframe src="./public/viewer/index.html" style="width:100%;height:720px;border:1px solid #e7e5e4;'
+                'border-radius:8px" loading="lazy" title="Gripper explorer"></iframe>'),
+    ])
+    return
+
+
+@app.cell
 def _(D, FEM, LC2, img, mo, panel):
     _parts = LC2["parts"]
     _conv = D["conv"]

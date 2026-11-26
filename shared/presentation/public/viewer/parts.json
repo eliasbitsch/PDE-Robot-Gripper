@@ -1,0 +1,1191 @@
+{
+ "groups": {
+  "drive": {
+   "color": "#C2410C",
+   "label": "Drive"
+  },
+  "gear": {
+   "color": "#B45309",
+   "label": "Gear train"
+  },
+  "guide": {
+   "color": "#0F766E",
+   "label": "Guidance"
+  },
+  "jaw": {
+   "color": "#2563EB",
+   "label": "Jaws and pads"
+  },
+  "body": {
+   "color": "#78716C",
+   "label": "Housing"
+  },
+  "flange": {
+   "color": "#57534E",
+   "label": "Robot interface"
+  },
+  "std": {
+   "color": "#A8A29E",
+   "label": "Standard parts"
+  }
+ },
+ "cards": {
+  "housing": {
+   "group": "body",
+   "title": "Gear housing",
+   "what": "pos. 5: 1 × Gear housing (own part, milled, EN AW-6082 T6)",
+   "why": "Carries everything: rail, both bearings of the pinion shaft and the gearbox. Milled from one block of the standard machining alloy.",
+   "values": [
+    "length 200 mm (grew from 164 mm: brake and encoder bracket on both sides, kept symmetric)",
+    "wall 7 mm - the M3 cover screws sit on the wall centre line",
+    "top plate 7 mm (thinned on 11 Nov; the bearings sit in a boss above it)",
+    "at least 1.5 mm of material around every hole, checked for every own part",
+    "616 g"
+   ],
+   "section": "4"
+  },
+  "hood": {
+   "group": "body",
+   "title": "Drive hood",
+   "what": "pos. 4: 1 × Drive hood (own part, milled, EN AW-6082 T6)",
+   "why": "Closes the drive train and carries the robot adapter. The adapter screws go into wire thread inserts, because a thread in aluminium that is opened again and again wears out.",
+   "values": [
+    "pos. 40: 4 × Wire thread insert HELICOIL plus M4 x 1.5 d, hood seat for the adapter screws (Boellhoff, 1.4301)",
+    "417 g"
+   ],
+   "section": "4"
+  },
+  "cover": {
+   "group": "body",
+   "title": "Bottom cover",
+   "what": "pos. 1: 1 × Bottom cover (own part, cut + milled, EN AW-6082 T6)",
+   "why": "Closes the housing from below; the two slots let the jaw holders through. Brush strips in the slots keep oil and dirt from the oily parts out of the rail.",
+   "values": [
+    "pos. 42: 2 × Brush seal strip along the two holder slots in the cover (oily parts) (e.g. Mink LKB, cut to length, PA / steel)",
+    "ISO 10642 countersunk screws: the underside stays flat",
+    "143 g"
+   ],
+   "section": "4"
+  },
+  "window": {
+   "group": "body",
+   "title": "Cable window and gland",
+   "what": "pos. 2: 1 × Cable window plate (own part, cut, EN AW-6082 T6); pos. 12: 1 × Cable gland SKINTOP STR-M 16x1.5 (Lapp, PA)",
+   "why": "The motor, brake and encoder cable leaves the hood through a sealed gland in the side window.",
+   "values": [
+    "SKINTOP M16 × 1.5: strain relief and seal in one part"
+   ],
+   "section": "4"
+  },
+  "adapter": {
+   "group": "flange",
+   "title": "Robot adapter ISO 9409-1-40-4-M6",
+   "what": "pos. 9: 1 × Robot adapter ISO 9409-1-40-4-M6 (own part, turned, EN AW-6082 T6)",
+   "why": "The standard flange of the ABB IRB 1300: any tool with this flange fits, and the dowel pin fixes the angle so the gripper always sits the same way on the robot.",
+   "values": [
+    "Ø 76 mm, 10 mm thick, spigot Ø 25 × 4.5 mm",
+    "pos. 43: 4 × ISO 4762 M6x10, 8.8, adapter to the robot flange (heads in the counterbores) (standard part, steel 8.8)",
+    "pos. 44: 1 × Dowel pin ISO 8734 6 m6 x 14, ISO 9409 orientation (pressed into the adapter) (standard part, steel)",
+    "to the hood: 4 × ISO 10642 M4x16 countersunk from the top, into wire thread inserts",
+    "gripper + part 3.55 kg of the robot's 7 kg"
+   ],
+   "section": "4"
+  },
+  "motor": {
+   "group": "drive",
+   "title": "Stepper motor",
+   "what": "pos. 23: 1 × Stepper motor ST4118S1404-B, long B shaft through brake and encoder (Nanotec)",
+   "why": "The motor current sets the grip force: limit the current and the gripper can never squeeze harder than intended. Closed loop: the encoder tells the controller where the jaws are.",
+   "values": [
+    "holding torque 0.2 N·m (NEMA 17)",
+    "available at the jaws at full current, all losses: 60.5 N per jaw against the setpoint 44.5 N",
+    "the current limit is set to the setpoint"
+   ],
+   "section": "3"
+  },
+  "brake": {
+   "group": "drive",
+   "title": "Permanent-magnet brake",
+   "what": "pos. 17: 1 × Permanent-magnet brake BRAKE-BKE-0,4-5,0, 24 V, zero backlash, on a 3 mm adapter plate (Nanotec)",
+   "why": "On a power failure the grip force would be gone in about 2 ms and the part would fall. The brake holds the drive; it must be free of play, because every degree of play at the motor shaft releases grip force.",
+   "values": [
+    "holding torque 0.4 N·m",
+    "allowed play at the motor shaft: 1.12° before nothing is left against the weight",
+    "the spring brake BWA we had first allowed up to 2° → replaced by this zero-backlash brake (review 21 Nov)",
+    "brake-first shutdown: the brake closes before the motor current drops (MuJoCo, power_fail.py)"
+   ],
+   "section": "6"
+  },
+  "encoder": {
+   "group": "drive",
+   "title": "Encoder",
+   "what": "pos. 14: 1 × Magnetic encoder NME2 (on the brake), for the external closed-loop controller (Nanotec)",
+   "why": "Closes the loop for the stepper: the controller knows the motor angle and so the jaw position.",
+   "values": [],
+   "section": "4"
+  },
+  "gearbox": {
+   "group": "drive",
+   "title": "Planetary gearbox",
+   "what": "pos. 18: 1 × Planetary gearbox GP42-S1-7-SR (Nanotec); pos. 3: 1 × Drive bracket (own part, milled, EN AW-6082 T6)",
+   "why": "Multiplies the small motor torque so the pinion reaches the grip force; the bracket holds the motor-brake stack beside it.",
+   "values": [
+    "ratio i = 7.07, efficiency η = 0.9",
+    "319 g with the bracket"
+   ],
+   "section": "3"
+  },
+  "bevel": {
+   "group": "gear",
+   "title": "Spiral bevel pair",
+   "what": "pos. 21: 1 × Spiral miter gear m = 1.5, z = 20, left hand, bore 8 H7 + key 2, hub turned to D16, faced to mounting dist. 19 (KHK SMSG1.5-20L, S45C, teeth induction hardened); pos. 22: 1 × Spiral miter gear m = 1.5, z = 20, right hand, bore 8 H7 + keyway 2 JS9 for the gearbox shaft key, M4 set screw, hub turned to D16 x 5 (KHK SMSG1.5-20R, S45C, teeth induction hardened)",
+   "why": "Turns the drive by 90°: the motor lies flat along the housing instead of standing on top of it - a short gripper keeps the payload lever and the wrist torque small.",
+   "values": [
+    "m = 1 pair (before 21 Nov) used 144 % of its allowed surface torque 0.97 N·m - too weak",
+    "built m = 1.5 pair: 40 % of 3.47 N·m",
+    "DIN 988 shim rings under the wheel hub set the mesh at assembly"
+   ],
+   "section": "4"
+  },
+  "pinion": {
+   "group": "gear",
+   "title": "Pinion shaft with bearings",
+   "what": "pos. 8: 1 × Pinion shaft m = 1, z = 20 (own part, turned + hobbed, 16MnCr5 case hardened); pos. 13: 2 × Deep groove ball bearing 608-2Z (DIN 625 (Schaeffler / SKF), steel)",
+   "why": "One pinion drives both racks. Fixed-loose bearing: the upper 608 is held by the two retaining rings, the lower one can slide, so heat and tolerances cannot jam the shaft.",
+   "values": [
+    "m = 1.0, z = 20 → d = 20 mm; z = 20 lies above the undercut limit of 17 teeth",
+    "case-hardened 16MnCr5 teeth",
+    "pos. 37: 1 × Retaining ring DIN 471 8 x 0.8 (fixed bearing, shaft) (standard part, spring steel)",
+    "pos. 38: 1 × Retaining ring DIN 472 22 x 1 (fixed bearing, bore) (standard part, spring steel)",
+    "pos. 36: 1 × Parallel key DIN 6885 A 2 x 2 x 12 (bevel wheel) (standard part, C45+C)"
+   ],
+   "section": "4"
+  },
+  "racks": {
+   "group": "gear",
+   "title": "Racks",
+   "what": "pos. 19: 1 × Rack m = 1, 10 x 12, 14 teeth, cut to 44.0 (Maedler, C45); pos. 20: 1 × Rack m = 1, 10 x 12, 35 teeth, cut to 110.0 (Maedler, C45)",
+   "why": "Rack and pinion keep the jaws parallel and the force constant over the whole stroke; with one pinion between two racks the jaws always move together, so the part is centred.",
+   "values": [
+    "m = 1, 10 × 12 mm (DIN 867 profile), screwed through ±1 mm slots along the stroke",
+    "stroke 10 mm per jaw: pads 86 mm apart when open, 70 mm part"
+   ],
+   "section": "2"
+  },
+  "rail": {
+   "group": "guide",
+   "title": "Ball rail and carriages",
+   "what": "pos. 15: 1 × Miniature ball rail size 12, L = 125, T1 = 12.5 (Bosch Rexroth R0445 203 31, steel); pos. 11: 2 × Ball carriage SLS size 12, long, preload (Bosch Rexroth R0444 213 01, steel)",
+   "why": "A preloaded ball rail guides both jaws without play and takes the moments of the jaw lever.",
+   "values": [
+    "size 12: static load safety S0 5.1 - 7.8 (Rexroth asks 5 - 8; size 9 gave only 2.5 - 3.7) (rexroth_ksf_mini_R999001206.pdf p. 9)",
+    "C0 5630 N, Mt0 33.5 N·m, ML0 29.2 N·m per carriage (rexroth_ksf_mini_R999001206.pdf p. 19)",
+    "rail L = 125 mm, pitch 25 mm"
+   ],
+   "section": "4"
+  },
+  "slides": {
+   "group": "guide",
+   "title": "Slides",
+   "what": "pos. 10: 2 × Slide (own part, milled, EN AW-6082 T6)",
+   "why": "Connect carriage, rack and jaw holder on each side.",
+   "values": [
+    "2.5 mm wider than the carriage on each side, so the M3 counterbores keep a wall",
+    "81 g each"
+   ],
+   "section": "4"
+  },
+  "holders": {
+   "group": "jaw",
+   "title": "Jaw holders and quick change",
+   "what": "pos. 7: 2 × Jaw holder (own part, milled, EN AW-6082 T6); pos. 35: 2 × Knurled thumb screw DIN 653 M5x20 (jaw retention, by hand) (standard part, steel); pos. 34: 4 × ISO 8734 4x12 (standard part, steel)",
+   "why": "Jaws can be changed by hand: two dowels locate the jaw, a knurled thumb screw from outside holds it against pulling off - no tool, no loose parts.",
+   "values": [
+    "holder 10 / 14 mm thick above / below the cover, 38 mm wide (2 mm wall beside the screw counterbores)",
+    "to the slide: 2 × ISO 4762 M4x25 per side",
+    "the thumb screw replaced a spring plunger that sat in the wrong direction (review 23 Nov)"
+   ],
+   "section": "4"
+  },
+  "jaw": {
+   "group": "jaw",
+   "title": "T-jaw",
+   "what": "pos. 6: 2 × Jaw (own part, milled, EN AW-7075 T6)",
+   "why": "The wide, low pad sits on the flat zone of part B. Its centre of mass is below the pads, so when the robot accelerates the part wants to twist; the wide pad gives the friction a long lever against that twist.",
+   "values": [
+    "web 8 × 25 mm, 88 mm wide at the pad",
+    "FEM at full current (63.6 N): 8.4 MPa in the jaw, safety 54; pad tilt 0.059°",
+    "EN AW-7075 T6: high strength, light - the jaws move with every grip",
+    "54 g each"
+   ],
+   "section": "5"
+  },
+  "pad": {
+   "group": "jaw",
+   "title": "Pad plate",
+   "what": "pos. 16: 2 × Pad plate, rubber-metal (steel 3 + NBR 70 Sh A 3) (bought to drawing, S235 / NBR)",
+   "why": "NBR is oil resistant and grips oily PA 6. Vertical grooves let the oil run off the contact face.",
+   "values": [
+    "steel 3 mm + NBR 70 Shore A 3 mm, pad face 82 mm wide",
+    "grooves 1.5 mm wide, 1.0 mm deep, every 4 mm",
+    "design friction µ = 0.2 (oily part); µ = 0.3 expected with the grooves, to be measured",
+    "2 × ISO 4762 M3x6 from the back: the pad can be replaced"
+   ],
+   "section": "3"
+  },
+  "screws": {
+   "group": "std",
+   "title": "Standard parts",
+   "what": "ISO 4762 socket head cap screws, ISO 10642 countersunk screws, ISO 8734 dowel pins, ISO 4029 set screws - all strength class 8.8 or better",
+   "why": "Only standard sizes M3 and M4 (M6 at the robot flange, M5 thumb screws), all off the shelf. Countersunk screws wherever a face must stay flat (cover, window, adapter); dowel pins wherever a part must come back to exactly the same place (racks, jaws, flange).",
+   "values": [
+    "13 × ISO 4762 M3x8, 8 × M3x10, 8 × M4x12, 4 × M4x25",
+    "M3 for plates on 7 mm walls, M4 for the loaded joints (gearbox, hood, holders)",
+    "wire thread inserts where screws in aluminium are opened often (hood, top plate)"
+   ],
+   "section": "4"
+  }
+ },
+ "parts": {
+  "Adapter_ISO9409": {
+   "card": "adapter",
+   "group": "flange",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 126.66666666666667
+  },
+  "Bearing_608_lower": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 26.666666666666668
+  },
+  "Bearing_608_upper": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 30.0
+  },
+  "Bevel_Pinion": {
+   "card": "bevel",
+   "group": "gear",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 43.33333333333333
+  },
+  "Bevel_Wheel": {
+   "card": "bevel",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 36.66666666666667
+  },
+  "Bracket": {
+   "card": "gearbox",
+   "group": "drive",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 43.33333333333333
+  },
+  "Brake": {
+   "card": "brake",
+   "group": "drive",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 50.0
+  },
+  "Cable_Gland_Lapp_SKINTOP_M16": {
+   "card": "window",
+   "group": "body",
+   "dir": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "dist": 123.33333333333333
+  },
+  "Carriage_L": {
+   "card": "rail",
+   "group": "guide",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 70.0
+  },
+  "Carriage_R": {
+   "card": "rail",
+   "group": "guide",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 70.0
+  },
+  "Circlip_DIN471-8": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 26.666666666666668
+  },
+  "Circlip_DIN472-22": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 30.0
+  },
+  "Cover": {
+   "card": "cover",
+   "group": "body",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 86.66666666666667
+  },
+  "Dowel_ISO8734-3x14_RackL": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 83.33333333333334
+  },
+  "Dowel_ISO8734-3x14_RackR": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 83.33333333333334
+  },
+  "Dowel_ISO8734-4x12_L1": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 100.0
+  },
+  "Dowel_ISO8734-4x12_L2": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 100.0
+  },
+  "Dowel_ISO8734-4x12_R1": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 100.0
+  },
+  "Dowel_ISO8734-4x12_R2": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 100.0
+  },
+  "Encoder": {
+   "card": "encoder",
+   "group": "drive",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 53.333333333333336
+  },
+  "Gearbox": {
+   "card": "gearbox",
+   "group": "drive",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 43.33333333333333
+  },
+  "Holder_L": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 93.33333333333333
+  },
+  "Holder_R": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 93.33333333333333
+  },
+  "Hood": {
+   "card": "hood",
+   "group": "body",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 63.333333333333336
+  },
+  "Housing": {
+   "card": "housing",
+   "group": "body",
+   "dir": [
+    0,
+    0,
+    0
+   ],
+   "dist": 0.0
+  },
+  "Jaw_L": {
+   "card": "jaw",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 106.66666666666667
+  },
+  "Jaw_R": {
+   "card": "jaw",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 106.66666666666667
+  },
+  "Key_DIN6885-A2x2x12": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 33.333333333333336
+  },
+  "Motor": {
+   "card": "motor",
+   "group": "drive",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 46.66666666666667
+  },
+  "PadPlate_L": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 110.0
+  },
+  "PadPlate_R": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 110.0
+  },
+  "Pad_L": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 110.0
+  },
+  "Pad_R": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 110.0
+  },
+  "Pinion_Shaft": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 26.666666666666668
+  },
+  "Rack_L": {
+   "card": "racks",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 73.33333333333334
+  },
+  "Rack_R": {
+   "card": "racks",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 73.33333333333334
+  },
+  "Rail": {
+   "card": "rail",
+   "group": "guide",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 20.0
+  },
+  "Screw_ISO10642-M3x10_Cover1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 90.0
+  },
+  "Screw_ISO10642-M3x10_Cover2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 90.0
+  },
+  "Screw_ISO10642-M3x10_Cover3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 90.0
+  },
+  "Screw_ISO10642-M3x10_Cover4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 90.0
+  },
+  "Screw_ISO10642-M3x8_Window1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "dist": 120.0
+  },
+  "Screw_ISO10642-M3x8_Window2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "dist": 120.0
+  },
+  "Screw_ISO10642-M3x8_Window3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "dist": 120.0
+  },
+  "Screw_ISO10642-M3x8_Window4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "dist": 120.0
+  },
+  "Screw_ISO10642-M4x16_Adapter1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 130.0
+  },
+  "Screw_ISO10642-M4x16_Adapter2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 130.0
+  },
+  "Screw_ISO10642-M4x16_Adapter3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 130.0
+  },
+  "Screw_ISO10642-M4x16_Adapter4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 130.0
+  },
+  "Screw_ISO4762-M3x10_Bracket1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 60.0
+  },
+  "Screw_ISO4762-M3x10_Bracket2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 60.0
+  },
+  "Screw_ISO4762-M3x10_Bracket3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 60.0
+  },
+  "Screw_ISO4762-M3x10_Bracket4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 60.0
+  },
+  "Screw_ISO4762-M3x10_RackL1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x10_RackL2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x10_RackR1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x10_RackR2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x6_PadL1": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 113.33333333333333
+  },
+  "Screw_ISO4762-M3x6_PadL2": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 113.33333333333333
+  },
+  "Screw_ISO4762-M3x6_PadR1": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 113.33333333333333
+  },
+  "Screw_ISO4762-M3x6_PadR2": {
+   "card": "pad",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 113.33333333333333
+  },
+  "Screw_ISO4762-M3x8_CarriageL1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_CarriageL2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_CarriageL3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_CarriageL4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_CarriageR1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_CarriageR2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_CarriageR3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_CarriageR4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 80.0
+  },
+  "Screw_ISO4762-M3x8_Rail1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 23.333333333333332
+  },
+  "Screw_ISO4762-M3x8_Rail2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 23.333333333333332
+  },
+  "Screw_ISO4762-M3x8_Rail3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 23.333333333333332
+  },
+  "Screw_ISO4762-M3x8_Rail4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 23.333333333333332
+  },
+  "Screw_ISO4762-M3x8_Rail5": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 23.333333333333332
+  },
+  "Screw_ISO4762-M4x12_Gearbox1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 56.666666666666664
+  },
+  "Screw_ISO4762-M4x12_Gearbox2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 56.666666666666664
+  },
+  "Screw_ISO4762-M4x12_Gearbox3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 56.666666666666664
+  },
+  "Screw_ISO4762-M4x12_Gearbox4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 56.666666666666664
+  },
+  "Screw_ISO4762-M4x12_Hood1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 66.66666666666666
+  },
+  "Screw_ISO4762-M4x12_Hood2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 66.66666666666666
+  },
+  "Screw_ISO4762-M4x12_Hood3": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 66.66666666666666
+  },
+  "Screw_ISO4762-M4x12_Hood4": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 66.66666666666666
+  },
+  "Screw_ISO4762-M4x25_HolderL1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 96.66666666666667
+  },
+  "Screw_ISO4762-M4x25_HolderL2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 96.66666666666667
+  },
+  "Screw_ISO4762-M4x25_HolderR1": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 96.66666666666667
+  },
+  "Screw_ISO4762-M4x25_HolderR2": {
+   "card": "screws",
+   "group": "std",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 96.66666666666667
+  },
+  "Setscrew_ISO4029-M4x4_Pinion": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 40.0
+  },
+  "Setscrew_ISO4029-M4x4_Wheel": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 40.0
+  },
+  "Shim_DIN988-8x14": {
+   "card": "pinion",
+   "group": "gear",
+   "dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "dist": 33.333333333333336
+  },
+  "Slide_L": {
+   "card": "slides",
+   "group": "guide",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 76.66666666666666
+  },
+  "Slide_R": {
+   "card": "slides",
+   "group": "guide",
+   "dir": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "dist": 76.66666666666666
+  },
+  "Thumbscrew_DIN653-M5x20_L": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 103.33333333333333
+  },
+  "Thumbscrew_DIN653-M5x20_R": {
+   "card": "holders",
+   "group": "jaw",
+   "dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "dist": 103.33333333333333
+  },
+  "Window_Plate": {
+   "card": "window",
+   "group": "body",
+   "dir": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "dist": 116.66666666666667
+  }
+ }
+}

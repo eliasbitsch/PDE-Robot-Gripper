@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gripper explorer</title>
+<style>
+  :root { --bg: #f6f4ef; --panel: #ffffff; --ink: #1c1917; --mute: #78716c; --line: #e7e5e4; --acc: #C2410C; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+               font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #app { display: grid; grid-template-columns: 1fr 360px; grid-template-rows: 1fr auto; height: 100%; }
+  #view { position: relative; grid-row: 1; grid-column: 1; min-height: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; }
+  #tip { position: absolute; pointer-events: none; background: rgba(28,25,23,.85); color: #fff; padding: 3px 7px;
+         border-radius: 4px; font-size: 12px; display: none; white-space: nowrap; }
+  #side { grid-row: 1 / 3; grid-column: 2; background: var(--panel); border-left: 1px solid var(--line);
+          display: flex; flex-direction: column; min-height: 0; }
+  #groups { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
+  .grp { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 8px; cursor: pointer;
+         display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; background: #fff; user-select: none; }
+  .grp i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .grp.on { border-color: var(--ink); }
+  #card { padding: 14px 16px 18px; overflow-y: auto; flex: 1; }
+  #card h2 { margin: 0 0 2px; font-size: 18px; }
+  #card .grpname { color: var(--mute); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  #card .what { margin: 10px 0; font-size: 12.5px; color: var(--mute); }
+  #card .why { margin: 10px 0 8px; }
+  #card ul { margin: 6px 0 0; padding-left: 18px; }
+  #card li { margin: 3px 0; }
+  #card .sec { margin-top: 12px; font-size: 12px; color: var(--mute); }
+  #card .hint { color: var(--mute); }
+  #bar { grid-row: 2; grid-column: 1; display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+         border-top: 1px solid var(--line); background: var(--panel); }
+  #bar input[type=range] { flex: 1; accent-color: var(--acc); }
+  button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--mute); }
+</style>
+<script type="importmap">
+  { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="view"><div id="tip"></div></div>
+  <div id="side">
+    <div id="groups"></div>
+    <div id="card"><p class="hint">Click a part to see what it is, why we chose it and the values that decided it.
+      The pills above highlight a whole group; the slider takes the gripper apart along the assembly directions.</p></div>
+  </div>
+  <div id="bar">
+    <span>assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0"><span>exploded</span>
+    <button id="reset">Reset view</button>
+  </div>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const view = document.getElementById("view"), tip = document.getElementById("tip");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0xf6f4ef);
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd6d3d1, 1.6));
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(300, 500, 400); scene.add(key);
+const rim = new THREE.DirectionalLight(0xffffff, 0.6); rim.position.set(-400, 200, -300); scene.add(rim);
+
+const data = await (await fetch("parts.json")).json();
+const root = new THREE.Group();
+root.rotation.x = -Math.PI / 2;                      // CAD z up -> three.js y up
+scene.add(root);
+const gltf = await new GLTFLoader().loadAsync("gripper.glb");
+const meshes = [];
+gltf.scene.traverse(o => {
+  if (!o.isMesh) return;
+  let n = o; while (n && !data.parts[n.name]) n = n.parent;
+  if (!n) return;
+  o.material = new THREE.MeshStandardMaterial({ color: data.groups[data.parts[n.name].group].color,
+                                                metalness: 0.15, roughness: 0.55, flatShading: true });   // crisp CAD faces
+  o.userData.part = n.name;
+  meshes.push(o);
+});
+for (const c of [...gltf.scene.children]) root.add(c);
+const nodes = {};
+root.traverse(o => { if (data.parts[o.name]) { nodes[o.name] = o; o.userData.base = o.position.clone(); } });
+
+// frame the assembly
+const box = new THREE.Box3().setFromObject(root), ctr = box.getCenter(new THREE.Vector3());
+const size = box.getSize(new THREE.Vector3()).length();
+function home() { camera.position.copy(ctr).add(new THREE.Vector3(0.55, 0.35, 0.75).multiplyScalar(size * 1.7));
+                  controls.target.copy(ctr); controls.update(); }
+home();
+
+function explode(k) {
+  for (const [n, o] of Object.entries(nodes)) {
+    const p = data.parts[n], d = new THREE.Vector3(...p.dir);
+    o.position.copy(o.userData.base).addScaledVector(d, p.dist * k);
+  }
+}
+document.getElementById("explode").addEventListener("input", e => explode(+e.target.value));
+document.getElementById("reset").addEventListener("click", () => { home(); document.getElementById("explode").value = 0;
+  explode(0); select(null); });
+
+// highlight: the selection keeps its colour, everything else fades
+function select(test) {
+  for (const m of meshes) {
+    const on = !test || test(data.parts[m.userData.part]);
+    m.material.transparent = !on; m.material.opacity = on ? 1 : 0.12; m.material.depthWrite = on;
+    m.material.emissive.setHex(test && on ? 0x2a1a10 : 0x000000);
+    m.material.needsUpdate = true;
+  }
+}
+const groupsEl = document.getElementById("groups");
+for (const [g, v] of Object.entries(data.groups)) {
+  const el = document.createElement("span");
+  el.className = "grp"; el.innerHTML = `<i style="background:${v.color}"></i>${v.label}`;
+  el.onclick = () => { const on = !el.classList.contains("on");
+    groupsEl.querySelectorAll(".grp").forEach(x => x.classList.remove("on"));
+    if (on) { el.classList.add("on"); select(p => p.group === g); } else select(null); };
+  groupsEl.appendChild(el);
+}
+const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function show(cid, part) {
+  const c = data.cards[cid], g = data.groups[c.group];
+  document.getElementById("card").innerHTML =
+    `<div class="grpname" style="color:${g.color}">${g.label}</div><h2>${esc(c.title)}</h2>` +
+    `<div class="what">${esc(c.what)}</div><div class="why">${esc(c.why)}</div>` +
+    (c.values.length ? `<ul>${c.values.map(v => `<li>${esc(v)}</li>`).join("")}</ul>` : "") +
+    `<div class="sec">CAD part: ${esc(part)} · details in section ${c.section} of the notebook</div>`;
+  groupsEl.querySelectorAll(".grp").forEach(x => x.classList.remove("on"));
+  select(p => p.card === cid);
+}
+
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(meshes, false).find(h => !h.object.material.transparent || h.object.material.opacity > 0.5);
+  return hit ? hit.object.userData.part : null;
+}
+let down = null;
+renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener("pointerup", e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;   // a drag turns the view
+  const p = pick(e);
+  if (p) show(data.parts[p].card, p); else select(null);
+});
+renderer.domElement.addEventListener("pointermove", e => {
+  const p = pick(e);
+  if (!p) { tip.style.display = "none"; return; }
+  const r = view.getBoundingClientRect();
+  tip.textContent = data.cards[data.parts[p].card].title;
+  tip.style.display = "block"; tip.style.left = (e.clientX - r.left + 12) + "px"; tip.style.top = (e.clientY - r.top + 12) + "px";
+});
+
+function resize() { const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(view); resize();
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>
