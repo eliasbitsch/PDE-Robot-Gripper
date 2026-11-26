@@ -560,9 +560,63 @@ def _(SIM, mo, vid):
 
 
 @app.cell
+def _(f, mo):
+    COST = __import__("json").load(open(f("Elias", "02_CAD_Body", "out", "cost_estimate.json"), encoding="utf-8"))
+    rate_sl = mo.ui.slider(50, 150, step=5, value=int(COST["rate_eur_h"]), label="machining rate [EUR/h]", show_value=True)
+    lot_sl = mo.ui.slider(1, 50, step=1, value=1, label="lot size (grippers built)", show_value=True)
+    mo.vstack([
+        mo.md(r"""
+    ## 8. What it costs
+
+    An estimate for one gripper with its controller, from the BOM (Elias/02_CAD_Body/cost_estimate.py). Bought parts
+    at distributor prices excl. VAT; where the exact part is not listed, a comparable one (*benchmark*); Nanotec gives
+    prices only on request, so motor, gearbox, brake, encoder and controller are our *estimate*. Own parts: raw
+    material from the CAD stock size plus machining time: 0.5 h per clamping (CAM, fixture, first part) plus the removed
+    volume at 10 cm³/min. With a larger lot the setup time is shared - the second slider shows what a small series
+    would cost per gripper.
+    """),
+        mo.hstack([rate_sl, lot_sl], widths="equal", gap=2),
+    ])
+    return COST, lot_sl, rate_sl
+
+
+@app.cell
+def _(COST, lot_sl, mo, rate_sl):
+    _rate, _lot = rate_sl.value, lot_sl.value
+    _setup = COST["setup_h"]
+    _rows, _sum = [], {}
+    for _r in COST["rows"]:
+        if _r["group"] == "own part":
+            _clamps = int(_r["source"].split(" clampings")[0].split(", ")[-1])
+            _h = _r["hours"] - _clamps * _setup * (1 - 1 / _lot)          # setups shared over the lot
+            _each = _r["material_eur"] + _h * _rate + _r["extra_eur"]
+            _detail = f"material {_r['material_eur']:.0f} € + {_h:.2f} h × {_rate} €/h" + (f" + {_r['extra_eur']} € outside" if _r["extra_eur"] else "")
+        else:
+            _each = _r["each_eur"]
+            _detail = ""
+        _tot = _each * _r["qty"]
+        _sum[_r["group"]] = _sum.get(_r["group"], 0) + _tot
+        _rows.append({"pos": _r["pos"], "qty": _r["qty"], "part": _r["part"], "group": _r["group"], "kind": _r["kind"],
+                      "each [€]": round(_each, 2), "total [€]": round(_tot, 2), "how": _detail or _r["source"]})
+    _total = sum(_sum.values())
+    _order = ["own part", "bought mechanical", "drive and electrics", "standard part", "cabinet"]
+    _kinds = {k: sum(r["total [€]"] for r in _rows if r["kind"] == k) for k in ("catalogue", "benchmark", "estimate")}
+    mo.vstack([
+        mo.hstack([mo.stat(f"{_total:,.0f} €", label="per gripper incl. controller", caption=f"lot {_lot}, {_rate} €/h, excl. VAT", bordered=True)]
+                  + [mo.stat(f"{_sum.get(g, 0):,.0f} €", label=g, bordered=True) for g in _order], widths="equal", gap=0.6),
+        mo.md(f"How sure: **{_kinds['catalogue'] / _total * 100:.0f} %** of the sum are distributor prices, "
+              f"**{_kinds['benchmark'] / _total * 100:.0f} %** comparable parts, **{_kinds['estimate'] / _total * 100:.0f} %** "
+              "our estimates (own parts and the Nanotec set - a quote from Nanotec and one machining quote would "
+              "settle most of it). Not included: assembly, anodising (about 10 - 20 € per aluminium part), VAT."),
+        mo.ui.table(_rows, selection=None, page_size=12),
+    ])
+    return
+
+
+@app.cell
 def _(mo):
     mo.md(r"""
-    ## 8. What we learned
+    ## 9. What we learned
 
     - **Change the concept early.** The switch to rack and pinion on 30 Oct cost a week; later it would have cost the whole chain.
     - **One parameter file** drives CAD, sizing, FEM and simulation - a design change is one edit and a rebuild.
