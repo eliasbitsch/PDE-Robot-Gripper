@@ -310,7 +310,7 @@ def _(controls_drive, mo):
 
 
 @app.cell
-def _(LC2, MATERIALS, P, mo, pick_mat, sl):
+def _(LC2, MATERIALS, P, f, mo, pick_mat, sl):
     # jaw stress and pad deflection scale linearly from the T-jaw FEM (train: slide + holder + T-jaw, LC2)
     _F2, _sig2, _w2 = LC2["F"][0], LC2["parts"]["jaw"]["vm_peak"], LC2["u_pad"] * 1000
 
@@ -329,50 +329,89 @@ def _(LC2, MATERIALS, P, mo, pick_mat, sl):
     _now = chain(sl.value["mu"], sl.value["a"], sl.value["m"], sl.value["s"], sl.value["d"], sl.value["i"],
                  pick_mat.value)
 
-    def node(key, title, fmt, unit=""):
+    # the diagram as SVG with fixed positions: every box shows the part it is about (thumbnails from the explorer,
+    # media/diagram/*.png), its value and the change against our design point
+    import base64 as _b64
+
+    def _img(name):
+        _p = f("shared", "presentation", "media", "diagram", name + ".png")
+        return "data:image/png;base64," + _b64.b64encode(open(_p, "rb").read()).decode()
+
+    _W, _H = 220, 118
+    _POS = {"mu": (10, 10), "a": (10, 150), "m": (10, 290), "s": (10, 430), "d": (260, 10), "F": (260, 290),
+            "i": (260, 560), "T_pin": (510, 10), "F_av": (510, 150), "w": (510, 330), "sig": (510, 470),
+            "mat": (510, 620), "T_mot": (760, 10), "margin": (760, 200), "S_rp": (760, 470), "util": (1010, 10)}
+    _STY = {"inp": ("#f5f5f4", "#a8a29e", "#1c1917"), "same": ("#ffffff", "#78716c", "#1c1917"),
+            "up": ("#fed7aa", "#C2410C", "#7c2d12"), "down": ("#ccfbf1", "#0f766e", "#134e4a")}
+    _boxes = []
+
+    def _box(k, title, value, sub, cls, img):
+        x, y = _POS[k]
+        fill, stroke, ink = _STY[cls]
+        r = 26 if cls == "inp" else 6
+        tx = x + (104 if img else 14)
+        parts = [f'<rect x="{x}" y="{y}" width="{_W}" height="{_H}" rx="{r}" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>']
+        if img:
+            parts.append(f'<rect x="{x + 8}" y="{y + 13}" width="92" height="92" rx="6" fill="#fff"/>'
+                         f'<image href="{_img(img)}" x="{x + 8}" y="{y + 13}" width="92" height="92"/>')
+        parts.append(f'<text x="{tx}" y="{y + 38}" font-size="14" font-weight="600" fill="{ink}">{title}</text>'
+                     f'<text x="{tx}" y="{y + 66}" font-size="19" fill="{ink}">{value}</text>')
+        if sub:
+            parts.append(f'<text x="{tx}" y="{y + 92}" font-size="13" fill="{ink}">{sub}</text>')
+        _boxes.append("".join(parts))
+
+    def node(key, title, fmt, unit="", img=None):
         _v, _b = _now[key], _base[key]
         _dv = (_v / _b - 1) * 100 if _b else 0
         _cls = "up" if _dv > 0.5 else "down" if _dv < -0.5 else "same"
-        _delta = f"<br/><small>{_dv:+.0f} %</small>" if _cls != "same" else ""
-        return f'{key}["<b>{title}</b><br/>{_v:{fmt}} {unit}{_delta}"]:::{_cls}'
+        _box(key, title, f"{_v:{fmt}} {unit}".strip(), f"{_dv:+.0f} %" if _cls != "same" else "design point", _cls, img)
 
-    _in = lambda k, t, v: f'{k}(["{t}<br/><b>{v}</b>"]):::inp'
-    _diagram = "\n".join([
-        "flowchart LR",
-        "classDef inp fill:#f5f5f4,stroke:#a8a29e,color:#1c1917",
-        "classDef same fill:#ffffff,stroke:#78716c,color:#1c1917",
-        "classDef up fill:#fed7aa,stroke:#C2410C,color:#7c2d12",
-        "classDef down fill:#ccfbf1,stroke:#0f766e,color:#134e4a",
-        _in("mu", "friction µ", f"{sl.value['mu']:.2f}"),
-        _in("a", "acceleration", f"{sl.value['a']:.1f} m/s²"),
-        _in("m", "part mass", f"{sl.value['m']:.2f} kg"),
-        _in("s", "safety S", f"{sl.value['s']:.1f}"),
-        _in("d", "pinion d", f"{sl.value['d']:g} mm"),
-        _in("i", "gearbox i", f"{sl.value['i']:g}"),
-        _in("mat", "jaw material", pick_mat.value.split(" (")[0]),
-        node("F", "grip force / jaw", ".1f", "N"),
-        node("T_pin", "pinion torque", ".2f", "N·m"),
-        node("T_mot", "motor torque", ".3f", "N·m"),
-        node("util", "motor use", ".0f", "%"),
-        node("F_av", "available force", ".1f", "N"),
-        node("margin", "force margin", ".2f", "×"),
-        node("sig", "jaw stress", ".1f", "MPa"),
-        node("S_rp", "safety vs Rp0.2", ".0f", ""),
-        node("w", "pad deflection", ".0f", "µm"),
-        "mu --> F", "a --> F", "m --> F", "s --> F",
-        "F --> T_pin", "d --> T_pin", "T_pin --> T_mot", "i --> T_mot", "T_mot --> util",
-        "d --> F_av", "i --> F_av", "F_av --> margin", "F --> margin",
-        "F --> sig", "sig --> S_rp", "mat --> S_rp", "F --> w",
-    ])
+    def inp(key, title, value, img=None):
+        _box(key, title, value, None, "inp", img)
+
+    inp("mu", "friction µ", f"{sl.value['mu']:.2f}", "pads")
+    inp("a", "acceleration", f"{sl.value['a']:.1f} m/s²")
+    inp("m", "part mass", f"{sl.value['m']:.2f} kg", "partb")
+    inp("s", "safety S", f"{sl.value['s']:.1f}")
+    inp("d", "pinion d", f"{sl.value['d']:g} mm", "pinion")
+    inp("i", "gearbox i", f"{sl.value['i']:g}", "gearbox")
+    inp("mat", "jaw material", pick_mat.value.split(" (")[0].replace("EN AW-", ""), "jaw")
+    node("F", "grip force / jaw", ".1f", "N", "grip")
+    node("T_pin", "pinion torque", ".2f", "N·m", "pinion")
+    node("T_mot", "motor torque", ".3f", "N·m", "motor")
+    node("util", "motor use", ".0f", "%", "motor")
+    node("F_av", "available force", ".1f", "N", "drive")
+    node("margin", "force margin", ".2f", "×")
+    node("sig", "jaw stress", ".1f", "MPa", "jaw")
+    node("S_rp", "safety vs Rp0.2", ".0f", "")
+    node("w", "pad deflection", ".0f", "µm", "train")
+    _EDGES = ["mu F", "a F", "m F", "s F", "F T_pin", "d T_pin", "T_pin T_mot", "i T_mot", "T_mot util", "d F_av",
+              "i F_av", "F_av margin", "F margin", "F sig", "sig S_rp", "mat S_rp", "F w"]
+    _lines = []
+    for _e in _EDGES:
+        _a, _b2 = _e.split()
+        (x1, y1), (x2, y2) = _POS[_a], _POS[_b2]
+        x1, y1, y2 = x1 + _W, y1 + _H / 2, y2 + _H / 2
+        if x2 <= x1:                                   # same column (input below its target): enter from below
+            x2, y2 = x2 + _W / 2, y2 + _H
+            _lines.append(f'<path d="M{x1 - _W / 2},{_POS[_a][1]} C{x1 - _W / 2},{y2 + 40} {x2},{y2 + 40} {x2},{y2}" '
+                          'fill="none" stroke="#78716c" stroke-width="1.4" marker-end="url(#ah)"/>')
+            continue
+        cx = (x1 + x2) / 2
+        _lines.append(f'<path d="M{x1},{y1} C{cx},{y1} {cx},{y2} {x2 - 2},{y2}" fill="none" stroke="#78716c" '
+                      'stroke-width="1.4" marker-end="url(#ah)"/>')
+    _svg = ('<svg viewBox="0 0 1240 750" style="width:100%;height:auto;font-family:system-ui,sans-serif" '
+            'xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" '
+            'markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#78716c"/></marker></defs>'
+            + "".join(_lines) + "".join(_boxes) + "</svg>")
     _warn = []
     if _now["margin"] < 1:
         _warn.append("**The drive cannot hold the part** - force margin below 1.")
     if _now["S_rp"] < 2:
         _warn.append("**Jaw safety below 2.**")
     _msg = mo.callout(mo.md(" ".join(_warn)), kind="danger") if _warn else mo.md("&nbsp;")
-    # the diagram keeps its layout for any value, only the warning line comes and goes: that one gets a fixed slot.
-    # mo.mermaid stays a live marimo output; pasting its HTML into a div had rendered it once and never again
-    mo.vstack([mo.mermaid(_diagram), _msg.style({"height": "64px"})])
+    # fixed layout for any value; only the warning line comes and goes, so it gets a fixed slot
+    mo.vstack([mo.Html(_svg), _msg.style({"height": "64px"})])
     return
 
 

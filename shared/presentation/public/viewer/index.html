@@ -59,9 +59,15 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const view = document.getElementById("view"), tip = document.getElementById("tip");
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// thumbnail mode (diagram images): ?thumb=1&only=Motor,Brake shows just those parts, framed, on a clear background
+const Q = new URLSearchParams(location.search), THUMB = Q.has("thumb");
+const ONLY = (Q.get("only") || "").split(",").filter(Boolean);
+if (THUMB) { document.getElementById("app").style.gridTemplateColumns = "1fr";
+  document.getElementById("side").style.display = "none"; document.getElementById("bar").style.display = "none";
+  document.body.style.background = "#fff"; }
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: THUMB, preserveDrawingBuffer: THUMB });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setClearColor(0xf6f4ef);
+renderer.setClearColor(THUMB ? 0xffffff : 0xf6f4ef, 1);
 view.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
@@ -84,16 +90,21 @@ gltf.scene.traverse(o => {
   o.material = new THREE.MeshStandardMaterial({ color: data.groups[data.parts[n.name].group].color,
                                                 metalness: 0.15, roughness: 0.55, flatShading: true });   // crisp CAD faces
   o.userData.part = n.name;
-  meshes.push(o);
+  const shown = THUMB ? ONLY.some(p => n.name.startsWith(p)) : !data.parts[n.name].hidden;
+  o.visible = shown;
+  if (shown) meshes.push(o);
 });
 for (const c of [...gltf.scene.children]) root.add(c);
 const nodes = {};
 root.traverse(o => { if (data.parts[o.name]) { nodes[o.name] = o; o.userData.base = o.position.clone(); } });
 
 // frame the assembly
-const box = new THREE.Box3().setFromObject(root), ctr = box.getCenter(new THREE.Vector3());
+const box = new THREE.Box3();
+root.updateMatrixWorld(true);
+for (const m of meshes) box.expandByObject(m);
+const ctr = box.getCenter(new THREE.Vector3());
 const size = box.getSize(new THREE.Vector3()).length();
-function home() { camera.position.copy(ctr).add(new THREE.Vector3(0.55, 0.35, 0.75).multiplyScalar(size * 1.7));
+function home() { camera.position.copy(ctr).add(new THREE.Vector3(0.55, 0.35, 0.75).multiplyScalar(size * (THUMB ? 1.25 : 1.7)));
                   controls.target.copy(ctr); controls.update(); }
 home();
 
@@ -118,6 +129,7 @@ function select(test) {
 }
 const groupsEl = document.getElementById("groups");
 for (const [g, v] of Object.entries(data.groups)) {
+  if (g === "part") continue;
   const el = document.createElement("span");
   el.className = "grp"; el.innerHTML = `<i style="background:${v.color}"></i>${v.label}`;
   el.onclick = () => { const on = !el.classList.contains("on");
@@ -150,7 +162,7 @@ renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.
 renderer.domElement.addEventListener("pointerup", e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;   // a drag turns the view
   const p = pick(e);
-  if (p) show(data.parts[p].card, p); else select(null);
+  if (p && data.parts[p].card) show(data.parts[p].card, p); else select(null);
 });
 renderer.domElement.addEventListener("pointermove", e => {
   const p = pick(e);
@@ -163,7 +175,7 @@ renderer.domElement.addEventListener("pointermove", e => {
 function resize() { const w = view.clientWidth, h = view.clientHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 new ResizeObserver(resize).observe(view); resize();
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); window.__ready = true; });
 </script>
 </body>
 </html>

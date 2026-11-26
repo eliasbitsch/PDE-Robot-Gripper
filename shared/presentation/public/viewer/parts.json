@@ -27,6 +27,10 @@
   "std": {
    "color": "#A8A29E",
    "label": "Standard parts"
+  },
+  "part": {
+   "color": "#E7E2D6",
+   "label": "Part B"
   }
  },
  "cards": {
@@ -1186,6 +1190,17 @@
     0.0
    ],
    "dist": 116.66666666666667
+  },
+  "PartB": {
+   "card": null,
+   "group": "part",
+   "dir": [
+    0,
+    0,
+    0
+   ],
+   "dist": 0.0,
+   "hidden": true
   }
  }
 }

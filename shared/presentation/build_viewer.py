@@ -58,7 +58,7 @@ sheet = lambda k: f"{SHEETS[k]['file']} p. {SHEETS[k]['page']}"
 GROUPS = {  # group -> (colour, label)
     "drive": ("#C2410C", "Drive"), "gear": ("#B45309", "Gear train"), "guide": ("#0F766E", "Guidance"),
     "jaw": ("#2563EB", "Jaws and pads"), "body": ("#78716C", "Housing"), "flange": ("#57534E", "Robot interface"),
-    "std": ("#A8A29E", "Standard parts"),
+    "std": ("#A8A29E", "Standard parts"), "part": ("#E7E2D6", "Part B"),
 }
 
 # cards: (id, group, title, part prefixes, kind/what, why, key values, notebook section)
@@ -220,11 +220,16 @@ def main():
         rgba = [int(col[i:i + 2], 16) for i in (1, 3, 5)] + [255]
         m.visual = trimesh.visual.ColorVisuals(m, face_colors=np.tile(rgba, (len(m.faces), 1)))
         scene.add_geometry(m, node_name=n, geom_name=n)
+    # part B in the jaws (hidden in the explorer by default; the diagram thumbnails use it)
+    pb = trimesh.load(os.path.join(ROOT, "Elias", "04_Simulation", "meshes", "part_b.stl"), force="mesh")
+    pb.apply_translation(P.PART_OFFSET)
+    scene.add_geometry(pb, node_name="PartB", geom_name="PartB")
     scene.export(os.path.join(OUT, "gripper.glb"))
     data = dict(
         groups={k: dict(color=v[0], label=v[1]) for k, v in GROUPS.items()},
         cards={c[0]: dict(group=c[1], title=c[2], what=c[4], why=c[5], values=c[6], section=c[7]) for c in CARDS},
-        parts={n: dict(card=card_of[n], group=group_of[n], dir=dirs[n][0], dist=dirs[n][1]) for n in meshes},
+        parts={**{n: dict(card=card_of[n], group=group_of[n], dir=dirs[n][0], dist=dirs[n][1]) for n in meshes},
+               "PartB": dict(card=None, group="part", dir=[0, 0, 0], dist=0.0, hidden=True)},
     )
     json.dump(data, open(os.path.join(OUT, "parts.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     with open(os.path.join(HERE, "viewer_cards.md"), "w", encoding="utf-8") as fh:
