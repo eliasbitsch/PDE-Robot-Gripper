@@ -219,7 +219,9 @@ def _(P):
 
 @app.cell
 def _(INPUTS, MATERIALS, mo):
-    pick = {k: mo.ui.dropdown(list(v["scen"]), value=list(v["scen"])[0], label=v["label"]) for k, v in INPUTS.items()}
+    # mo.ui.dictionary, not a plain dict: marimo only reacts to UI elements it can see
+    pick = mo.ui.dictionary({k: mo.ui.dropdown(list(v["scen"]), value=list(v["scen"])[0], label=v["label"])
+                             for k, v in INPUTS.items()})
     pick_mat = mo.ui.dropdown(list(MATERIALS), value=list(MATERIALS)[0], label="jaw material")
     return pick, pick_mat
 
@@ -230,17 +232,17 @@ def _(INPUTS, mo, pick):
     def _sl(k):
         _v = INPUTS[k]
         _lo, _hi, _st = _v["rng"]
-        _val = _v["scen"][pick[k].value][0]
+        _val = _v["scen"][pick.value[k]][0]
         return mo.ui.slider(_lo, _hi, step=_st, value=min(max(_val, _lo), _hi), show_value=True,
                             label=f'{_v["label"]}' + (f' [{_v["unit"]}]' if _v["unit"] else ""), full_width=True)
-    sl = {k: _sl(k) for k in INPUTS}
+    sl = mo.ui.dictionary({k: _sl(k) for k in INPUTS})
     return (sl,)
 
 
 @app.cell
 def _(INPUTS, MATERIALS, SHEETS, img, mo, pick, pick_mat, sl):
     def _why(k):
-        _val, _txt, _crop = INPUTS[k]["scen"][pick[k].value]
+        _val, _txt, _crop = INPUTS[k]["scen"][pick.value[k]]
         _items = [mo.md(_txt)]
         if _crop:
             _items.append(img(*SHEETS, _crop, h=260))
@@ -261,10 +263,10 @@ def _(INPUTS, MATERIALS, SHEETS, img, mo, pick, pick_mat, sl):
 
 @app.cell
 def _(P, mo, sl):
-    _F = sl["s"].value * sl["m"].value * (P.G + sl["a"].value) / (P.N_BACKEN * sl["mu"].value)
+    _F = sl.value["s"] * sl.value["m"] * (P.G + sl.value["a"]) / (P.N_BACKEN * sl.value["mu"])
     _ok = _F <= P.F_JAW_AVAIL
     mo.hstack([
-        mo.stat(f"{_F:.1f} N", label="required per jaw", caption=f"m = {sl['m'].value:.3f} kg", bordered=True),
+        mo.stat(f"{_F:.1f} N", label="required per jaw", caption=f"m = {sl.value['m']:.3f} kg", bordered=True),
         mo.stat(f"{P.F_GRIP_SET:.1f} N", label="our setpoint", caption="µ 0.2, a 4.96 m/s², S 2", bordered=True),
         mo.stat(f"{P.F_JAW_AVAIL:.1f} N", label="drive delivers", caption="full current, all losses",
                 direction="increase" if _ok else "decrease", bordered=True),
@@ -324,7 +326,7 @@ def _(LC2, MATERIALS, P, mo, pick_mat, sl):
                     sig=sig, S_rp=_rp / sig, w=_w2 * F / _F2)
 
     _base = chain(P.MU_OILY, P.A_PATH_REAL, P.B_MASSE, P.S_SICHERHEIT, P.PINION_D, P.GEAR_I, "EN AW-7075 T6 (ours)")
-    _now = chain(sl["mu"].value, sl["a"].value, sl["m"].value, sl["s"].value, sl["d"].value, sl["i"].value,
+    _now = chain(sl.value["mu"], sl.value["a"], sl.value["m"], sl.value["s"], sl.value["d"], sl.value["i"],
                  pick_mat.value)
 
     def node(key, title, fmt, unit=""):
@@ -341,12 +343,12 @@ def _(LC2, MATERIALS, P, mo, pick_mat, sl):
         "classDef same fill:#ffffff,stroke:#78716c,color:#1c1917",
         "classDef up fill:#fed7aa,stroke:#C2410C,color:#7c2d12",
         "classDef down fill:#ccfbf1,stroke:#0f766e,color:#134e4a",
-        _in("mu", "friction µ", f"{sl['mu'].value:.2f}"),
-        _in("a", "acceleration", f"{sl['a'].value:.1f} m/s²"),
-        _in("m", "part mass", f"{sl['m'].value:.2f} kg"),
-        _in("s", "safety S", f"{sl['s'].value:.1f}"),
-        _in("d", "pinion d", f"{sl['d'].value:g} mm"),
-        _in("i", "gearbox i", f"{sl['i'].value:g}"),
+        _in("mu", "friction µ", f"{sl.value['mu']:.2f}"),
+        _in("a", "acceleration", f"{sl.value['a']:.1f} m/s²"),
+        _in("m", "part mass", f"{sl.value['m']:.2f} kg"),
+        _in("s", "safety S", f"{sl.value['s']:.1f}"),
+        _in("d", "pinion d", f"{sl.value['d']:g} mm"),
+        _in("i", "gearbox i", f"{sl.value['i']:g}"),
         _in("mat", "jaw material", pick_mat.value.split(" (")[0]),
         node("F", "grip force / jaw", ".1f", "N"),
         node("T_pin", "pinion torque", ".2f", "N·m"),
@@ -368,9 +370,9 @@ def _(LC2, MATERIALS, P, mo, pick_mat, sl):
     if _now["S_rp"] < 2:
         _warn.append("**Jaw safety below 2.**")
     _msg = mo.callout(mo.md(" ".join(_warn)), kind="danger") if _warn else mo.md("&nbsp;")
-    # fixed heights: the diagram and the warning line keep their place whatever the values
-    mo.vstack([mo.Html(f'<div style="height:430px;overflow:hidden">{mo.mermaid(_diagram).text}</div>'),
-               mo.Html(f'<div style="height:64px">{_msg.text}</div>')])
+    # the diagram keeps its layout for any value, only the warning line comes and goes: that one gets a fixed slot.
+    # mo.mermaid stays a live marimo output; pasting its HTML into a div had rendered it once and never again
+    mo.vstack([mo.mermaid(_diagram), _msg.style({"height": "64px"})])
     return
 
 
