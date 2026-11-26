@@ -1,0 +1,39 @@
+/* Warm, uneven top-left wash with paper grain; marimo shows a similar red one on errors. */
+body::before {
+  content: "";
+  position: fixed;
+  top: -12vh;
+  left: -12vw;
+  width: 70vw;
+  height: 70vh;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: multiply;
+  background:
+    radial-gradient(ellipse 38% 30% at 22% 28%, rgba(234, 120, 40, 0.30), transparent 70%),
+    radial-gradient(ellipse 30% 42% at 34% 18%, rgba(245, 160, 70, 0.22), transparent 72%),
+    radial-gradient(ellipse 46% 24% at 16% 44%, rgba(214, 96, 30, 0.18), transparent 75%),
+    radial-gradient(ellipse 60% 55% at 20% 25%, rgba(250, 190, 120, 0.16), transparent 80%);
+  /* Turbulence mask frays the edge so the wash looks soaked into paper, not airbrushed. */
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 2.2 -0.55'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 2.2 -0.55'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  filter: blur(6px);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+}
+
+.dark body::before,
+body.dark::before,
+[data-theme="dark"] body::before {
+  opacity: 0.55;
+}
