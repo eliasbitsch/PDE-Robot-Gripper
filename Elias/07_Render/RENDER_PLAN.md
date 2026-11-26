@@ -46,7 +46,7 @@ frame shows the real design.
 | 5 | 38 - 48 s | **Mechanism focus.** The hood turns transparent / a section plane slides through: motor, brake, gearbox, bevel pair, pinion, two racks. The pinion turns 57°, the racks run in opposite directions, the jaws close on part B. | slow push into the section, then top view on pinion and racks | back to the dark look; a glowing line follows the force flow motor → gearbox → bevel → pinion → racks → pads | real kinematics (`gripper_params`: i 7.07, 57° pinion for 10 mm) |
 | 5b | (with 5) | **Exploded view, partial.** From the closed gripper the parts lift off along their mounting axes, outer ones first (cover, hood, window, screws, housing halves), and stop as soon as the drive train is free: motor, brake, gearbox, bevel pair, pinion, racks. Then the motor turns forward and back a few times; pinion, racks and jaws follow by the same drivers; then everything closes up again. | slow orbit, slight push-in when the mechanism is free | dark look as shot 2 | spring easing per part, staggered 0.1 - 0.15 s; motor 2 - 3 strokes, eased reversals; sound: low swell while it opens, servo whir and rack ticks per stroke, metal clack on each jaw stop, screw ratchets when the screws back out |
 | 6 | 48 - 62 s | **The robot wakes up.** IRB 1300 in the dark cell, gripper on the flange. Axes come alive one by one from the base up, a small "breath", a short wave with axis 6, then one real pick-and-place cycle. | low, wide; follows the gripper during the transfer | dark cell with rim light, the fence as silhouettes | wake-up as keyframed motion; the cycle from the E4 trajectory (`e4_cycle.timeline`, 4.48 s) |
-| 7 | 62 - 70 s | **End card.** Gripper on the black floor, slow turn. | locked | as shot 2 | text: 3.04 kg · 44.5 N · 4.48 s cycle · group 10 · names |
+| 7 | 62 - 70 s | **End card.** Gripper on the black floor, slow turn. | locked | as shot 2 | text: gripper mass from gripper_params (2.95 kg) · 44.5 N · 4.48 s cycle (all read from the repo) · group 10 · names |
 
 The 9:16 cut uses shots 2, 4 (shortened), 5 and 7.
 
@@ -86,7 +86,7 @@ as the report. Every claim on screen comes from a script in the repo.
 | 2 | Where the part is held: the two side faces, the wide grooved NBR pads, part B's centre of mass under the pads | `02_CAD_Body/grip_check.py` |
 | 3 | Grip force: F = S m (g + a) / (2 µ) with the numbers (µ 0.2 oily, S 2, 4.96 m/s²) → 44.5 N; then the twist of the part and the friction limit surface | V2 §§ 1, 2a |
 | 4 | The mechanism: motor current = grip force; pinion, racks, centring | V1, V2 § 10 |
-| 5 | Closing: why two stages; impact 160 N vs 45 N; the part 5 mm off centre is pushed slowly to the middle | `closing_time.py`, videos `closing_*.mp4` |
+| 5 | Closing: why two stages; impact 123 N vs 45 N; the part 5 mm off centre is pushed slowly to the middle | `closing_time.py`, videos `closing_*.mp4` |
 | 6 | E-stop anywhere in the cycle: part acceleration, friction use, still held | `e_stop.py`, `validate_grip.py` |
 | 7 | Power failure: preload gone in 2 ms, brake-first shutdown, why the brake must be free of play | `power_fail.py`, `brake_play.py` |
 | 8 | Strength and stiffness: FEM, jaw tilt, pressure wedge | `05_FEM`, `tilt_check.py` |
