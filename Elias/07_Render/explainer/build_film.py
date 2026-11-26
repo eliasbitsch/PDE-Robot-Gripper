@@ -212,6 +212,32 @@ def s9():
     return scene("s9", body, script, style), vdur + S9_HOLD
 
 
+MANIM = {"s1": ("task_cell", "TaskCell"), "s3": ("grip_force", "GripForce")}   # full-frame Manim scenes
+
+
+def manim_clip(cid):
+    """a Manim scene as one full-frame clip; its length is the rendered video's"""
+    import subprocess
+    mod, cls = MANIM[cid]
+    src = None
+    for res in ("1080p30", "480p30"):
+        p = os.path.join(HERE, "media", "videos", mod, res, cls + ".mp4")
+        if os.path.exists(p):
+            src = p
+            break
+    if src is None:
+        raise FileNotFoundError(f"render {mod}.py {cls} with manim first")
+    dst = os.path.join(FILM, "assets", f"{cid}_{mod}.mp4")
+    import shutil
+    shutil.copyfile(src, dst)
+    dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", dst],
+                               capture_output=True, text=True, check=True).stdout)
+    body = f"""
+    <video id="{cid}-v" class="clip" src="assets/{cid}_{mod}.mp4" muted playsinline data-start="0" data-duration="{dur:.2f}"
+           style="position:absolute;left:0;top:0;width:1920px;height:1080px"></video>"""
+    return scene(cid, body, ""), dur
+
+
 def index(scenes):
     hosts, t0 = [], 0.0
     for cid, dur in scenes:
@@ -272,9 +298,9 @@ if __name__ == "__main__":
     sync_assets()
     os.makedirs(os.path.join(FILM, "compositions"), exist_ok=True)
     out = []
-    for fn in (s5, s9):
+    for fn in (lambda: manim_clip("s1"), lambda: manim_clip("s3"), s5, s9):
         html, dur = fn()
-        cid = fn.__name__
+        cid = fn.__name__ if fn.__name__ != "<lambda>" else html.split('data-composition-id="')[1].split('"')[0]
         open(os.path.join(FILM, "compositions", f"{cid}.html"), "w", encoding="utf-8").write(html)
         out.append((cid, dur))
     open(os.path.join(FILM, "index.html"), "w", encoding="utf-8").write(index(out))

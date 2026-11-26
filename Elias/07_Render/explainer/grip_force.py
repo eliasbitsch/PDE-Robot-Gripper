@@ -84,7 +84,10 @@ class GripForce(Scene):
         l_res = tex(f"{F:.1f}" + r"\,\mathrm{N}", font_size=34, color=ACC).next_to(fn[0], UP, buff=0.08)
         self.play(ReplacementTransform(l_fn, l_res), Indicate(fn, color=ACC, scale_factor=1.05), run_time=0.9)
         # the dynamic check lives in the Monte Carlo study (04_Simulation/robustness.py); the film only states its result
-        rb = [r for r in json.load(open(os.path.join(SIM_OUT, "robustness.json")))["results"] if r["study"] == "spec"]
+        rpath = os.path.join(SIM_OUT, "robustness.json")
+        if not os.path.exists(rpath):                  # the GPU study writes robustness.json, the CPU run robustness_cpu.json
+            rpath = os.path.join(SIM_OUT, "robustness_cpu.json")
+        rb = [r for r in json.load(open(rpath))["results"] if r["study"] == "spec"]
         u_max = max(r["util_max"] for r in rb)
         n_held = sum(r["held"] for r in rb)
         verdict = "all held" if n_held == len(rb) else f"{n_held:,} of {len(rb):,} held"

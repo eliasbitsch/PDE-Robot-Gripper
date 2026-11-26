@@ -1,0 +1,18 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; background: #0E1013; font-family: Inter, sans-serif; color: #E8E6E1; overflow: hidden; }
+    .cap { position: absolute; left: 86px; top: 64px; font-size: 40px; font-weight: 400; letter-spacing: -0.01em; }
+    .sub { position: absolute; left: 86px; top: 116px; font-size: 28px; color: #8E949C; }
+
+  </style>
+  <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+
+    <video id="s1-v" class="clip" src="assets/s1_task_cell.mp4" muted playsinline data-start="0" data-duration="15.70"
+           style="position:absolute;left:0;top:0;width:1920px;height:1080px"></video>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    window.__timelines["s1"] = tl;
+  </script>
+</template>
