@@ -515,6 +515,81 @@ def key_jaws(spans, end, start=1):
         piv["rotx"].keyframe_insert("rotation_euler", index=0, frame=f)
 
 
+HERO_TRANS = os.environ.get("TRANS", "1") == "1"    # hero film transitions flight -> assemble -> explode -> robot
+
+
+def assemble_start_view():
+    """root orientation and camera of the first assemble frame (same formulas as the assemble mode)"""
+    CD = Vector((0.35, -1.0, 0.18)).normalized()
+    UPW = Vector((0, 0, 1))
+    U_PERP = (UPW - CD * UPW.dot(CD)).normalized()
+    a1 = Vector((1, -1, 1)).normalized()
+    a2 = (UPW - a1 * UPW.dot(a1)).normalized()
+    from mathutils import Matrix as M_
+    A = M_((a1, a2, a1.cross(a2))).transposed()
+    Bm = M_((CD, U_PERP, CD.cross(U_PERP))).transposed()
+    q0 = (Bm @ A.transposed()).to_quaternion()
+    t = q0 @ c
+    return q0, t + CD * 0.9, t, 50.0
+
+
+def flash_card(cam, keys, color=(1, 1, 1)):
+    """white card in front of the lens; keys [(frame, opacity)]: a flash that is exactly white on both sides of a cut"""
+    me = bpy.data.meshes.new("Flash")
+    s = 0.6
+    me.from_pydata([(-s, -s, 0), (s, -s, 0), (s, s, 0), (-s, s, 0)], [], [(0, 1, 2, 3)])
+    ob = bpy.data.objects.new("Flash", me)
+    sc.collection.objects.link(ob)
+    ob.parent = cam
+    ob.location = (0, 0, -0.12)
+    for attr in ("visible_shadow", "visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter"):
+        if hasattr(ob, attr):
+            setattr(ob, attr, False)
+    m = bpy.data.materials.new("flash")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.remove(next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"))
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1)
+    em.inputs["Strength"].default_value = 3.0
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mx = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(tr.outputs[0], mx.inputs[1])
+    nt.links.new(em.outputs[0], mx.inputs[2])
+    nt.links.new(mx.outputs[0], next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])
+    if hasattr(m, "surface_render_method"):
+        m.surface_render_method = "BLENDED"
+    ob.data.materials.append(m)
+    for f, a in keys:
+        mx.inputs["Fac"].default_value = a
+        mx.inputs["Fac"].keyframe_insert("default_value", frame=f)
+    if cam.data.clip_start > 0.05:
+        cam.data.clip_start = 0.05
+    return ob
+
+
+def joining_dir(name, ob, how):
+    """direction a part leaves along when the gripper is taken apart (gripper frame, root unrotated)"""
+    pts = [ob.matrix_world @ Vector(v) for v in ob.bound_box]
+    ctr = sum(pts, Vector()) / 8
+    if how in ("in", "out"):
+        s_ = -1 if ctr.x < -1e-4 else 1
+        return Vector((-s_ if how == "in" else s_, 0, 0))
+    if how == "head":
+        vs = [v.co for v in ob.data.vertices]
+        mc = sum((Vector(v) for v in ob.bound_box), Vector()) / 8
+        dims = [max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)]
+        ax = dims.index(max(dims))
+        o1, o2 = [i for i in range(3) if i != ax]
+        r = lambda v: math.hypot(v[o1] - mc[o1], v[o2] - mc[o2])
+        pos = max((r(v) for v in vs if v[ax] > mc[ax]), default=0)
+        neg = max((r(v) for v in vs if v[ax] < mc[ax]), default=0)
+        d = Vector((0, 0, 0))
+        d[ax] = 1.0 if pos > neg else -1.0
+        return (ob.matrix_world.to_3x3() @ d).normalized()
+    return Vector(how)
+
+
 def fade(end, f_in=24, f_out=20):
     vs = sc.view_settings
     for f in range(1, end + 1):
@@ -564,7 +639,7 @@ elif mode == "flight":
     JAWS_D = [(41, 74, D_OPEN, D_GRIP), (150, 180, D_GRIP, D_OPEN), (268, 300, D_OPEN, D_GRIP),
               (337, 359, D_GRIP, D_OPEN), (365, 387, D_OPEN, D_GRIP), (450, 475, D_GRIP, D_OPEN),
               (490, 512, D_OPEN, D_GRIP), (528, 552, D_GRIP, D_OPEN), (562, 584, D_OPEN, D_GRIP)]
-    END_FADE = (586, 600)
+    END_FADE = (10 ** 6, 10 ** 6 + 1) if HERO_TRANS else (586, 600)   # with the transition the film goes on into the lab
     END = SHOTS[-1][-1][0]
     root.animation_data_clear()
     root.rotation_euler = (0, 0, 0)
@@ -695,8 +770,74 @@ elif mode == "flight":
         vs.exposure = e
         vs.keyframe_insert("exposure", frame=f)
     vs.exposure = 0.0
+    OUTRO = None
+    if HERO_TRANS:
+        # transition into the assembly (review 26 Nov): the shell comes back, the gripper turns into the assembly's
+        # first pose while the camera pulls back to its first view, then the gripper comes apart in reverse assembly
+        # order along the joining axes until only the housing is left, and a white flash cuts to the lab, where that
+        # housing is built up again. Camera and housing match the first assemble frame exactly.
+        from mathutils import Matrix, Quaternion
+        PULL, SHELL_IN = 46, 24
+        DIS0 = END + PULL + 4
+        q0, cam_end, tgt_end, lens_end = assemble_start_view()
+        sc.frame_set(END)
+        cam0, foc0, lens0 = cam.location.copy(), foc.location.copy(), cam.data.lens
+        groups, used = [], set()
+        for prefixes, how, dist in ASSEMBLY:
+            mem = sorted(n for n in objs if n.startswith(prefixes) and n not in used and not n.startswith("Housing"))
+            used.update(mem)
+            if mem:
+                groups.append((mem, how, dist))
+        G = len(groups)
+        STEP, FLY = 1.6, 16
+        FLASH0 = int(DIS0 + G * STEP + FLY * 0.6)
+        END2 = FLASH0 + 12
+        root.rotation_mode = "QUATERNION"
+        root.rotation_quaternion = Quaternion()
+        root.keyframe_insert("rotation_quaternion", frame=END)
+        for f in range(END + 1, END2 + 1):
+            u = soft((f - END) / PULL)
+            root.rotation_quaternion = Quaternion().slerp(q0, u)
+            root.keyframe_insert("rotation_quaternion", frame=f)
+            p_, t_ = cam0.lerp(cam_end, u), foc0.lerp(tgt_end, u)
+            cam.location, foc.location = p_, t_
+            cam.rotation_euler = (t_ - p_).to_track_quat("-Z", "Y").to_euler()
+            cam.data.lens = lens0 + (lens_end - lens0) * u
+            cam.keyframe_insert("location", frame=f)
+            cam.keyframe_insert("rotation_euler", frame=f)
+            cam.data.keyframe_insert("lens", frame=f)
+            foc.keyframe_insert("location", frame=f)
+        for name, ob in objs.items():                  # the shell back in
+            if name.startswith(SHELL):
+                ob.hide_render = False
+                ob.keyframe_insert("hide_render", frame=END + 1)
+        for m in shell_mats.values():
+            a = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Alpha"]
+            for f in range(END, END + SHELL_IN + 1, 2):
+                a.default_value = soft((f - END) / SHELL_IN)
+                a.keyframe_insert("default_value", frame=f)
+        # take apart: each group leaves along its joining axis, accelerating, the last-assembled first
+        for gi, (mem, how, dist) in enumerate(reversed(groups)):
+            f0 = DIS0 + gi * STEP
+            for n in mem:
+                ob = objs[n]
+                d = joining_dir(n, ob, how)
+                R = ob.parent.matrix_local.to_3x3().inverted() if ob.parent is not root else Matrix.Identity(3)
+                base = ob.location.copy()
+                for f in range(int(f0), int(f0 + FLY) + 2):
+                    u = max(0.0, (f - f0) / FLY)
+                    ob.location = base + R @ (d * (0.02 * u + 0.55 * u ** 2.4))
+                    ob.keyframe_insert("location", frame=f)
+                    ob.hide_render = u >= 1.0
+                    ob.keyframe_insert("hide_render", frame=f)
+        for f in range(END + 1, END2 + 1):
+            vs.exposure = 3.8 * ease(max(0.0, (f - FLASH0) / (END2 - FLASH0)))
+            vs.keyframe_insert("exposure", frame=f)
+        flash_card(cam, [(FLASH0, 0.0), (END2, 1.0)])
+        OUTRO = (END, DIS0, FLASH0)
+        END = END2
     json.dump({"fps": FPS, "end": END, "cuts": cuts, "jaws": JAWS_D, "fade": FADE, "end_fade": END_FADE, "dips": DIPS or cuts,
-               "moves": [(145, 195), (380, 440)]},   # the two flowing camera moves
+               "moves": [(145, 195), (380, 440)], "outro": OUTRO},   # the two flowing camera moves
               open(os.path.join(HERE, "out", f"flight_timeline{VARIANT}.json"), "w"))
     sc.camera = cam
     if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
@@ -713,13 +854,14 @@ elif mode == "flight":
             pass
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "flight" + VARIANT, "f_")
+    sc.render.filepath = os.path.join(HERE, "out", os.environ.get("OUTDIR", "flight" + VARIANT), "f_")
     bpy.ops.render.render(animation=True)
     print("flight done", sc.render.engine)
 elif mode == "explode":
     # shot 5b: partial exploded view until the drive train is free, motor drives three strokes, then closes again.
     # Parts move along their mounting axes with a damped spring (zeta 0.65 -> ~7 % overshoot), outer parts first.
-    END = 420
+    LIFT0 = 428                                        # transition: the gripper shoots up out of frame, towards the robot
+    END = LIFT0 + 26 if HERO_TRANS else 420
     root.animation_data_clear()
     root.rotation_euler = (0, 0, 0)
     for ob in objs.values():
@@ -781,6 +923,23 @@ elif mode == "explode":
     mech = Vector((-10, -5, 25)) * MM
     keys = [(1, c, (1.0, -1.35, 0.5), 0.78, 50), (130, (c + mech) / 2, (0.75, -1.45, 0.62), 0.95, 50),
             (320, mech + Vector((-5, 0, -15)) * MM, (0.4, -1.5, 0.22), 0.56, 60), (420, c, (0.15, -1.55, 0.35), 0.80, 55)]
+    endcam = os.path.join(HERE, "out", "assemble_end_cam.json")
+    if HERO_TRANS:
+        if os.path.exists(endcam):                     # start where the assembly left the camera, relative to the gripper
+            ec = json.load(open(endcam))
+            tg0, cp0 = Vector(ec["tgt"]), Vector(ec["cam"])
+            keys[0] = (1, tg0, tuple(cp0 - tg0), (cp0 - tg0).length, ec["lens"])
+        keys.append((END, c + Vector((0, 0, 0.12)), (0.15, -1.55, 0.2), 0.82, 55))   # looks up after it
+        for f in range(1, END + 1):
+            u = max(0.0, (f - LIFT0) / (END - LIFT0))
+            root.location = (0, 0, 0.9 * u ** 2.5)
+            root.keyframe_insert("location", frame=f)
+        sc.render.use_motion_blur = True
+        sc.render.motion_blur_shutter = 0.5
+        vs = sc.view_settings
+        for f in range(1, 21):                         # up out of the black the lab went into
+            vs.exposure = -10 * (1 - ease((f - 1) / 19))
+            vs.keyframe_insert("exposure", frame=f)
     cam = camera("CamExplode", c, keys[0][2], keys[0][3], keys[0][4], 8.0)
     cam.constraints.clear()
     foc = cam.data.dof.focus_object
@@ -821,7 +980,7 @@ elif mode == "explode":
             pass
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "explode", "f_")
+    sc.render.filepath = os.path.join(HERE, "out", os.environ.get("OUTDIR", "explode"), "f_")
     bpy.ops.render.render(animation=True)
     print("explode done", sc.render.engine)
 elif mode == "assemble":
@@ -1003,6 +1162,8 @@ elif mode == "assemble":
     S1 = EX_END + 75                                   # a full turn in the exploded view
     S2 = S1 + SNAP + 36                                # first snap to a stage, a further turn, then the final snap
     END = S2 + SNAP + 50
+    OUT = 40 if HERO_TRANS else 0                      # lights out at the end, into the exploded view
+    END += OUT
     print("finale frames: explode", E0, EX_END, "stage", S1, "final snap", S2, "end", END)
     states.append((EX_END, q0, c, dist_ex, EX_END - f))
     states.append((S1, q0, c, dist_ex, 10))
@@ -1076,6 +1237,31 @@ elif mode == "assemble":
     for fr in range(1, 15):
         vs.exposure = 4 * (1 - ease((fr - 1) / 13)) - 0.2
         vs.keyframe_insert("exposure", frame=fr)
+    if OUT:
+        # lights out (review 26 Nov): spots, then strips, then windows and the room; the gripper stays lit by the studio
+        # lights for a moment, then black, and the exploded view comes up out of the black
+        B0 = END - OUT + 4
+        wn = sc.world.node_tree
+        bgs = [n for n in wn.nodes if n.type == "BACKGROUND"]
+
+        def off(sock, f0, n=3):
+            v = sock.default_value
+            v = tuple(v) if hasattr(v, "__len__") else v
+            sock.keyframe_insert("default_value", frame=f0)
+            sock.default_value = (0, 0, 0, 1) if isinstance(v, tuple) else 0.0
+            sock.keyframe_insert("default_value", frame=f0 + n)
+
+        for name_, f_ in (("spot", B0), ("strip", B0 + 7)):
+            e_ = next(n for n in bpy.data.materials[name_].node_tree.nodes if n.type == "EMISSION")
+            off(e_.inputs["Strength"], f_, 2)
+        for k_ in range(5):
+            e_ = next(n for n in bpy.data.materials[f"winband{k_}"].node_tree.nodes if n.type == "EMISSION")
+            off(e_.inputs["Strength"], B0 + 14, 4)
+        for b_ in bgs:
+            off(b_.inputs["Strength"], B0 + 14, 5)
+        for fr in range(B0 + 22, END + 1):
+            vs.exposure = -0.2 - 9.8 * ease((fr - (B0 + 22)) / (END - B0 - 22))
+            vs.keyframe_insert("exposure", frame=fr)
     # camera fixed in front; the gripper turns. Between two states the move takes the TRANS frames before arrival.
     cam = camera("CamAssemble", c, CD, 0.9, 50, 3.5)   # shallower depth of field: the room goes soft
     cam.constraints.clear()
@@ -1107,22 +1293,16 @@ elif mode == "assemble":
         cam.keyframe_insert("rotation_euler", frame=fr)
         foc.keyframe_insert("location", frame=fr)
     sc.camera = cam
-    if os.environ.get("ENGINE", "EEVEE").upper().startswith("EEVEE"):
-        for eng in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"):
-            try:
-                sc.render.engine = eng
-                break
-            except TypeError:
-                continue
-        try:
-            sc.eevee.use_raytracing = True
-            sc.eevee.taa_render_samples = int(os.environ.get("SAMPLES", "16"))
-        except AttributeError:
-            pass
+    if HERO_TRANS:
+        flash_card(cam, [(1, 1.0), (10, 0.0)])       # the flight ends on this white
+        qe = root.rotation_quaternion.copy().inverted()
+        json.dump({"cam": list(qe @ (cam.location - root.location)), "tgt": list(qe @ (foc.location - root.location)),
+                   "lens": cam.data.lens, "end": END}, open(os.path.join(HERE, "out", "assemble_end_cam.json"), "w"))
+    use_eevee()
     print("assemble frames", END)
     sc.frame_start, sc.frame_end = int(os.environ.get("FSTART", 1)), int(os.environ.get("FRAMES", END))
     sc.frame_step = int(os.environ.get("STEP", "1"))
-    sc.render.filepath = os.path.join(HERE, "out", "assemble" + ("_nozoom" if os.environ.get("NOZOOM") else ""), "f_")
+    sc.render.filepath = os.path.join(HERE, "out", os.environ.get("OUTDIR", "assemble" + ("_nozoom" if os.environ.get("NOZOOM") else "")), "f_")
     bpy.ops.render.render(animation=True)
     print("assemble done", sc.render.engine)
 elif mode == "xray":
@@ -2027,7 +2207,7 @@ elif mode == "robot":
             j.keyframe_insert("rotation_euler", index=ax, frame=fr)
         # gripper: hidden before its flight, then pulled onto the flange like a magnet (accelerating)
         t = min(1.0, max(0.0, (fr - G0) / (SEAT - G0)))
-        off = 0.22 * (1 - t ** 3)
+        off = (0.5 if HERO_TRANS else 0.22) * (1 - t ** 3)   # with the transition it flies in from out of frame
         root.location = (0, 0, -ZTOP - off)             # hi is in m already (world bounds)
         root.keyframe_insert("location", frame=fr)
         # jaws: open; blink twice after the turn
@@ -2261,7 +2441,7 @@ elif mode == "robot":
     # out of black at the start, a short dip to dark across every cut
     vs = sc.view_settings
     for fr in range(1, END + 1):
-        e = -8 * (1 - ease(min(1.0, fr / 24)))
+        e = 0.0 if HERO_TRANS else -8 * (1 - ease(min(1.0, fr / 24)))   # the exploded view cuts in on the motion
         for cf in CUTS:
             if cf - 12 <= fr < cf + 10:                 # softer: out over 12 frames, in over 10
                 w_ = 12 if fr < cf else 10
