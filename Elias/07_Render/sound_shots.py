@@ -10,7 +10,11 @@ from earshot.forge import bank
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "out", "sound")
 SHOT = sys.argv[1]
-TL = json.load(open(os.path.join(HERE, "out", f"{SHOT}_timeline.json")))
+if SHOT == "explode":   # hero_v1.py explode mode writes no timeline; its event frames (GROUPS, JAWS_D, CLOSE_AT, LIFT0)
+    TL = {"fps": 30, "end": 454, "lifts": [40, 56, 62, 70, 92], "strokes": [160, 200, 240, 276, 310],
+          "close": 395, "liftoff": 428}
+else:
+    TL = json.load(open(os.path.join(HERE, "out", f"{SHOT}_timeline.json")))
 KIN = json.load(open(os.path.join(HERE, "..", "02_CAD_Body", "out", "kinematics.json")))
 SR, FPS = 48000, TL["fps"]
 LEN = TL["end"] / FPS
@@ -137,6 +141,18 @@ elif SHOT == "assemble":
         for j, dt in enumerate((0.0, 7 / FPS, 14 / FPS)):    # spots, strips, room: a clunk each, getting deeper
             sfx("pro_impact/short" if j < 2 else "pro_impact/deep", b0 + dt, -12 - 2 * j, kind="light")
         sfx("downlifter/sub_sink", b0 + 14 / FPS, -14)
+elif SHOT == "explode":
+    # up out of the black, the shell lifts off, the drive strokes, everything closes, the gripper shoots up
+    sfx("pro_whoosh_big/reverse", t_of(20), -16, at="peak", dur=0.8, apex=0.6)
+    for k, f in enumerate(TL["lifts"]):
+        sfx(("swipe/glide", "swish/soft")[k % 2], t_of(f + 10), -16 if k < 4 else -11, at="peak", pan=((k % 3) - 1) * 0.2)
+    sfx("whoosh_big/swell", t_of(TL["lifts"][-1] + 18), -12, at="peak", dur=1.3, apex=0.8, kind="open")
+    for k, f in enumerate(TL["strokes"]):
+        sfx("swipe/velvet", t_of(f + 14), -19, at="peak", dur=0.9, apex=0.5)
+        sfx("pro_pop_in/deep" if k % 2 == 0 else "pro_pop_in/airy", t_of(f + 28), -17, kind="stroke")
+    sfx("pro_impact/deep", t_of(TL["close"]), -8, kind="closed")
+    sfx("riser/rush", t_of(TL["liftoff"] + 8), -14, at="peak")
+    sfx("whoosh_fast/heavy", t_of(TL["liftoff"] + 14), -9, at="peak", kind="liftoff")
 elif SHOT == "transform":
     last = t_of(TL["last"])
     drone(-16, 0.5 + 0.5 * np.clip(T / last, 0, 1))
