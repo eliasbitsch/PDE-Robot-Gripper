@@ -29,7 +29,10 @@ Mixing both would weaken both: the explainer needs stillness and arrows, the her
   +-5 mm off on the belt, centred by the jaws), coloured by offset, legend in mm (`04_Simulation/cell_grid.py`).
 - Made but not in the film: grid (knolling), transformer build, X-ray wipe (`hero_v1.py -- grid|transform|xray`);
   material for the 9:16 cut.
-- Sound is a separate track (`sound_shots.py`, cinematic only, effects 6 dB under the music); music still open.
+- Sound is a separate track (`sound_shots.py`, cinematic only, effects 6 dB under the music).
+- Opening sound (Elias, 26 Nov): the flight reveal gets our private mix (drums intro, melody, choir in the last
+  third; `out/private/pixel_music.py` - ripped ad music, only for the class presentation, never publish); the
+  assembly has no music, effects only (`SFX_DB=0 sound_shots.py assemble`). For anything public: licensed music.
 
 ## 1. Hero film - shot list
 

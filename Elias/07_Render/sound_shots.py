@@ -111,6 +111,32 @@ elif SHOT == "grid":
     sfx("pro_impact/deep", land, -6, kind="assembled")
     sfx("sub_drop/pro", land, -12)
     sfx("pro_shimmer/m4", land + 0.1, -21)
+elif SHOT == "assemble":
+    # effects only, no music (Elias, 26 Nov): white flash in, every part lands, the exploded turn, two magnet snaps,
+    # lights out in three steps into the black
+    sfx("logo_sting/soft_bloom", 0.0, -14, kind="flash")
+    sfx("pro_impact/air", 0.05, -12)
+    for k, (f, plate, fastener) in enumerate(TL["lands"]):
+        if fastener:
+            if k % 2 == 0:
+                sfx("pro_pop_in/knock", t_of(f), -24, pan=((k % 7) - 3) * 0.08)
+        elif plate:
+            sfx("pro_pop_in/deep", t_of(f), -12, kind="land")
+            sfx("pro_impact/short", t_of(f), -17)
+        else:
+            sfx("pro_pop_in/round", t_of(f), -16)
+    e0, e1 = (t_of(f) for f in TL["explode"])
+    sfx("whoosh_big/deep", 0.5 * (e0 + e1), -11, at="peak", dur=max(e1 - e0, 1.2), apex=(e1 - e0) * 0.5, kind="explode")
+    s1, s2 = (t_of(f) for f in TL["snaps"])
+    sfx("pro_impact/deep", s1, -9, kind="snap")
+    sfx("riser/rush", s2, -16, at="peak")
+    sfx("impact/deep", s2, -5, kind="snap")
+    sfx("pro_sub_drop/low", s2, -11)
+    if TL["lights_out"]:
+        b0 = t_of(TL["lights_out"])
+        for j, dt in enumerate((0.0, 7 / FPS, 14 / FPS)):    # spots, strips, room: a clunk each, getting deeper
+            sfx("pro_impact/short" if j < 2 else "pro_impact/deep", b0 + dt, -12 - 2 * j, kind="light")
+        sfx("downlifter/sub_sink", b0 + 14 / FPS, -14)
 elif SHOT == "transform":
     last = t_of(TL["last"])
     drone(-16, 0.5 + 0.5 * np.clip(T / last, 0, 1))
