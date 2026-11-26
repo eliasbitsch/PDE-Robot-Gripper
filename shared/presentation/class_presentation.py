@@ -69,7 +69,7 @@ def _(mo):
     | 11-16 Nov | analysis chain | FEM with gmsh + CalculiX, MuJoCo cell with the real robot path |
     | 19 Nov | **iteration 1** | Viktoriia's sizing (V2), jaws V3 and beam proof (V4) checked against simulation and FEM |
     | 20 Nov | **iteration 2** | bevel gear to DIN 3991 (KHK catalogue), bearing check, extra FEM load case |
-    | 21 Nov | design review | oily part: µ = 0.2 → setpoint 44.5 N; T-shaped jaw against twist; zero-backlash brake; V4 vs. FEM within 5 % |
+    | 21 Nov | design review | oily part: µ = 0.2 → setpoint 44.5 N; Viktoriia's jaw widened into the **final T-jaw** against twist; zero-backlash brake; V4 vs. FEM within 5 % |
     | 23 Nov | closing strategy | two-stage closing: fast approach, slow touch - no impact on the part |
     """)
     return
@@ -244,8 +244,11 @@ def _(img, mo):
             "Drive train (animation)": img("shared", "handover_viktoriia", "images", "drive_train.gif"),
             "Gripping cycle (animation)": img("shared", "handover_viktoriia", "images", "gripper_cycle.gif"),
             "Assembly drawing": img("Elias", "03_Drawing", "out", "sheet1.png"),
-            "Jaw V3": img("Viktoriia", "03_CAD_Jaws", "jaw_L_render.png"),
+            "Final jaw: T-shape": img("shared", "presentation", "media", "t_jaw.png",
+                                      caption="EN AW-7075 T6, wide low pad against the twist of part B (21 Nov)"),
             "Jaw drawing": img("Elias", "03_Drawing", "out", "sheet_jaw.png"),
+            "Journey: Viktoriia's jaw V3": img("Viktoriia", "03_CAD_Jaws", "jaw_L_render.png",
+                                               caption="V3 (19 Nov) - the design review widened it into the T-jaw"),
             "Robot placement": img("Elias", "01_Robot", "figures", "placement_map.png"),
             "Wrist torque": img("Elias", "01_Robot", "figures", "wrist_torque.png"),
         }),
@@ -258,10 +261,11 @@ def _(FEM, img, mo):
     mo.vstack([
         mo.md("## 5. Strength: FEM of the jaw\n\ngmsh + CalculiX, quadratic tetrahedra, mesh convergence for every load case."),
         mo.ui.tabs({
-            "Von Mises, jaw V3": img(*FEM, "jaw_v3_von_mises.png"),
-            "Deflection, jaw V3": img(*FEM, "jaw_v3_deflection.png"),
-            "Mesh convergence": img(*FEM, "convergence.png"),
-            "Jaw train (LC2)": img(*FEM, "train_lc2_von_mises.png"),
+            "T-jaw train, full current (LC2)": img(*FEM, "train_lc2_von_mises.png",
+                                                   caption="slide + holder + T-jaw; peak 15 MPa at the bolted joint, safety ≥ 16"),
+            "Mesh convergence": img(*FEM, "convergence_train.png"),
+            "Journey: von Mises, jaw V3": img(*FEM, "jaw_v3_von_mises.png", caption="Viktoriia's jaw V3 before the review"),
+            "Journey: deflection, jaw V3": img(*FEM, "jaw_v3_deflection.png"),
         }),
     ])
     return
