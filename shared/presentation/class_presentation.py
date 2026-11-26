@@ -83,7 +83,6 @@ def _(img, mo):
             "Concept sketch": img("Viktoriia", "01_Concept", "konzeptskizze_v1.png"),
             "Inspiration: Cartesian Hand": img("shared", "references", "cartesian-hand.png",
                                                caption="Xia et al. (2026), CC BY 4.0 - we take one of its two parallel grippers"),
-            "Gripper sketch": img("Elias", "Greifer_Konzeptskizze.png"),
         }),
         mo.md(r"""
     **Variant comparison (VDI 2225)** over four electric transmissions: **rack and pinion 0.89**, lead screw 0.72.
