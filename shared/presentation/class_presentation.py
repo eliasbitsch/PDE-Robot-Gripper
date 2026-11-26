@@ -16,24 +16,47 @@ def _():
     sys.path.insert(0, os.path.join(ROOT, "Elias", "02_CAD_Body"))
     import gripper_params as P
 
+    BOX_H = 520                                        # px: every media row has this height, so tabs do not jump
+
     def f(*parts):
         return os.path.join(ROOT, *parts)
 
-    def img(*parts, caption=None):
-        _path = f(*parts)
-        if not os.path.exists(_path):
-            return mo.md(f"_missing: `{'/'.join(parts)}`_")
-        return mo.image(src=_path, width="100%", caption=caption)
+    def _fit(inner, h):
+        return mo.Html(f'<div style="height:{h}px;display:flex;gap:12px;align-items:center;justify-content:center;'
+                       f'overflow:hidden">{inner}</div>')
 
-    def vid(*parts):
+    def _media(parts, caption=None, h=BOX_H):
         _path = f(*parts)
         if not os.path.exists(_path):
-            return mo.md(f"_missing: `{'/'.join(parts)}`_")
-        return mo.video(src=_path, controls=True, loop=True, muted=True, width="100%")
+            return f"<em>missing: <code>{'/'.join(parts)}</code></em>"
+        _style = f"max-height:{h - (28 if caption else 0)}px;max-width:100%;object-fit:contain"
+        if _path.endswith(".mp4"):
+            _el = mo.video(src=_path, controls=True, loop=True, muted=True).text
+            _el = _el.replace("<video ", f'<video style="{_style}" ', 1)
+        else:
+            _el = mo.image(src=_path, style={"max-height": f"{h - (28 if caption else 0)}px", "max-width": "100%",
+                                             "object-fit": "contain"}).text
+        _cap = f'<div style="font-size:0.85em;color:#78716c;text-align:center">{caption}</div>' if caption else ""
+        return f'<figure style="margin:0;flex:1;min-width:0;text-align:center">{_el}{_cap}</figure>'
+
+    def img(*parts, caption=None, h=BOX_H):
+        """one image or video in a fixed-height frame"""
+        return _fit(_media(parts, caption, h), h)
+
+    vid = img
+
+    def row(*items, h=BOX_H):
+        """several media side by side in one fixed-height frame; items are path tuples or (path tuple, caption)"""
+        _html = []
+        for it in items:
+            _parts, _cap = (it[0], it[1]) if isinstance(it[0], tuple) else (it, None)
+            _html.append(_media(_parts, _cap, h))
+        return _fit("".join(_html), h)
 
     SIM = ("Elias", "04_Simulation", "figures")
     FEM = ("Elias", "05_FEM", "figures")
-    return FEM, P, SIM, img, mo, vid
+    SHEETS = ("Elias", "01_Robot", "out", "datasheets")
+    return FEM, P, SHEETS, SIM, img, mo, row, vid
 
 
 @app.cell
@@ -99,26 +122,116 @@ def _(mo):
     ## 3. Sizing: how much grip force?
 
     Required force per jaw from friction: $F = \dfrac{S \cdot m \cdot (g + a)}{n \cdot \mu}$.
-    Move the sliders to see what drives it - the oily part (low µ) and the acceleration dominate.
+    Every input starts at **our design value**; the scenario list shows where each value comes from, the slider
+    lets you try anything in between. Open *why this value* for the source.
     """)
     return
 
 
 @app.cell
-def _(P, mo):
-    mu_sl = mo.ui.slider(0.1, 0.6, step=0.05, value=P.MU_OILY, label="friction µ (NBR on oily PA 6)", show_value=True)
-    a_sl = mo.ui.slider(0.0, 8.0, step=0.1, value=P.A_PATH_REAL, label="acceleration a [m/s²]", show_value=True)
-    s_sl = mo.ui.slider(1.0, 3.0, step=0.1, value=P.S_SICHERHEIT, label="safety factor S", show_value=True)
-    mo.vstack([mu_sl, a_sl, s_sl])
-    return a_sl, mu_sl, s_sl
+def _(P):
+    # every input: scenarios (label -> value, why, datasheet crop or None); the first one is the design value
+    INPUTS = {
+        "mu": dict(label="friction µ", unit="", rng=(0.05, 0.6, 0.05), scen={
+            "oily part - design (0.20)": (P.MU_OILY, "The part may come dirty or oily (feedback 10 Nov). NBR pad on "
+                                          "oily PA 6, the low end of the oil-resistant NBR range. Brackets: oiled steel "
+                                          "0.05 - 0.1, NBR gripper pads 0.3 - 0.4 (HKI), dry knurled NBR > 1 (PFA).", None),
+            "grooved pads - expected (0.30)": (P.MU_PAD_EXPECTED, "Oil drains off through the grooves in the pad. A "
+                                               "reserve for hard e-stops, to be measured (V5) - not used in the proof.", None),
+            "steel on steel - Schunk rating (0.10)": (0.10, "What Schunk assumes for its payload ratings: shows how "
+                                                      "much our pads gain over plain metal jaws.", None),
+            "dry NBR - first assumption (0.50)": (0.50, "Our earlier design value, superseded once the part was declared "
+                                                  "possibly oily (cad/params.py).", None),
+        }),
+        "a": dict(label="acceleration a", unit="m/s²", rng=(0.0, 14.0, 0.1), scen={
+            "robot program cap - design (4.96)": (P.A_PATH_REAL, "We cap the loaded moves at 4.96 m/s² in the robot "
+                                                  "program (WorldAccLim); the IRB 1300 could do 66 m/s² controlled "
+                                                  "(product spec p. 54). The 5 s takt still holds (4.48 s).", "irb_tcp_acc.png"),
+            "hand calculation, straight line (2.05)": (P.A_BAHN, "1800 mm in the time the takt leaves, trapezoid "
+                                                       "profile on a straight line - the real joint path needs more.", None),
+            "e-stop at the TCP (12.1)": (12.1, "Category 0 stop, axis 1 braking at 1.0 m (product spec p. 91). The "
+                                         "setpoint still holds it: S 1.30 with shear and twist (MuJoCo, e_stop.py).",
+                                         "irb_stop_data.png"),
+            "standing still (0)": (0.0, "Only the weight: the lower bound.", None),
+        }),
+        "s": dict(label="safety factor S", unit="", rng=(1.0, 3.0, 0.1), scen={
+            "VDI 2860 - design (2.0)": (P.S_SICHERHEIT, "Safety against slip for friction grippers after VDI 2860.", None),
+            "no safety (1.0)": (1.0, "The bare friction limit: where the part would start to slip.", None),
+        }),
+        "m": dict(label="part mass m", unit="kg", rng=(0.3, 1.5, 0.01), scen={
+            "part B from CAD - design (0.602)": (round(P.B_MASSE, 3), "STEP volume 528.5 cm³ × PA 6 density "
+                                                 "1140 kg/m³ (datasheet 1.12 - 1.15).", None),
+            "water-saturated PA 6 (0.66)": (round(P.B_MASSE * 1.095, 3), "PA 6 takes up to 9.5 % water when saturated; "
+                                            "the robustness study checked it: 200 of 200 held.", None),
+        }),
+        "d": dict(label="pinion diameter d", unit="mm", rng=(12, 32, 1), scen={
+            "m 1, z 20 - design (20)": (P.PINION_D, "Module 1 rack and pinion (Mädler, DIN 867); z = 20 lies above the "
+                                        "limit of 17 teeth, so no profile shift.", None),
+            "z 17 at the limit (17)": (17.0, "The smallest pinion without undercut: more force per motor torque.", None),
+        }),
+        "i": dict(label="gearbox ratio i", unit="", rng=(3.0, 15.0, 0.01), scen={
+            "Nanotec GP42-S1-7 - design (7.07)": (P.GEAR_I, "Planetary gearbox on the NEMA 17 stepper, η 0.90 "
+                                                  "(Nanotec catalogue, vendor/SOURCES.md).", None),
+        }),
+    }
+    MATERIALS = {  # E [GPa], Rp0.2 [MPa], density [g/cm³], why
+        "EN AW-7075 T6 (ours)": (71.7, 460.0, 2.81, "High-strength aluminium (EN 485-2, plate 6 - 12.5 mm): the jaw "
+                                 "stays light and stiff, safety ≥ 16 at full current (FEM)."),
+        "EN AW-6082 T6": (70.0, 250.0, 2.70, "The standard machining alloy: same stiffness, half the yield strength."),
+        "S355 steel": (210.0, 355.0, 7.85, "Three times stiffer, but almost three times the moving mass on the jaws."),
+        "PA 6 printed": (2.5, 50.0, 1.14, "A printed prototype jaw: cheap, but 30 × softer."),
+    }
+    return INPUTS, MATERIALS
 
 
 @app.cell
-def _(P, a_sl, mo, mu_sl, s_sl):
-    _F = s_sl.value * P.B_MASSE * (P.G + a_sl.value) / (P.N_BACKEN * mu_sl.value)
+def _(INPUTS, MATERIALS, mo):
+    pick = {k: mo.ui.dropdown(list(v["scen"]), value=list(v["scen"])[0], label=v["label"]) for k, v in INPUTS.items()}
+    pick_mat = mo.ui.dropdown(list(MATERIALS), value=list(MATERIALS)[0], label="jaw material")
+    return pick, pick_mat
+
+
+@app.cell
+def _(INPUTS, mo, pick):
+    # a new scenario re-creates its slider at the scenario value; the slider is the free play around it
+    def _sl(k):
+        _v = INPUTS[k]
+        _lo, _hi, _st = _v["rng"]
+        _val = _v["scen"][pick[k].value][0]
+        return mo.ui.slider(_lo, _hi, step=_st, value=min(max(_val, _lo), _hi), show_value=True,
+                            label=f'{_v["label"]}' + (f' [{_v["unit"]}]' if _v["unit"] else ""), full_width=True)
+    sl = {k: _sl(k) for k in INPUTS}
+    return (sl,)
+
+
+@app.cell
+def _(INPUTS, MATERIALS, SHEETS, img, mo, pick, pick_mat, sl):
+    def _why(k):
+        _val, _txt, _crop = INPUTS[k]["scen"][pick[k].value]
+        _items = [mo.md(_txt)]
+        if _crop:
+            _items.append(img(*SHEETS, _crop, h=260))
+        return mo.accordion({"why this value": mo.vstack(_items)})
+
+    def _card(k):
+        return mo.vstack([pick[k], sl[k], _why(k)], gap=0.3)
+
+    _mat = mo.vstack([pick_mat, mo.accordion({"why this value": mo.md(MATERIALS[pick_mat.value][3])})], gap=0.3)
+    controls = mo.vstack([
+        mo.hstack([_card("mu"), _card("a")], widths="equal", gap=2),
+        mo.hstack([_card("s"), _card("m")], widths="equal", gap=2),
+    ], gap=1)
+    controls_drive = mo.hstack([_card("d"), _card("i"), _mat], widths="equal", gap=2)
+    controls
+    return (controls_drive,)
+
+
+@app.cell
+def _(P, mo, sl):
+    _F = sl["s"].value * sl["m"].value * (P.G + sl["a"].value) / (P.N_BACKEN * sl["mu"].value)
     _ok = _F <= P.F_JAW_AVAIL
     mo.hstack([
-        mo.stat(f"{_F:.1f} N", label="required per jaw", caption=f"m = {P.B_MASSE:.3f} kg", bordered=True),
+        mo.stat(f"{_F:.1f} N", label="required per jaw", caption=f"m = {sl['m'].value:.3f} kg", bordered=True),
         mo.stat(f"{P.F_GRIP_SET:.1f} N", label="our setpoint", caption="µ 0.2, a 4.96 m/s², S 2", bordered=True),
         mo.stat(f"{P.F_JAW_AVAIL:.1f} N", label="drive delivers", caption="full current, all losses",
                 direction="increase" if _ok else "decrease", bordered=True),
@@ -147,41 +260,23 @@ def _(P, mo):
 
 
 @app.cell
-def _(mo):
-    mo.md(r"""
+def _(controls_drive, mo):
+    mo.vstack([mo.md(r"""
     ### How everything is connected
 
-    Every box is a value of the design. Change an input and the chain shows what moves with it:
-    **orange** = higher than our design point, **teal** = lower. Jaw stress and deflection are scaled linearly from the
-    FEM of jaw V3 (6.9 MPa peak, 5.82 µm at 63.6 N).
-    """)
+    Every box is a value of the design. The sizing inputs above drive it too; here come the drive and the jaw
+    material. **orange** = higher than our design point, **teal** = lower. Jaw stress and deflection are scaled
+    linearly from the FEM of jaw V3 (6.9 MPa peak, 5.82 µm at 63.6 N).
+    """), controls_drive])
     return
 
 
 @app.cell
-def _(P, mo):
-    MATERIALS = {  # E [GPa], Rp0.2 [MPa], density [g/cm³]
-        "EN AW-7075 T6 (ours)": (71.7, 460.0, 2.81),
-        "EN AW-6082 T6": (70.0, 250.0, 2.70),
-        "S355 steel": (210.0, 355.0, 7.85),
-        "PA 6 printed": (2.5, 50.0, 1.14),
-    }
-    c_mu = mo.ui.slider(0.1, 0.6, step=0.05, value=P.MU_OILY, label="friction µ", show_value=True)
-    c_a = mo.ui.slider(0.0, 8.0, step=0.1, value=P.A_PATH_REAL, label="acceleration a [m/s²]", show_value=True)
-    c_m = mo.ui.slider(0.3, 1.5, step=0.05, value=round(P.B_MASSE, 2), label="part mass m [kg]", show_value=True)
-    c_d = mo.ui.slider(12, 32, step=2, value=int(P.PINION_D), label="pinion diameter d [mm]", show_value=True)
-    c_i = mo.ui.slider(3.0, 15.0, step=0.5, value=P.GEAR_I, label="gearbox ratio i", show_value=True)
-    c_mat = mo.ui.dropdown(list(MATERIALS), value="EN AW-7075 T6 (ours)", label="jaw material")
-    mo.hstack([mo.vstack([c_mu, c_a, c_m]), mo.vstack([c_d, c_i, c_mat])], widths="equal", gap=2)
-    return MATERIALS, c_a, c_d, c_i, c_m, c_mat, c_mu
-
-
-@app.cell
-def _(MATERIALS, P, c_a, c_d, c_i, c_m, c_mat, c_mu, mo):
-    def chain(mu, a, m, d, i, mat):
-        _E, _rp, _ = MATERIALS[mat]
+def _(MATERIALS, P, mo, pick_mat, sl):
+    def chain(mu, a, m, s, d, i, mat):
+        _E, _rp, _, _ = MATERIALS[mat]
         _r = d / 2000
-        F = P.S_SICHERHEIT * m * (P.G + a) / (P.N_BACKEN * mu)
+        F = s * m * (P.G + a) / (P.N_BACKEN * mu)
         T_pin = 2 * F * _r / (P.ETA_BEVEL * P.ETA_RP)
         T_mot = T_pin / (i * P.GEAR_ETA)
         F_av = P.MOTOR_T_HOLD * i * P.GEAR_ETA * P.ETA_BEVEL * P.ETA_RP / (2 * _r)
@@ -189,8 +284,9 @@ def _(MATERIALS, P, c_a, c_d, c_i, c_m, c_mat, c_mu, mo):
         return dict(F=F, T_pin=T_pin, T_mot=T_mot, util=T_mot / P.MOTOR_T_HOLD * 100, F_av=F_av, margin=F_av / F,
                     sig=sig, S_rp=_rp / sig, w=5.82 * F / 63.6 * 71.7 / _E)
 
-    _base = chain(P.MU_OILY, P.A_PATH_REAL, P.B_MASSE, P.PINION_D, P.GEAR_I, "EN AW-7075 T6 (ours)")
-    _now = chain(c_mu.value, c_a.value, c_m.value, c_d.value, c_i.value, c_mat.value)
+    _base = chain(P.MU_OILY, P.A_PATH_REAL, P.B_MASSE, P.S_SICHERHEIT, P.PINION_D, P.GEAR_I, "EN AW-7075 T6 (ours)")
+    _now = chain(sl["mu"].value, sl["a"].value, sl["m"].value, sl["s"].value, sl["d"].value, sl["i"].value,
+                 pick_mat.value)
 
     def node(key, title, fmt, unit=""):
         _v, _b = _now[key], _base[key]
@@ -206,12 +302,13 @@ def _(MATERIALS, P, c_a, c_d, c_i, c_m, c_mat, c_mu, mo):
         "classDef same fill:#ffffff,stroke:#78716c,color:#1c1917",
         "classDef up fill:#fed7aa,stroke:#C2410C,color:#7c2d12",
         "classDef down fill:#ccfbf1,stroke:#0f766e,color:#134e4a",
-        _in("mu", "friction µ", f"{c_mu.value:.2f}"),
-        _in("a", "acceleration", f"{c_a.value:.1f} m/s²"),
-        _in("m", "part mass", f"{c_m.value:.2f} kg"),
-        _in("d", "pinion d", f"{c_d.value} mm"),
-        _in("i", "gearbox i", f"{c_i.value:g}"),
-        _in("mat", "jaw material", c_mat.value.split(" (")[0]),
+        _in("mu", "friction µ", f"{sl['mu'].value:.2f}"),
+        _in("a", "acceleration", f"{sl['a'].value:.1f} m/s²"),
+        _in("m", "part mass", f"{sl['m'].value:.2f} kg"),
+        _in("s", "safety S", f"{sl['s'].value:.1f}"),
+        _in("d", "pinion d", f"{sl['d'].value:g} mm"),
+        _in("i", "gearbox i", f"{sl['i'].value:g}"),
+        _in("mat", "jaw material", pick_mat.value.split(" (")[0]),
         node("F", "grip force / jaw", ".1f", "N"),
         node("T_pin", "pinion torque", ".2f", "N·m"),
         node("T_mot", "motor torque", ".3f", "N·m"),
@@ -221,7 +318,7 @@ def _(MATERIALS, P, c_a, c_d, c_i, c_m, c_mat, c_mu, mo):
         node("sig", "jaw stress", ".1f", "MPa"),
         node("S_rp", "safety vs Rp0.2", ".0f", ""),
         node("w", "jaw deflection", ".1f", "µm"),
-        "mu --> F", "a --> F", "m --> F",
+        "mu --> F", "a --> F", "m --> F", "s --> F",
         "F --> T_pin", "d --> T_pin", "T_pin --> T_mot", "i --> T_mot", "T_mot --> util",
         "d --> F_av", "i --> F_av", "F_av --> margin", "F --> margin",
         "F --> sig", "sig --> S_rp", "mat --> S_rp", "F --> w", "mat --> w",
@@ -231,7 +328,10 @@ def _(MATERIALS, P, c_a, c_d, c_i, c_m, c_mat, c_mu, mo):
         _warn.append("**The drive cannot hold the part** - force margin below 1.")
     if _now["S_rp"] < 2:
         _warn.append("**Jaw safety below 2.**")
-    mo.vstack([mo.mermaid(_diagram)] + [mo.callout(mo.md(w), kind="danger") for w in _warn])
+    _msg = mo.callout(mo.md(" ".join(_warn)), kind="danger") if _warn else mo.md("&nbsp;")
+    # fixed heights: the diagram and the warning line keep their place whatever the values
+    mo.vstack([mo.Html(f'<div style="height:430px;overflow:hidden">{mo.mermaid(_diagram).text}</div>'),
+               mo.Html(f'<div style="height:64px">{_msg.text}</div>')])
     return
 
 
@@ -272,14 +372,14 @@ def _(FEM, img, mo):
 
 
 @app.cell
-def _(SIM, img, mo, vid):
+def _(SIM, img, mo, row):
     mo.vstack([
         mo.md("## 6. Simulation in MuJoCo\n\nThe real robot path, contact forces at the pads, and what happens when things go wrong."),
         mo.ui.tabs({
-            "Grip over the cycle": mo.vstack([img(*SIM, "grip_slip.png"), vid(*SIM, "cycle_estop.mp4")]),
+            "Grip over the cycle": row(SIM + ("grip_slip.png",), SIM + ("cycle_estop.mp4",)),
             "Emergency stop": img(*SIM, "e_stop.png"),
-            "Power failure": mo.vstack([img(*SIM, "power_fail.png"), img(*SIM, "brake_play.png")]),
-            "Closing": mo.vstack([img(*SIM, "closing.png"), vid(*SIM, "closing_two-stage_120ms.mp4")]),
+            "Power failure": row(SIM + ("power_fail.png",), SIM + ("brake_play.png",)),
+            "Closing": row(SIM + ("closing.png",), SIM + ("closing_two-stage_120ms.mp4",)),
             "Robustness": img(*SIM, "robustness.png"),
         }),
     ])
