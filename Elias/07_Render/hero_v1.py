@@ -252,10 +252,6 @@ def render_setup(samples, res):
             break
     sc.cycles.samples = samples
     sc.cycles.use_denoising = True
-    try:
-        sc.cycles.denoising_use_gpu = True             # OIDN on the RTX instead of the CPU: the GPU waited for it
-    except AttributeError:
-        pass
     sc.cycles.use_adaptive_sampling = True
     sc.render.use_persistent_data = os.environ.get("PERSIST", "1") == "1"   # keep the BVH between frames: the GPU idled while the CPU rebuilt it
     sc.view_settings.view_transform = "AgX"
