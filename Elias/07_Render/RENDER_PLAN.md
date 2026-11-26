@@ -21,6 +21,9 @@ Mixing both would weaken both: the explainer needs stillness and arrows, the her
 
 - **Hero film (entertainment):** flight reveal -> self-assembly in the white lab -> exploded view -> robot (wake-up,
   wave, pick-and-place getting faster). The shot list below is the original plan; these four scenes replace it.
+- **Keynote structure (Elias, 26 Nov):** the hero film is split in two. Opening (flight + assembly, ~51 s, ends when
+  the lab lights go out) starts the presentation; then design and calculations are presented; the closing film
+  (exploded view + robot, ~44 s, comes up out of the black) ends it. Each part gets its own sound mix.
 - **Extra (teaching):** the explainer film.
 - **Cell field:** 100 cells at random phase of the cycle, each with one sample of the robustness study (part B up to
   +-5 mm off on the belt, centred by the jaws), coloured by offset, legend in mm (`04_Simulation/cell_grid.py`).
