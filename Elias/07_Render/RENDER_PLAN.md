@@ -17,6 +17,17 @@ Mixing both would weaken both: the explainer needs stillness and arrows, the her
 
 ---
 
+## 0. Decision 26 Nov (Elias)
+
+- **Hero film (entertainment):** flight reveal -> self-assembly in the white lab -> exploded view -> robot (wake-up,
+  wave, pick-and-place getting faster). The shot list below is the original plan; these four scenes replace it.
+- **Extra (teaching):** the explainer film.
+- **Cell field:** 100 cells at random phase of the cycle, each with one sample of the robustness study (part B up to
+  +-5 mm off on the belt, centred by the jaws), coloured by offset, legend in mm (`04_Simulation/cell_grid.py`).
+- Made but not in the film: grid (knolling), transformer build, X-ray wipe (`hero_v1.py -- grid|transform|xray`);
+  material for the 9:16 cut.
+- Sound is a separate track (`sound_shots.py`, cinematic only, effects 6 dB under the music); music still open.
+
 ## 1. Hero film - shot list
 
 Assets come straight from the CAD (`02_CAD_Body/out/gripper.step`, one solid per BOM position, names kept), the robot
