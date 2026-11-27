@@ -17,3 +17,7 @@ vpe-plm/
 
 # marimo session cache
 __marimo__/
+
+# generated: manim cache, notebook html exports
+Elias/07_Render/explainer/media/
+out/presentation/

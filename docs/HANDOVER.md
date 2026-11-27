@@ -1,139 +1,86 @@
 # Handover
 
-**25 Nov 2026, branch `master`, status: whole-project review fixed on both sides; GPU robustness rerun pending.**
+**27 Nov 2026, branch `master`, status: interim presentation held (26 Nov), hand-in deck final; a whole-project
+review lists the fixes needed before the final submission.**
 
-## Done (23 - 24 Nov)
+## Done (24 - 27 Nov)
 
-- Codex whole-project review (Elias: option A, both sides changed, he tells Viktoriia) worked through: thumb screw
-  DIN 653 M5x20 instead of the indexing plunger (holder, jaws, Viktoriia's jaws.py and STEPs), pinion keyway + set
-  screw, moving masses L 0.348 / R 0.400 kg, gripper 2.950 kg, RAPID v2000 / v3000 as a TimeLaw cap, wrist torque
-  with axis 4, grip proof per pad with PAD_LIMIT 0.99, drawing fit notes, READMEs. Full recompute chain ran
-  (FEM, drawing, robot, closing, e-stop, power fail).
-- Monte Carlo ported to the GPU: `Elias/04_Simulation/robustness_gpu.py` (MuJoCo Warp, CUDA graph, 12 000 grips in
-  about 2 min). It writes the primary `out/robustness.json`, corners, saturated and width files; `robustness.py`
-  is now the CPU reference and writes `*_cpu.json`. Validated on 24 grips (util |d| <= 0.0007) and the width set.
-- CPU reference results (out/*_cpu.json, 23 Nov): spec 10000/10000 held, max 0.557; corners and saturated
-  (200/200) held. The CPU stress run still used the old pad criterion: re-evaluate with 0.99 (script below).
-- Fastener lengths reviewed: design left as is, reasoning in CAD_PLAN.md section 8 (for the report).
-- PLAN.md open point 9: cost estimate of the parts (online quotes); lecture slide in the FH OneDrive
-  `PDE/Vorlesung/`.
+- Interim deck `OneDrive - FH Technikum Wien/PDE/2026-11-26_Interim_Presentation_Group10.pptx`: 25 slides,
+  14.8 MB (limit 20 MB). Videos re-encoded to 720p / 25 fps (~270 kbit/s, audio 64k), poster frames 960 px,
+  all videos autoplay once (no loop), speaker notes removed for the hand-in. The 1080p originals stay in
+  `Elias/07_Render/out/praesentation/`.
+- Final Cycles films: `1_opening_1080p_CYCLES_FULL.mp4` (51.1 s, flight + assemble) and
+  `2_abschluss_1080p_CYCLES.mp4` (43.9 s, explode + robot), both in the deck.
+- `Elias/01_Robot/placement_overlay.py` (placement map over the cell side view), `Elias/05_FEM/fem_train_anim.py`
+  (LC2 animation mp4 + gif), notebook launcher in six chapters (`shared/presentation/notebooks.py`).
+- Whole-project review done (27 Nov); verified findings are below.
 
+## Open - before the final submission (ordered)
 
-## Done (this session)
+Critical:
+- [ ] Report PDF missing, `shared/submission/` is empty (documentation = 10 points, assignment p. 4-5).
+      Start a report skeleton and a pack script with a dry run.
+- [ ] `Elias/02_CAD_Body/drive_margin.py:25-26`: `F_NEED` lacks the lift case (44.5 N), so "lowest 42.3 N ok"
+      passes although 42.3 < 44.5.
+- [ ] One acceptance table for the safety factor (e.g. nominal >= 2, tolerances >= 1.5, e-stop >= 1.0 with
+      reasoning) and the correct source for S = 2; check whether VDI 2860 really prescribes a grip-force factor.
+      Today slide 19 says S = 2 but shows S_eff 1.93, slide 21 has 1.78, slide 23 1.30.
+- [ ] "covers e-stop" (`gripper_params.py:52`, `class_presentation.py:288`): vertical e-stop gives only S 1.10;
+      S 1.5 would need 60.8 N > 60.5 N motor. Remove the claim or justify why the case cannot occur.
+- [ ] Deck slide 11: wrist torque 9.1 N·m is the horizontal-tool bound; real cycle 6.76 N·m (52 %),
+      `Elias/01_Robot/wrist_torque.json`.
 
-- Opus review points 1.5 - 1.14, section 2 (contradictions) and section 3 (missing items) all worked through:
-  ABB MoveJ path, drive margins (bevel pair KHK SMSG1.5-20), V2 brought to the built state, hanging rail with the
-  cover as catch, zero-backlash brake BKE-0,4-5,0 (body 200 mm), tolerant two-stage close (cycle 4.48 s), tilt
-  criterion with carriage and bonded pad, wrist torque by inverse dynamics, legacy `cad/params.py` synced.
-- V1 created (`Viktoriia/01_Concept`), V2 § 2a, V4 § 5a; V4 vs FEM within 5 % on all like-for-like comparisons
-  (stress +1.6 %, beam +4.1 %, beam + Weber +5.0 %).
-- E3 drawing and the cell video regenerated. Pneumatic version: not pursued, not shown.
-- Render: `Elias/07_Render/RENDER_PLAN.md`, `hero_v1.py` (recovered from the session log) with modes
-  `views` (stills), `preview` (480p clips), `flight` (one camera move), `anim` (final Cycles).
-
-- 22 Nov evening, after the review (Codex): grip proof with the E4 timing (built close 0.40 s, lift 0.22 s at the
-  loaded 4.96 m/s²), CAD mass properties of part B, "held" = both pads in contact and below the friction limit at
-  every step. Governing instant is the lift (design case): setpoint peak 0.52, S_eff 1.93 (servo overshoot to
-  5.9 m/s²; hand 2.0). Monte Carlo 10 000 in spec all held (max 0.557, S 1.80), 16 tolerance corners all held (worst
-  S 1.78), stress: lowest held mu F 4.38 N, highest failed 4.56 N (overlap; hand 4.45 N), heavier (saturated) part
-  held (S 1.75). Width: within ISO
-  2768-m fine; > 0.75 mm too thin is lifted before the force is complete (fixed-time lift), control is out of scope.
-  The old 0.74 came with the snap start at the lift start; e-stop now replayed on chain 1 (governing). Flicker fixes (coplanar faces), side camera keys,
-  cell_grid.py (100 cells). S = 2 kept (Elias): reasons in 04_Simulation/README.md.
-- Part mass scatter: +0 ... +3 % = PA 6 moisture in standard climate (hall agreed as standard climate, Elias 22 Nov);
-  heavier part as if saturated (+9 ... +10 %) checked separately: 200/200 held, peak 0.571 (S 1.75).
-
-## Open
-
-- [ ] NEXT: rerun the GPU study. `out/robustness.json` is missing until then (scene and notebook read it).
-      The first rerun crashed at the first big batch (access violation in `wp.capture_launch`, other apps held
-      ~7 GB of GPU memory) and hung; Elias stopped the second one. Close GPU-heavy apps, then in
-      `Elias/04_Simulation`: `GPU_BATCH=3072 python robustness_gpu.py`, then `--corners`, `--saturated`, `--width`.
-- [ ] Compare all 12 000 samples GPU vs CPU (CPU held recomputed with util_pad_raw < 0.99, slip_excess < SLIP_OK,
-      not dropped, not lost); then update the Monte Carlo and width sections of 04_Simulation/README.md
-      (GPU method, validation, strict pad criterion: gross failure near the hand calculation, local pad sliding up
-      to mu F about 7 N, spec minimum 8.47 N), the notebook text and this file.
+Important:
+- [ ] Stale numbers: `Elias/01_Robot/README.md:12-19` (3.64 kg, 72 %, 7.0 Nm, 12.5° -> 3.552 kg, 70 %, 6.76 Nm,
+      13.7°), `README.md:64` / `PLAN.md:74,86` (35.7 N "required"), `cad/params.py:72` (3.04 kg).
+- [ ] FEM: holder is EN AW-6082 T6 (250 MPa), not 460 MPa; 15.4 / 8.4 MPa are edge peaks (README says 8.2);
+      three different "max forces" (60.5 / 63.6 / 77.8 N). The 5 % hand-vs-FEM agreement is partly calibrated
+      (45° spreading, `05_FEM/README.md:127-131`) - say so instead of "nothing tuned".
+- [ ] `class_presentation.py:294,448-450,513-520` calls `jaw_v3` superseded although it is the final T-jaw;
+      `:185-186` pairs S 1.30 with the wrong case (widget shows 66 N in red, text says held).
+- [ ] `validation_notebook.py:148,191` says 0.3 s, code checks 0.4 s (`closing_time.py:30`); defaults do not
+      reproduce 373 ms.
+- [ ] Reproducibility: `pyproject.toml` has no dependencies, `fc.sh` is referenced but missing, results/STEP/BOM
+      live in git-ignored `out/` (class_presentation crashes on a clean checkout), hard path in
+      `Elias/06_Cell/cell_view.FCMacro:11`.
+- [ ] Overload cases: brake slip and direct close (160 N) push bearing s0 to 1.5-1.8; one-sided push on LC5.
+- [ ] Missing: cell safety (ISO 12100 hazard list, ISO 13849 PL, ISO 13857 distances, axis-1 limit), service
+      life (bevel gears 2.9e7 cycles, rail L10, motor heating while holding), GP42 datasheet.
+- [ ] Brake claims: only valid with 24 V buffer and brake-first shutdown; "zero backlash" not in the datasheet;
+      `power_fail.py:1` still says spring-applied.
+- [ ] Red thread: README for `shared/presentation/` with a how-to-read table of the six chapters; drawing and
+      collision check have no chapter; `PLAN.md:7` still "proposal"; `Elias/README.md:8` mentions dovetail and
+      servo; `fem_train_notebook.py` "mock jaw until V3".
+- [ ] German leftovers: `cad/params.py` (live, documented as reference), root `scripts/ fem/ sim/ onshape/`,
+      `out/Baugruppenzeichnung_Greifer.pdf`, burnt-in German text in `cell_video.py` / `cell_grid.py` videos,
+      German BOM on the drawing (`de.py`). Move legacy to `legacy/`.
+- [ ] Robustness: `out/robustness.json` missing until the GPU study is rerun (see Continue); the CPU stress run
+      still used the old pad criterion.
 - [ ] Cost estimate of the parts (PLAN.md point 9).
-- [ ] Elias: remove the simulation videos from the public repo or not (unanswered). The new
-      `figures/cell_grid.mp4` stays untracked until then.
 
-- [ ] NEXT (explainer, after two Codex review rounds, Elias: technically clean): finalize - Manim scenes 3, 5
-      (curves -> film/assets/s5_curves.mp4), robustness in 1080p; re-render cell_grid.py (brighter light; the
-      untracked figures/cell_grid.mp4 is the old preview); add the robustness scene and the grid shot to the
-      HyperFrames cut (grid as lead-in to the study); python build_film.py, npx hyperframes check, preview for
-      Elias; final render only after his approval. Films stay off the board until Elias says otherwise.
+Minor: no script makes `sheet_jaw.png`; phase table sums to 4.49 s; `robot_notebook.py:116` "short on reach"
+means speed; `class_presentation.py:494` claims convergence for every load case (only LC2); "+-"/"mu" on slide 21;
+emojis in README/PLAN; "peak 118 N" only exists as the vacuum normal force in `PLAN.md:102`.
 
-- [ ] Elias' approval of `out/flight_preview_C_new_bass.mp4` for the final Cycles render (then also the music mux
-      on the Cycles frames: `python music_flight.py 720 45.76 C_new_bass`).
-- [x] 22 Nov, decisions (Elias): music C = Mixkit 720 "New Bass 01" from 45.76 s; cut version with 0.8 s dips (the
-      continuous move, also with dips between the views, felt like "someone switching the light on and off";
-      VARIANT=_cont is kept in hero_v1.py but rejected). Reveal: black, edge glint sweep from behind, lights come
-      up, close low start. Cuts at 103/231/317 and the big contact at 387 sit on beats of the track (beats at
-      0.987 s + n * 0.476 s, measured with earshot).
-- [x] 22 Nov, review of v4 (Elias): cut swoosh too fast / cheap, music still distorted (limiter drive 2.6 -> clipped),
-      the effects only disturb -> no effects, library music instead. Apple ad music is not openly licensed; Mixkit
-      (free in videos, no attribution, not on its own) used instead. earshot ranked 20 Mixkit tracks; Digital Clouds
-      fits the iPhone 17 films best (cos 0.77, feature distance 0.45, only one "fits the set"). Dips now 12 frames
-      per side. `sound_flight.py` (synth bed + effects) is kept but no longer used.
-- [x] 22 Nov, review of v3 (Elias): cuts felt random, the camera should drive towards a part and away; the last
-      part (smooth zoom into the moving mechanism) is good; the music sounded slowed down / rumbly. Reference: two
-      Apple iPhone 17 films (yt-dlp, scratchpad): one move per shot, dips to dark between angles, cuts ~1.5 s,
-      music-led at ~130 BPM, full spectrum. v4: every shot pulls out from close, is slow at its view (speed factor
-      per key), pushes in on a detail; the cut falls inside that push with a 5-frame exposure dip; end part longer
-      (9 jaw strokes), fade to black 586-600. Sound: everything had been pitched to D1/D2 and saturated -> now a
-      clean D-minor pad (Dm9-Bbmaj7-Gm9-Asus4, 120 BPM pulse), bank sounds at native pitch, suck + soft hit per
-      cut. earshot critique: launch-grade, every band in range, -15.3 LUFS, -1.6 dBTP, cues on the frame.
-- [x] 22 Nov, review of v2 (Elias): "slower at the points, ease in/out, cuts from different angles are fine". v3: four
-      shots with 3 cuts, each drifting slowly through its view (Hermite time warp, no stop), flowing moves only
-      three-quarter -> top and jaws -> drive (pull-back key at 401 so the camera does not fly through the parts),
-      own jaw schedule per shot (7 strokes), shell fade 372-412 now in view. `out/flight_timeline.json` drives the
-      sound script. earshot: all 10 cues on the frame, -16.9 LUFS, -1.6 dBTP.
-- [x] 22 Nov: top view fixed (pool spot dips to 10 W around frame 100, top light no longer reflects in the floor);
-      shell fades out over frames 178-210 (own material copies, alpha eased) instead of vanishing at 205.
-      Note: at the jaw macro the shell is mostly out of frame, so the fade is barely visible there.
-- [x] 22 Nov: draft sound `sound_flight.py`: sub drone in D, low whooshes per camera segment, motor whir + rack ticks
-      per jaw stroke, metal clacks on contact, stop-down before the second grip. earshot: contacts on the frame
-      (0 ms), -15.9 LUFS, -1.6 dBTP after AAC; open per critique: no music track (critical vs launch films), mids
-      a bit low (-24 dB share, refs from -19), all sounds synthesized (bank has no screw / ratchet recordings).
-- [ ] Only after approval: final Cycles render (≈ 50 min for 270 frames at 1080p / 128 samples).
-- [ ] Elias' feedback on the 480p previews `out/explode_preview_C.mp4` (shot 5b, `hero_v1.py -- explode`, 14 s:
-      shell lifts off with spring overshoot, drive train free, three strokes, closes without overshoot) and
-      `out/assemble_preview_C.mp4` (shot 4, `-- assemble`, 16 s: white lab, order and directions from
-      parts/demo_seq.py, critically damped landing + 3 % scale pulse + bounce on big parts, screws turn in).
-      Known: in the white lab the aluminium reads almost white/plastic and the gripper is small in frame (camera
-      0.86 m) -> needs an HDRI or darker floor for reflections and a closer camera.
-- [x] 22 Nov, music decided (Elias): the ORIGINAL track C (Mixkit 720 from 45.76 s). Stripped versions (low-pass,
-      Demucs bass + drums, epic sub boosts) sounded unfinished. Tools stay: MUSIC_LP and derived mixes in
-      music_flight.py, Demucs in ~/tools/demucs. Private comparison only (never on the board or in the film):
-      out/private/ holds the Google Pixel "Fur Elise" spot without the speaker and a 20 s loop of its choir part.
-- [x] 22 Nov: Viktoriia agreed to the wider T-shaped jaw (it was already the current model, nothing to rebuild).
-- [ ] Board: put the three film previews back (out/*_C.mp4), see the next point for the background.
-- [ ] (was) Waiting for Viktoriia's answer on the wider T-shaped jaw (asked 22 Nov as a proposal; the variant is the current
-      model in Viktoriia/03_CAD_Jaws). Until she agrees the board shows only her original V3 jaw
-      (img/jaw_v3_viktoriia.png from commit da4f7f5) and no film previews. If yes: put the three previews back on the
-      board (out/*_C.mp4). If no: rebuild with her contour (jaws.py at da4f7f5) and rerun FEM, V4, grip_check, E4.
-- [x] 22 Nov: board https://claude.ai/artifact/3gQTn4NuiM27SdwwwSC6XU updated (Current state: three film previews,
-      key numbers, changes since the last update; tasks crosscheck/e2/e3/e4/e7 notes, v1 -> review, new hero-film).
-- [ ] Next hero shots per RENDER_PLAN: self-assembly in the white lab (spring easing, snap), robot wake-up,
-      mechanism section; explainer film scenes 1, 3, 5, 9 for the interim presentation (3 Dec).
-- [ ] Send Viktoriia the change message (English, text in the chat of 21 Nov): V1 new, V2 §§ 2a/3/5/6a/7/8/9/10,
-      V4 §§ 2/5a/6, grip force calibration at commissioning.
+Viktoriia's part (do not edit, raise with her): vertical e-stop S 1.10 vs "covered S 1.5" (slide 6,
+`v2_sizing.py:32,815`); slide 6 diagram marks 35.7 N under 44.5 N, motor line 63.6 vs 60.5 N; slide 7 brake
+position and governing part (rack S_F ~ 11.9); slide 8 shows the old jaw; her calculations exist only as
+notebooks, the one PDF is German and outdated.
 
 ## Traps and assumptions
 
+- Viktoriia's notebooks, slides and folder are never edited by us; only link to them.
+- Deck: no PowerPoint changes unless Elias asks. Edit a copy via COM and write back only if the original is
+  unchanged; never `Quit()` PowerPoint while presentations are open.
 - Virtual design only: no supplier queries; datasheet gaps are stated as assumptions (BKE mounting, rear shaft).
-- Render rule: stills from several cameras or ≤ 5 s previews first, long renders only after Elias approves.
-  Render scripts and finished videos live in `Elias/07_Render` (out/ is git-ignored), never only in the scratchpad.
-- Weber row of V4 sits at 4.995 %; the 45° load spreading into the plate is an assumption (sensitivity ±12 %).
-- Group 10 confirmed (assignment Tab. 1 only lists 1-8, ignore).
+- Render rule: previews first, long renders only after Elias approves; renders run on the Razer, not the laptop.
+  Music in the films is for the class presentation only, never publish.
+- Weber row of V4 sits at 4.995 %; the 45° load spreading is an assumption (sensitivity ±12 %).
 
 ## Continue
 
 ```sh
-cd Elias/07_Render
-ENGINE=EEVEE SAMPLES=16 STEP=2 RES=854x480 blender -b -P hero_v1.py -- flight   # preview, ~1.5 min
-blender -b -P hero_v1.py -- views                                               # stills of the 8 cameras
-# frames are every 2nd (STEP=2): encode with a concat list at 15 fps, then the sound:
-<earshot>/.venv/Scripts/python.exe sound_flight.py out/flight_preview.mp4       # -> out/flight_preview_sound.mp4
+cd Elias/02_CAD_Body && python drive_margin.py        # first fix: add the lift case to F_NEED
+cd Elias/04_Simulation && GPU_BATCH=3072 python robustness_gpu.py && python robustness_gpu.py --corners
+python shared/presentation/notebooks.py               # starts the six chapter notebooks
 ```
-CAD after a change: `fc.sh Elias/02_CAD_Body/build.py`, then the scripts in `04_Simulation` (README lists them).
